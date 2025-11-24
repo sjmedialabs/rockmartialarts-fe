@@ -1,0 +1,167 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, User, Award, MapPin, Phone, X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import DashboardHeader from "@/components/dashboard-header"
+import { TokenManager } from "@/lib/tokenManager"
+import { useToast } from "@/hooks/use-toast"
+
+// Interface definitions for API data
+interface Branch {
+  id: string
+  branch: {
+    name: string
+    code: string
+    email: string
+    phone: string
+    address: {
+      line1: string
+      area: string
+      city: string
+      state: string
+      pincode: string
+      country: string
+    }
+  }
+  manager_id: string
+  operational_details: {
+    courses_offered: string[]
+    timings: Array<{
+      day: string
+      open: string
+      close: string
+    }>
+    holidays: string[]
+  }
+  assignments: {
+    accessories_available: boolean
+    courses: string[]
+    branch_admins: string[]
+  }
+  bank_details: {
+    bank_name: string
+    account_number: string
+    upi_id: string
+  }
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface Course {
+  id: string
+  title: string
+  code: string
+  description: string
+  martial_art_style_id: string
+  difficulty_level: string
+  category_id: string
+  instructor_id: string
+  student_requirements: {
+    max_students: number
+    min_age: number
+    max_age: number
+    prerequisites: string[]
+  }
+  course_content: {
+    syllabus: string
+    equipment_required: string[]
+  }
+  media_resources: {
+    course_image_url?: string
+    promo_video_url?: string
+  }
+  pricing: {
+    currency: string
+    amount: number
+    branch_specific_pricing: boolean
+  }
+  settings: {
+    offers_certification: boolean
+    active: boolean
+  }
+  created_at: string
+  updated_at: string
+}
+
+export default function AddCoachPage() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [createdCoachId, setCreatedCoachId] = useState<string | null>(null)
+
+  // API data state
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [isLoadingBranches, setIsLoadingBranches] = useState(true)
+  const [courses, setCourses] = useState<Course[]>([])
+  const [isLoadingCourses, setIsLoadingCourses] = useState(true)
+
+  const [formData, setFormData] = useState({
+    // Personal Information
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "",
+    gender: "",
+    dateOfBirth: "",
+    address: "",
+    area: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "India",
+
+    // Professional Information
+    designation: "",
+    experience: "",
+    qualifications: "",
+    certifications: "",
+    category: "",
+    subCategory: "",
+    certificationFiles: [] as File[],
+    category: "",
+    // Assignment Details
+    branch: "",
+    courses: [] as string[],
+    salary: "",
+    joinDate: "",
+
+    // Emergency Contact
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelation: "",
+
+    // Additional Information
+    achievements: "",
+    notes: "",
+  })
+
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  const [categories, setCategories] = useState<any[]>([])
+  const [subCategories, setSubCategories] = useState<any[]>([])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
+
+  // Available options
+  const designations = [
+    "Senior Coach",
+    "Coach Instructor", 
+    "Senior Instructor",
+    "Instructor",
+    "Assistant Instructor",
+    "Head Coach",
+    "Coach",
+    "Assistant Coach"
+  ]
+

@@ -66,7 +66,7 @@ export default function StudentDashboardLayout({
         {/* Main Content Area */}
         <main
           id="main-content"
-          className={cn("relative mt-[100px]", className)}
+          className={cn("relative mt-16", className)}
           role="main"
           aria-label="Main content"
           tabIndex={-1}

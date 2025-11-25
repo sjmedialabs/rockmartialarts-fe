@@ -28,6 +28,7 @@ import DashboardHeader from "@/components/dashboard-header"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 import { settingsAPI, SystemSettings, SettingsResponse } from "@/lib/settingsAPI"
+import { RolePermissionsManager } from "@/components/role-permissions-manager"
 
 // Use the SystemSettings interface from the API
 
@@ -572,6 +573,10 @@ export default function SuperAdminSettingsPage() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Role Permissions Management */}
+          <RolePermissionsManager />
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

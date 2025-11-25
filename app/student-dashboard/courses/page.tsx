@@ -1,504 +1,834 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
+import { useRazorpay } from "@/hooks/use-razorpay"
 import { useRouter } from "next/navigation"
+import StudentDashboardLayout from "@/components/student-dashboard-layout"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import StudentDashboardLayout from "@/components/student-dashboard-layout"
-import { CardSkeleton } from "@/components/ui/loading-skeleton"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { Progress } from "@/components/ui/progress"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import {
   BookOpen,
-  Clock,
-  Users,
   Calendar,
-  Award,
-  Play,
-  CheckCircle,
-  AlertCircle,
-  User,
   MapPin,
-  Star
+  Clock,
+  Award,
+  TrendingUp,
+  AlertCircle,
+  Plus,
+  RefreshCw,
+  Star,
+  Users,
+  CreditCard,
+  CheckCircle,
+  XCircle
 } from "lucide-react"
+import { studentProfileAPI } from "@/lib/studentProfileAPI"
+import { courseAPI } from "@/lib/courseAPI"
+import { branchAPI } from "@/lib/branchAPI"
+
+interface EnrolledCourse {
+  enrollment_id: string
+  course_id: string
+  course_name: string
+  branch_id: string
+  branch_name: string
+  start_date: string
+  end_date: string
+  enrollment_date: string
+  is_active: boolean
+  payment_status: string
+  progress?: number
+}
+
+interface AvailableCourse {
+  id: string
+  title: string
+  description: string
+  difficulty_level: string
+  category_id: string
+  branch_id?: string
+  branch_name?: string
+  pricing: {
+    amount: number
+    currency: string
+  }
+}
+
+interface Branch {
+  id: string
+  name: string
+  address: string
+  code?: string
+}
 
 export default function StudentCoursesPage() {
-  console.log("🎯 StudentCoursesPage component rendered")
-
   const router = useRouter()
-  const [studentData, setStudentData] = useState<any>(null)
+  const { initiatePayment, loading: paymentLoading } = useRazorpay()
   const [loading, setLoading] = useState(true)
-  const [courses, setCourses] = useState<any[]>([])
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
+  const [studentData, setStudentData] = useState<any>(null)
+  const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([])
+  const [availableCourses, setAvailableCourses] = useState<AvailableCourse[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
+  
+  // Enrollment dialog state
+  const [showEnrollDialog, setShowEnrollDialog] = useState(false)
+  const [selectedCourse, setSelectedCourse] = useState<AvailableCourse | null>(null)
+  const [selectedBranch, setSelectedBranch] = useState("")
+  const [selectedDuration, setSelectedDuration] = useState("1")
+  const [enrolling, setEnrolling] = useState(false)
 
-  const loadData = async () => {
-    console.log("🔄 loadData function called")
-    try {
-      setError(null)
+  // Branch change request dialog
+  const [showBranchChangeDialog, setShowBranchChangeDialog] = useState(false)
+  const [changingEnrollment, setChangingEnrollment] = useState<EnrolledCourse | null>(null)
+  const [newBranchId, setNewBranchId] = useState("")
+  const [requestingChange, setRequestingChange] = useState(false)
 
-      // Check if user is logged in
-      const token = localStorage.getItem("token")
-      const user = localStorage.getItem("user")
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+    const user = localStorage.getItem("user")
 
-      if (!token) {
-        router.push("/login")
+    if (!token) {
+      router.push("/login")
+      return
+    }
+
+    if (user) {
+      const userData = JSON.parse(user)
+      if (userData.role !== "student") {
+        if (userData.role === "coach") {
+          router.push("/coach-dashboard")
+        } else {
+          router.push("/dashboard")
+        }
         return
       }
-
-      let userData: any = {}
-      if (user) {
-        userData = JSON.parse(user)
-
-        // Check if user is actually a student
-        if (userData.role !== "student") {
-          if (userData.role === "coach") {
-            router.push("/coach-dashboard")
-          } else {
-            router.push("/dashboard")
-          }
-          return
-        }
-      }
-
       setStudentData({
-        name: userData.full_name || `${userData.first_name} ${userData.last_name}` || userData.name || "Student",
-        email: userData.email || "student@example.com",
+        id: userData.id || userData.student_id,
+        name: userData.full_name || userData.name || "Student",
+        email: userData.email || ""
       })
+    }
 
-      // Fetch student's enrolled courses from the backend API
-      const studentId = userData.id
-      if (!studentId) {
-        throw new Error("Student ID not found in user data")
-      }
+    loadData(token)
+  }, [router])
 
-      console.log("Fetching courses for student:", studentId)
+  const loadData = async (token: string) => {
+    try {
+      setLoading(true)
+      setError(null)
 
-      let response: Response
-      let usingFallback = false
-
+      // Load all branches first
       try {
-        // Try backend API first
-        response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/enrollments/students/${studentId}/courses`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (!response.ok) {
-          throw new Error(`Backend API failed: ${response.status}`)
+        const branchesResponse = await branchAPI.getBranches(token)
+        console.log("🔍 Branch API Response:", branchesResponse)
+        const allBranches = branchesResponse.branches || []
+        
+        // Transform branches to flatten nested structure
+        const transformedBranches = allBranches.map((b: any) => ({
+          id: b.id,
+          name: b.branch?.name || b.name || 'Unknown Branch',
+          code: b.branch?.code || b.code,
+          email: b.branch?.email || b.email,
+          phone: b.branch?.phone || b.phone,
+          is_active: b.is_active
+        }))
+        
+        console.log("✅ Transformed branches:", transformedBranches.length, transformedBranches)
+        
+        // Ensure branches are set even if empty
+        if (Array.isArray(transformedBranches) && transformedBranches.length > 0) {
+          setBranches(transformedBranches)
+          console.log("✅ Branches state updated with:", transformedBranches.length, "branches")
+        } else {
+          console.warn("⚠️ No branches found in API response")
+          setBranches([])
         }
-      } catch (backendError) {
-        console.warn("Backend API failed, using frontend mock API:", backendError)
-        usingFallback = true
+      } catch (err) {
+        console.error("❌ Error loading branches:", err)
+        setBranches([])
+      }
+      // Load enrolled courses from profile
+      const profileResponse = await studentProfileAPI.getProfile(token)
+      const enrollments = profileResponse.profile.enrollments || []
+      
+      const enrolledData: EnrolledCourse[] = enrollments.map((e: any) => ({
+        enrollment_id: e.id,
+        course_id: e.course_id,
+        course_name: e.course_name,
+        branch_id: e.branch_id,
+        branch_name: e.branch_name || "Unknown Branch",
+        start_date: e.start_date,
+        end_date: e.end_date,
+        enrollment_date: e.enrollment_date || e.start_date,
+        is_active: e.is_active,
+        payment_status: e.payment_status,
+        progress: Math.floor(Math.random() * 100) // TODO: Replace with actual progress from API
+      }))
+      
+      console.log("✅ Loaded enrolled courses:", enrolledData.length)
+      setEnrolledCourses(enrolledData)
 
-        // Use frontend mock API as fallback
-        response = await fetch('/api/student-courses', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
+      // Get student's branch IDs
+      const studentBranchIds = Array.from(new Set(enrolledData.map(e => e.branch_id)))
+      console.log("📍 Student branches:", studentBranchIds)
 
-        if (!response.ok) {
-          if (response.status === 401) {
-            // Token expired or invalid
-            localStorage.clear()
-            router.push("/login")
-            return
+      // Load available courses
+      try {
+        const enrolledCourseIds = enrolledData.map(e => e.course_id)
+        let availableCoursesList: any[] = []
+
+        if (studentBranchIds.length > 0) {
+          // Load courses for each of student's branches
+          for (const branchId of studentBranchIds) {
+            try {
+              const branchCoursesResponse = await fetch(
+                `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/${branchId}/courses`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              )
+              
+              if (branchCoursesResponse.ok) {
+                const branchData = await branchCoursesResponse.json()
+                const branchCourses = branchData.courses || []
+                console.log(`✅ Loaded ${branchCourses.length} courses for branch ${branchId}`)
+                
+                // Add branch info to each course
+                const coursesWithBranch = branchCourses.map((c: any) => ({
+                  ...c,
+                  branch_id: branchId,
+                  branch_name: enrolledData.find(e => e.branch_id === branchId)?.branch_name
+                }))
+                
+                availableCoursesList.push(...coursesWithBranch)
+              }
+            } catch (err) {
+              console.error(`Error loading courses for branch ${branchId}:`, err)
+            }
           }
-          throw new Error(`Failed to fetch courses from fallback API: ${response.status}`)
         }
+        
+        // If no branch-specific courses loaded, load all courses
+        if (availableCoursesList.length === 0) {
+          console.log("⚠️ No branch-specific courses found, loading all courses")
+          const allCoursesResponse = await courseAPI.getCourses(token)
+          availableCoursesList = allCoursesResponse.courses || []
+        }
+
+        // Filter out enrolled courses and inactive ones
+        const filteredCourses = availableCoursesList.filter((c: any) => 
+          !enrolledCourseIds.includes(c.id) && c.settings?.active !== false
+        )
+
+        // Remove duplicates
+        const uniqueCourses = Array.from(
+          new Map(filteredCourses.map((c: any) => [c.id, c])).values()
+        )
+
+        console.log("✅ Available courses after filtering:", uniqueCourses.length)
+        setAvailableCourses(uniqueCourses)
+      } catch (err) {
+        console.error("Error loading available courses:", err)
       }
 
-      const data = await response.json()
-      console.log("Fetched student courses:", data)
-      console.log("Raw enrolled_courses array:", data.enrolled_courses)
-
-      if (usingFallback) {
-        console.info("📝 Using demo course data - backend enrollment API is currently unavailable")
-      }
-
-      // Transform backend data to match frontend expectations
-      const enrolledCourses = data.enrolled_courses || []
-      console.log("Enrolled courses count:", enrolledCourses.length)
-
-      // Filter and validate courses - ensure only active enrollments for this student
-      const validCourses = enrolledCourses.filter((item: any) => {
-        const enrollment = item.enrollment
-        const course = item.course
-
-        // Validate required data
-        if (!enrollment || !course || !course.id) {
-          console.warn("Invalid course data:", item)
-          return false
-        }
-
-        // Ensure enrollment belongs to current student
-        if (enrollment.student_id && enrollment.student_id !== studentId) {
-          console.warn("Course enrollment doesn't belong to current student:", enrollment.student_id, "vs", studentId)
-          return false
-        }
-
-        return true
-      })
-
-      console.log("Valid courses after filtering:", validCourses.length)
-
-      const transformedCourses = validCourses.map((item: any) => {
-        const enrollment = item.enrollment
-        const course = item.course
-
-        // Calculate progress based on enrollment data or use placeholder
-        const progressPercentage = enrollment.progress || Math.floor(Math.random() * 100)
-        const totalLessons = course.total_lessons || 20
-        const completedLessons = Math.floor(totalLessons * (progressPercentage / 100))
-
-        return {
-          id: course.id,
-          title: course.title || course.name || "Untitled Course",
-          instructor: course.instructor || "TBA",
-          level: course.difficulty_level || "Beginner",
-          progress: progressPercentage,
-          totalLessons: totalLessons,
-          completedLessons: completedLessons,
-          nextClass: enrollment.is_active ? "Check schedule" : "Completed",
-          location: enrollment.branch_details?.name || item.branch_details?.name || "TBA",
-          duration: `${course.duration_months || 3} months`,
-          status: enrollment.is_active ? "active" : "completed",
-          rating: 4.5, // TODO: Get real rating from backend
-          description: course.description || "Course description not available",
-          image: "/placeholder.svg",
-          enrollment_date: enrollment.enrollment_date,
-          start_date: enrollment.start_date,
-          end_date: enrollment.end_date,
-          // Additional validation fields
-          isValid: true,
-          studentId: enrollment.student_id || studentId
-        }
-      })
-
-      console.log("Transformed courses:", transformedCourses)
-      console.log("Setting courses state with:", transformedCourses.length, "courses")
-
-      // Debug: Log each course for verification
-      transformedCourses.forEach((course, index) => {
-        console.log(`Course ${index + 1}:`, {
-          title: course.title,
-          instructor: course.instructor,
-          level: course.level,
-          status: course.status,
-          location: course.location,
-          duration: course.duration
-        })
-      })
-
-      // Final validation before setting state
-      if (transformedCourses.length === 0 && enrolledCourses.length > 0) {
-        console.warn("All courses were filtered out - possible data validation issue")
-        setError("Course data validation failed. Please contact support if this persists.")
-        setCourses([])
-      } else {
-        setCourses(transformedCourses)
-      }
-
+    } catch (error: any) {
+      console.error("❌ Error loading course data:", error)
+      setError(`Failed to load course data: ${error.message}`)
+    } finally {
       setLoading(false)
-    } catch (error) {
-      console.error("Error loading courses:", error)
-      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace')
-      setError(error instanceof Error ? error.message : "An unexpected error occurred")
-      setLoading(false)
-
-      // Set empty courses array to show empty state
-      setCourses([])
     }
   }
 
-  useEffect(() => {
-    console.log("useEffect triggered, retryCount:", retryCount)
-    loadData()
-  }, [retryCount]) // Removed router dependency to avoid infinite loops
-
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1)
-    setLoading(true)
-    loadData()
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    const token = localStorage.getItem("token")
+    if (token) {
+      await loadData(token)
+    }
+    setRefreshing(false)
   }
 
   const handleLogout = () => {
     localStorage.removeItem("token")
     localStorage.removeItem("user")
+    localStorage.removeItem("auth_data")
     router.push("/login")
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800 border-green-200'
-      case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+  const handleEnrollClick = (course: AvailableCourse) => {
+    console.log("📋 Opening enrollment dialog. Branches available:", branches.length, branches)
+    setSelectedCourse(course)
+    // Pre-select branch if course has one
+    setSelectedBranch(course.branch_id || "")
+    setSelectedDuration("1")
+    setShowEnrollDialog(true)
+  }
+
+  const handleEnrollSubmit = async () => {
+    if (!selectedCourse || !selectedBranch || !selectedDuration) {
+      alert("Please select branch and duration")
+      return
+    }
+
+    setEnrolling(true)
+    const amount = (selectedCourse.pricing?.amount || 0) * parseInt(selectedDuration)
+    
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      // Get student profile for prefill data
+      const profileResponse = await studentProfileAPI.getProfile(token)
+      const profile = profileResponse.profile
+
+      // Find selected branch details
+      const selectedBranchData = branches.find(b => b.id === selectedBranch)
+
+      const enrollmentData = {
+        course_id: selectedCourse.id,
+        course_name: selectedCourse.name,
+        branch_id: selectedBranch,
+        branch_name: selectedBranchData?.name || 'Unknown Branch',
+        duration_months: parseInt(selectedDuration),
+        amount,
+        student_name: profile.full_name || `${profile.first_name} ${profile.last_name}`,
+        student_email: profile.email,
+        student_phone: profile.phone
+      }
+
+      // Initiate Razorpay payment
+      await initiatePayment({
+        amount,
+        currency: 'INR',
+        enrollmentData,
+        onSuccess: (result: any) => {
+          console.log('Payment successful:', result)
+          setShowEnrollDialog(false)
+          setEnrolling(false)
+          // Redirect to success page with receipt data
+          router.push(`/student-dashboard/payment-success?payment_id=${result.receipt.payment_id}&order_id=${result.receipt.order_id}&amount=${result.receipt.amount}&course_name=${encodeURIComponent(enrollmentData.course_name)}&branch_name=${encodeURIComponent(enrollmentData.branch_name)}`)
+        },
+        onFailure: (error: any) => {
+          console.error('Payment failed:', error)
+          setEnrolling(false)
+          alert(`Payment failed: ${error.message || 'Unknown error'}`)
+        }
+      })
+    } catch (error: any) {
+      console.error('Enrollment failed:', error)
+      alert(`Enrollment failed: ${error.message}`)
+      setEnrolling(false)
     }
   }
 
-  const getLevelColor = (level: string) => {
-    switch (level.toLowerCase()) {
-      case 'beginner': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'intermediate': return 'bg-orange-100 text-orange-800 border-orange-200'
-      case 'advanced': return 'bg-red-100 text-red-800 border-red-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+  const handleBranchChangeRequest = (enrollment: EnrolledCourse) => {
+    setChangingEnrollment(enrollment)
+    setNewBranchId("")
+    setShowBranchChangeDialog(true)
+  }
+
+  const handleBranchChangeSubmit = async () => {
+    if (!changingEnrollment || !newBranchId) {
+      alert("Please select a new branch")
+      return
     }
+
+    setRequestingChange(true)
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      // Submit branch change request
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/enrollments/${changingEnrollment.enrollment_id}/branch-change-request`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            new_branch_id: newBranchId,
+            reason: "Student requested branch change"
+          })
+        }
+      )
+
+      if (response.ok) {
+        alert("Branch change request submitted successfully! Waiting for admin approval.")
+        setShowBranchChangeDialog(false)
+        handleRefresh()
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Request failed")
+      }
+    } catch (error: any) {
+      alert(`Request failed: ${error.message}`)
+    } finally {
+      setRequestingChange(false)
+    }
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR'
+    }).format(amount)
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const getStatusBadge = (isActive: boolean, paymentStatus: string) => {
+    if (!isActive || paymentStatus === 'expired') {
+      return <Badge variant="destructive">Expired</Badge>
+    }
+    if (paymentStatus === 'pending') {
+      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pending Payment</Badge>
+    }
+    if (paymentStatus === 'paid') {
+      return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
+    }
+    return <Badge variant="outline">Inactive</Badge>
   }
 
   if (loading) {
     return (
       <StudentDashboardLayout
-        studentName="Loading..."
+        studentName={studentData?.name}
         onLogout={handleLogout}
         isLoading={true}
-        pageTitle="My Courses"
-        pageDescription="Track your martial arts training progress"
       >
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl font-semibold text-gray-900">Loading Courses...</CardTitle>
-            <CardDescription>
-              Please wait while we fetch your enrolled courses
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <CardSkeleton key={i} showAvatar={true} lines={2} />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </StudentDashboardLayout>
-    )
-  }
-
-  if (error) {
-    return (
-      <StudentDashboardLayout
-        studentName={studentData?.name || "Student"}
-        onLogout={handleLogout}
-        pageTitle="My Courses"
-        pageDescription="Track your martial arts training progress"
-      >
-        <Alert className="border-red-200 bg-red-50">
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            {error}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRetry}
-              className="ml-4 border-red-300 text-red-700 hover:bg-red-100"
-            >
-              Try Again
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <div className="space-y-6 animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
       </StudentDashboardLayout>
     )
   }
 
   return (
-    <ErrorBoundary>
-      <StudentDashboardLayout
-        studentName={studentData?.name || "Student"}
-        onLogout={handleLogout}
-        pageTitle="My Courses"
-        pageDescription="Track your martial arts training progress"
-        breadcrumbItems={[
-          { label: "Dashboard", href: "/student-dashboard" },
-          { label: "Courses" }
-        ]}
-      >
-        <div className="space-y-6">
-          {/* Course Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-600 mb-1">Total Courses</p>
-                    <p className="text-3xl font-bold text-blue-900">{courses.length}</p>
-                  </div>
-                  <BookOpen className="w-8 h-8 text-blue-600" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200/60">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-600 mb-1">Active Courses</p>
-                    <p className="text-3xl font-bold text-green-900">
-                      {courses.filter(c => c.status === 'active').length}
-                    </p>
-                  </div>
-                  <Play className="w-8 h-8 text-green-600" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200/60">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-600 mb-1">Completed</p>
-                    <p className="text-3xl font-bold text-purple-900">
-                      {courses.filter(c => c.status === 'completed').length}
-                    </p>
-                  </div>
-                  <CheckCircle className="w-8 h-8 text-purple-600" />
-                </div>
-              </CardContent>
-            </Card>
+    <StudentDashboardLayout
+      studentName={studentData?.name}
+      onLogout={handleLogout}
+    >
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <BookOpen className="h-8 w-8" />
+              My Courses
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your enrolled courses and browse new courses
+            </p>
           </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            {availableCourses.length > 0 && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  const firstCourse = availableCourses[0]
+                  if (firstCourse) handleEnrollClick(firstCourse)
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Browse Courses
+              </Button>
+            )}
+          </div>
+        </div>
 
-          {/* Courses Table */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Statistics */}
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-900">Enrolled Courses</CardTitle>
-              <CardDescription>
-                View and manage your enrolled martial arts courses
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
+              <BookOpen className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[250px] min-w-[200px]">Course Name</TableHead>
-                      <TableHead className="hidden sm:table-cell">Instructor</TableHead>
-                      <TableHead className="hidden md:table-cell">Difficulty</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="hidden lg:table-cell">Branch/Location</TableHead>
-                      <TableHead className="hidden md:table-cell">Duration</TableHead>
-                      <TableHead className="hidden sm:table-cell">Progress</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {courses.map((course) => (
-                      <TableRow key={course.id} className="hover:bg-gray-50">
-                        <TableCell className="font-medium">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center">
-                              <BookOpen className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-gray-900 truncate">{course.title}</div>
-                              <div className="text-sm text-gray-500 truncate sm:hidden">
-                                {course.instructor} • {course.level}
-                              </div>
-                              <div className="text-sm text-gray-500 truncate hidden sm:block">
-                                {course.description}
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <div className="flex items-center space-x-2">
-                            <User className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-900">{course.instructor}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <Badge className={`${getLevelColor(course.level)} border`}>
-                            {course.level}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`${getStatusColor(course.status)} border`}>
-                            {course.status === 'active' ? 'Active' :
-                             course.status === 'completed' ? 'Completed' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="flex items-center space-x-2">
-                            <MapPin className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-700">{course.location}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <div className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-700">{course.duration}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">{course.progress}%</span>
-                            </div>
-                            <Progress value={course.progress} className="h-2 w-20" />
-                            <div className="text-xs text-gray-500">
-                              {course.completedLessons}/{course.totalLessons} lessons
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant={course.status === 'completed' ? 'outline' : 'default'}
-                            className="text-xs"
-                          >
-                            {course.status === 'completed' ? 'Certificate' : 'Continue'}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="text-2xl font-bold">{enrolledCourses.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {enrolledCourses.filter(c => c.is_active && c.payment_status === 'paid').length}
               </div>
             </CardContent>
           </Card>
 
-          {/* Debug Info */}
-          {process.env.NODE_ENV === 'development' && (
-            <Card className="bg-yellow-50 border-yellow-200">
-              <CardContent className="p-4">
-                <h4 className="font-semibold text-yellow-800 mb-2">Debug Info:</h4>
-                <p className="text-sm text-yellow-700">Courses array length: {courses.length}</p>
-                <p className="text-sm text-yellow-700">Loading: {loading.toString()}</p>
-                <p className="text-sm text-yellow-700">Error: {error || 'None'}</p>
-                <p className="text-sm text-yellow-700">Student Data: {studentData ? JSON.stringify(studentData) : 'None'}</p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+              <Clock className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">
+                {enrolledCourses.filter(c => c.payment_status === 'pending').length}
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Empty State */}
-          {courses.length === 0 && !loading && (
-            <Card>
-              <CardContent className="text-center py-16">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                  <BookOpen className="w-12 h-12 text-gray-400" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No courses enrolled</h3>
-                <p className="text-gray-600 mb-6">You haven't enrolled in any courses yet. Start your martial arts journey today!</p>
-                <div className="space-x-2">
-                  <Button onClick={() => router.push('/courses')}>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Progress</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">
+                {enrolledCourses.length > 0
+                  ? Math.round(enrolledCourses.reduce((sum, c) => sum + (c.progress || 0), 0) / enrolledCourses.length)
+                  : 0}%
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Enrolled Courses */}
+        {enrolledCourses.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <BookOpen className="h-16 w-16 text-gray-400 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No courses enrolled</h3>
+              <p className="text-muted-foreground mb-6 text-center">
+                You haven't enrolled in any courses yet. Start your martial arts journey today!
+              </p>
+              <div className="flex gap-3">
+                {availableCourses.length > 0 && (
+                  <Button 
+                    onClick={() => handleEnrollClick(availableCourses[0])}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
                     Browse Courses
                   </Button>
-                  <Button onClick={handleRetry} variant="outline">
-                    Retry Loading
-                  </Button>
+                )}
+                <Button variant="outline" onClick={handleRefresh}>
+                  Retry Loading
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {enrolledCourses.map((course) => (
+              <Card key={course.enrollment_id}>
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="text-xl font-semibold mb-1">{course.course_name}</h3>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span>{course.branch_name}</span>
+                          </div>
+                        </div>
+                        {getStatusBadge(course.is_active, course.payment_status)}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-gray-500" />
+                          <div>
+                            <div className="font-medium">Enrolled</div>
+                            <div className="text-muted-foreground">{formatDate(course.enrollment_date)}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4 text-gray-500" />
+                          <div>
+                            <div className="font-medium">Expires</div>
+                            <div className="text-muted-foreground">{formatDate(course.end_date)}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <TrendingUp className="h-4 w-4 text-gray-500" />
+                          <div>
+                            <div className="font-medium">Progress</div>
+                            <div className="text-muted-foreground">{course.progress || 0}%</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {course.progress !== undefined && (
+                        <div className="mb-4">
+                          <Progress value={course.progress} className="h-2" />
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleBranchChangeRequest(course)}
+                          disabled={!course.is_active}
+                        >
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Change Branch
+                        </Button>
+                        {course.payment_status === 'pending' && (
+                          <Button 
+                            size="sm"
+                            onClick={() => router.push('/student-dashboard/payments')}
+                            className="bg-yellow-600 hover:bg-yellow-700"
+                          >
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            Complete Payment
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Available Courses */}
+        {availableCourses.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Available Courses at Your Branch{enrolledCourses.length > 0 ? '(es)' : ''}</CardTitle>
+              <CardDescription>
+                {enrolledCourses.length > 0 
+                  ? `Courses available at your enrolled branches`
+                  : `Browse and enroll in available courses`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {availableCourses.slice(0, 6).map((course) => (
+                  <Card key={course.id} className="border-2">
+                    <CardHeader>
+                      <CardTitle className="text-lg">{course.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">
+                        {course.description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Badge>{course.difficulty_level}</Badge>
+                          <span className="font-semibold text-lg">
+                            {formatCurrency(course.pricing?.amount || 0)}
+                          </span>
+                        </div>
+                        {course.branch_name && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            <span>{course.branch_name}</span>
+                          </div>
+                        )}
+                        <Button 
+                          className="w-full"
+                          onClick={() => handleEnrollClick(course)}
+                        >
+                          Enroll Now
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Enrollment Dialog */}
+      <Dialog open={showEnrollDialog} onOpenChange={setShowEnrollDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Enroll in {selectedCourse?.title}</DialogTitle>
+            <DialogDescription>
+              Complete the enrollment details below
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="branch">Select Branch</Label>
+              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                <SelectTrigger className="text-gray-900 dark:text-gray-100">
+                  <SelectValue placeholder={branches.length === 0 ? "Loading branches..." : "Choose a branch"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.length === 0 ? (
+                    <SelectItem value="none" disabled>No branches available</SelectItem>
+                  ) : (
+                    branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {branches.length === 0 && (
+                <p className="text-sm text-yellow-600">
+                  No branches loaded. Please refresh the page.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="duration">Course Duration</Label>
+              <Select value={selectedDuration} onValueChange={setSelectedDuration}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Month</SelectItem>
+                  <SelectItem value="3">3 Months</SelectItem>
+                  <SelectItem value="6">6 Months</SelectItem>
+                  <SelectItem value="12">12 Months</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedCourse && (
+              <div className="rounded-lg bg-blue-50 p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">Total Amount:</span>
+                  <span className="text-xl font-bold">
+                    {formatCurrency((selectedCourse.pricing?.amount || 0) * parseInt(selectedDuration))}
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </StudentDashboardLayout>
-    </ErrorBoundary>
+                <p className="text-sm text-muted-foreground">
+                  You will be redirected to payment page after enrollment
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEnrollDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEnrollSubmit} 
+              disabled={enrolling || !selectedBranch || branches.length === 0}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {enrolling ? "Enrolling..." : "Proceed to Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Branch Change Dialog */}
+      <Dialog open={showBranchChangeDialog} onOpenChange={setShowBranchChangeDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Request Branch Change</DialogTitle>
+            <DialogDescription>
+              Request to change branch for {changingEnrollment?.course_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="text-sm">
+                <span className="font-medium">Current Branch: </span>
+                <span>{changingEnrollment?.branch_name}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newBranch">Select New Branch</Label>
+              <Select value={newBranchId} onValueChange={setNewBranchId}>
+                <SelectTrigger className="text-gray-900 dark:text-gray-100">
+                  <SelectValue placeholder="Choose a new branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches
+                    .filter(b => b.id !== changingEnrollment?.branch_id)
+                    .map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Your request will be sent to the branch admin for approval. 
+                You will be notified once the request is processed.
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBranchChangeDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleBranchChangeSubmit}
+              disabled={requestingChange || !newBranchId}
+            >
+              {requestingChange ? "Submitting..." : "Submit Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </StudentDashboardLayout>
   )
 }

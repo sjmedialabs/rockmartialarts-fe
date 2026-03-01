@@ -629,7 +629,7 @@ export default function CoachMessagesPage() {
           currentPage="Messages"
           coachName={coachData?.full_name || "Coach"}
         />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-yellow-600" />
@@ -648,7 +648,7 @@ export default function CoachMessagesPage() {
           currentPage="Messages"
           coachName={coachData?.full_name || "Coach"}
         />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <Card>
               <CardContent className="flex items-center justify-center h-96">
@@ -675,7 +675,7 @@ export default function CoachMessagesPage() {
         coachName={coachData?.full_name || "Coach"}
       />
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+      <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Demo Mode Notice */}
           {error && error.includes("Demo Mode") && (

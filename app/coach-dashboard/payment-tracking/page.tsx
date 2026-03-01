@@ -317,7 +317,7 @@ export default function CoachPaymentTrackingPage() {
     <div className="min-h-screen bg-gray-50">
       <CoachDashboardHeader />
       
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+      <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">

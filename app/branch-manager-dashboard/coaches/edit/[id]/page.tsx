@@ -1,9 +1,11 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -11,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Award, MapPin, Phone, X, Loader2, AlertCircle } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 export default function BranchManagerEditCoachPage() {
@@ -193,7 +195,7 @@ export default function BranchManagerEditCoachPage() {
 
         try {
           // Fetch coach data
-          const coachResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}`, {
+          const coachResponse = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -212,7 +214,7 @@ export default function BranchManagerEditCoachPage() {
 
         try {
           // Fetch branches
-          const branchesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches?active_only=true&limit=100`, {
+          const branchesResponse = await fetch(getBackendApiUrl('branches?active_only=true&limit=100'), {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -231,7 +233,7 @@ export default function BranchManagerEditCoachPage() {
 
         try {
           // Fetch courses
-          const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/public/all`, {
+          const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'), {
             headers: {
               'Content-Type': 'application/json'
             }
@@ -454,7 +456,7 @@ export default function BranchManagerEditCoachPage() {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}/send-credentials`, {
+        const response = await fetch(getBackendApiUrl(`coaches/${coachId}/send-credentials`), {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -573,7 +575,7 @@ export default function BranchManagerEditCoachPage() {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}`, {
+        const response = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -617,8 +619,8 @@ export default function BranchManagerEditCoachPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Edit Coach" />
-        <main className="w-full p-4 lg:p-6">
+        <Header title="Edit Coach" role="branch_admin" />
+        <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto mb-4"></div>
@@ -633,8 +635,8 @@ export default function BranchManagerEditCoachPage() {
   if (errors.general) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Edit Coach" />
-        <main className="w-full p-4 lg:p-6">
+        <Header title="Edit Coach" role="branch_admin" />
+        <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -652,9 +654,9 @@ export default function BranchManagerEditCoachPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Edit Coach" />
+      <Header title="Edit Coach" role="branch_admin" />
 
-      <main className="w-full p-4 lg:p-6 xl:px-12">
+      <main className="w-full p-4 lg:px-8">
         {/* Header with Back Button */}
         <div className="flex items-center justify-between mb-6 text-[#4F5077]">
           <div className="flex items-center space-x-4">
@@ -722,9 +724,8 @@ export default function BranchManagerEditCoachPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Leave blank to keep current password"

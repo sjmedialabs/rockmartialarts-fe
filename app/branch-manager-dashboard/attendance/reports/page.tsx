@@ -258,7 +258,7 @@ export default function BranchManagerAttendanceReportsPage() {
     <div className="min-h-screen bg-gray-50">
       <BranchManagerHeader />
       
-      <main className="w-full p-4 lg:p-6 overflow-x-hidden xl:px-12 flex gap-4 flex-col">
+      <main className="w-full p-4 lg:px-8 overflow-x-hidden flex gap-4 flex-col">
         {/* Page Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
           <div>

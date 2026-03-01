@@ -141,7 +141,7 @@ export default function CoachProfilePage() {
           currentPage="Profile"
           coachName={profile?.full_name}
         />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
@@ -160,7 +160,7 @@ export default function CoachProfilePage() {
           currentPage="Profile"
           coachName="Coach"
         />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <Card>
               <CardContent className="pt-6">
@@ -183,7 +183,7 @@ export default function CoachProfilePage() {
         coachName={profile.full_name}
       />
       
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+      <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Page Header */}
           <div className="flex justify-between items-center mb-6">

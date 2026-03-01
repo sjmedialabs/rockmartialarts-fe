@@ -1,5 +1,6 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -151,7 +152,7 @@ export default function CoachProfileEditPage() {
         }
 
         // Fetch fresh profile data from API
-        const response = await fetch('/api/coaches/me', {
+        const response = await fetch(getBackendApiUrl('coaches/me'), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${authResult.token}`,
@@ -327,7 +328,7 @@ export default function CoachProfileEditPage() {
       }
 
       // Use the local API route that proxies to backend
-      const response = await fetch('/api/coaches/me', {
+      const response = await fetch(getBackendApiUrl('coaches/me'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${coachToken}`,
@@ -387,7 +388,7 @@ export default function CoachProfileEditPage() {
           currentPage="Edit Profile"
           coachName={profile?.full_name}
         />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+        <main className="mx-auto py-4 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
@@ -406,7 +407,7 @@ export default function CoachProfileEditPage() {
           currentPage="Edit Profile"
           coachName="Coach"
         />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+        <main className="mx-auto py-4 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <Card>
               <CardContent className="pt-6">
@@ -454,7 +455,7 @@ export default function CoachProfileEditPage() {
         coachName={profile.full_name}
       />
       
-      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
+      <main className="mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         <div className="space-y-6">
           {/* Page Header - Mobile Responsive */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">

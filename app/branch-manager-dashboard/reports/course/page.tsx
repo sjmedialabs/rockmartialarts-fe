@@ -16,7 +16,7 @@ import {
   Loader2,
   ArrowLeft
 } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { reportsAPI, CourseReportsResponse, CourseReportFiltersResponse, CourseData } from "@/lib/reportsAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { toast } from "sonner"
@@ -266,7 +266,7 @@ export default function BranchManagerCourseReportPage() {
   if (initialLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Reports" />
+        <Header title="Reports" role="branch_admin" />
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <Loader2 className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
@@ -280,9 +280,9 @@ export default function BranchManagerCourseReportPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Reports" />
+      <Header title="Reports" role="branch_admin" />
 
-      <main className="w-full p-4 lg:p-6 max-w-7xl mx-auto">
+      <main className="w-full p-4 lg:px-8 mx-auto">
         {/* Page Header - Course Reports Specific */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">

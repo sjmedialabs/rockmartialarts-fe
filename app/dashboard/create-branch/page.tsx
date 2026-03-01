@@ -1,6 +1,8 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import DashboardHeader from "@/components/dashboard-header"
+import Header from "@/components/layout/Header"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
@@ -192,6 +194,13 @@ export default function CreateBranchPage() {
     }
   }
 
+  // Branch admin cannot create branches — redirect to dashboard
+  useEffect(() => {
+    if (BranchManagerAuth.isAuthenticated()) {
+      router.replace("/dashboard")
+    }
+  }, [router])
+
   // Auto-generate code when branch name changes
   useEffect(() => {
     if (formData.branch.name && !formData.branch.code) {
@@ -209,7 +218,7 @@ export default function CreateBranchPage() {
         if (!token) {
           console.log("No token found, attempting superadmin login...")
           try {
-            const loginResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/login`, {
+            const loginResponse = await fetch(getBackendApiUrl('login'), {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -243,7 +252,7 @@ export default function CreateBranchPage() {
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers?active_only=true&limit=100`,
+          getBackendApiUrl('branch-managers?active_only=true&limit=100'),
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -279,7 +288,7 @@ export default function CreateBranchPage() {
       // Load courses
       try {
         setIsLoadingCourses(true)
-        const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/public/all`)
+        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'))
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json()
           setCourses(coursesData.courses || [])
@@ -294,7 +303,7 @@ export default function CreateBranchPage() {
       // Load categories
       try {
         setIsLoadingCategories(true)
-        const categoriesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/public/all`)
+        const categoriesResponse = await fetch(getBackendApiUrl('categories/public/all'))
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json()
           setCategories(categoriesData.categories || [])
@@ -633,7 +642,7 @@ export default function CreateBranchPage() {
       
       console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches`, {
+      const response = await fetch(getBackendApiUrl('branches'), {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -682,10 +691,9 @@ export default function CreateBranchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
-      
-      <div className="p-8 pt-[125px]">
+    <>
+      <Header title="Create Branch" role="super_admin" />
+      <div className="p-8 pt-4">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button
@@ -1295,6 +1303,6 @@ export default function CreateBranchPage() {
           </Card>
         </div>
       )}
-    </div>
+    </>
   )
 }

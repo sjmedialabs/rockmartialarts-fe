@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -81,7 +82,7 @@ export default function SelectBranchPage() {
         setError(null)
 
         // Try backend API directly - get all branches
-        const response = await fetch(`http://31.97.224.169:8003/api/branches/public/all`)
+        const response = await fetch(getBackendApiUrl('branches/public/all'))
 
         if (!response.ok) {
           throw new Error('Failed to fetch branches')
@@ -181,7 +182,7 @@ export default function SelectBranchPage() {
         />
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white mt-[100px]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
           <div className="text-center space-y-3">
             <h1 className="text-3xl font-bold text-black">Branch Details</h1>

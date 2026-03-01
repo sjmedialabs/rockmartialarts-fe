@@ -1,10 +1,12 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import type React from "react"
 
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
@@ -18,6 +20,7 @@ import { branchAPI } from "@/lib/branchAPI"
 import { courseAPI } from "@/lib/courseAPI"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { dropdownAPI } from "@/lib/dropdownAPI"
 
 interface Branch {
   id: string
@@ -129,7 +132,7 @@ export default function EditStudent() {
         if (!token) throw new Error("Authentication token not found.")
 
         // Fetch student data
-        const studentResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentId}`, {
+        const studentResponse = await fetch(getBackendApiUrl(`users/${studentId}`), {
           headers: { 'Authorization': `Bearer ${token}` }
         })
         if (!studentResponse.ok) {
@@ -143,16 +146,31 @@ export default function EditStudent() {
 
         // Load dynamic data from APIs
         const [locationsData, branchesData, coursesData, categoriesData] = await Promise.all([
-          // Load locations
+          // Load locations: try locations API first, then master data (dropdown) so Hyderabad etc. show
           (async () => {
             try {
               setIsLoadingLocations(true)
-              const locationsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/locations/public/details?active_only=true`)
+              const locationsResponse = await fetch(getBackendApiUrl('locations/public/details?active_only=true'))
               if (locationsResponse.ok) {
-                const locationsData = await locationsResponse.json()
-                const locations = locationsData.locations || []
-                setLocations(locations)
-                return locations
+                const data = await locationsResponse.json()
+                const locations = data.locations || []
+                if (locations.length > 0) {
+                  setLocations(locations)
+                  return locations
+                }
+              }
+              const locationOptions = await dropdownAPI.getCategoryOptions('locations', token || undefined)
+              const fromMaster = (locationOptions || [])
+                .filter((opt: { is_active: boolean }) => opt.is_active !== false)
+                .map((opt: { value: string; label: string }) => ({
+                  id: opt.value,
+                  name: opt.label,
+                  code: opt.value,
+                  state: opt.label
+                }))
+              if (fromMaster.length > 0) {
+                setLocations(fromMaster)
+                return fromMaster
               }
               return []
             } catch (error) {
@@ -173,7 +191,7 @@ export default function EditStudent() {
           (async () => {
             try {
               setIsLoadingCourses(true)
-              const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/public/all`)
+              const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'))
               if (coursesResponse.ok) {
                 const coursesData = await coursesResponse.json()
                 const allCourses = coursesData.courses || []
@@ -194,7 +212,7 @@ export default function EditStudent() {
           (async () => {
             try {
               setIsLoadingCategories(true)
-              const categoriesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/public/details?active_only=true`)
+              const categoriesResponse = await fetch(getBackendApiUrl('categories/public/details?active_only=true'))
               if (categoriesResponse.ok) {
                 const categoriesData = await categoriesResponse.json()
                 const categories = categoriesData.categories || []
@@ -311,7 +329,7 @@ export default function EditStudent() {
 
       try {
         setIsLoadingBranches(true)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/public/by-location/${formData.location}?active_only=true`)
+        const response = await fetch(getBackendApiUrl(`branches/public/by-location/${formData.location}?active_only=true`))
 
         if (response.ok) {
           const data = await response.json()
@@ -409,6 +427,19 @@ export default function EditStudent() {
         gender: formData.gender || undefined,
         biometric_id: formData.biometricId || undefined,
         ...(formData.password && { password: formData.password }),
+        address: {
+          line1: formData.address || "",
+          area: formData.area || "",
+          city: formData.city || "",
+          state: formData.state || "",
+          pincode: formData.zipCode || "",
+          country: formData.country || "India"
+        },
+        emergency_contact: {
+          name: formData.emergencyContactName || "",
+          phone: formData.emergencyContactPhone || "",
+          relationship: formData.emergencyContactRelation || ""
+        },
         course: formData.course ? {
           category_id: formData.category || "martial-arts",
           course_id: formData.course,
@@ -420,7 +451,7 @@ export default function EditStudent() {
         } : undefined
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentId}`, {
+      const response = await fetch(getBackendApiUrl(`users/${studentId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -452,7 +483,7 @@ export default function EditStudent() {
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader currentPage="Edit Student" />
 
-      <main className="w-full mt-[100px] xl:px-12 mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="w-full mx-auto p-4 sm:p-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 text-[#4F5077]">
           <div className="mb-4 sm:mb-0">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Edit Student</h1>
@@ -593,8 +624,7 @@ export default function EditStudent() {
                       <Label className="block text-sm font-medium mb-2">New Password</Label>
                       <div className="relative">
                         <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="Leave blank to keep current"
                           value={formData.password}
                           onChange={(e) => handleInputChange("password", e.target.value)}

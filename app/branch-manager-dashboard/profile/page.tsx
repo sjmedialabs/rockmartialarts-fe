@@ -1,5 +1,6 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { User, Mail, Phone, Calendar, Shield, Edit, Save, X, Loader2 } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { useToast } from "@/hooks/use-toast"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
@@ -63,7 +64,7 @@ export default function BranchManagerProfilePage() {
           return
         }
 
-        const response = await fetch('/api/branch-managers/me', {
+        const response = await fetch(getBackendApiUrl('branch-managers/me'), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -156,7 +157,7 @@ export default function BranchManagerProfilePage() {
         return
       }
 
-      const response = await fetch('/api/branch-managers/me', {
+      const response = await fetch(getBackendApiUrl('branch-managers/me'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -243,7 +244,7 @@ export default function BranchManagerProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Profile" />
+        <Header title="Profile" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
           <div className="max-w-4xl mx-auto">
             <div className="animate-pulse space-y-6">
@@ -266,7 +267,7 @@ export default function BranchManagerProfilePage() {
   if (!profile) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Profile" />
+        <Header title="Profile" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
           <div className="max-w-4xl mx-auto">
             <div className="text-center py-8">
@@ -280,7 +281,7 @@ export default function BranchManagerProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Profile" />
+      <Header title="Profile" role="branch_admin" />
       
       <main className="w-full p-4 lg:py-4 px-19">
         <div className="max-w-4xl mx-auto">

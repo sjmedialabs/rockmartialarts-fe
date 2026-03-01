@@ -24,9 +24,9 @@ interface StudentDashboardLayoutProps {
 
 const maxWidthClasses = {
   sm: "max-w-2xl",
-  md: "max-w-4xl", 
+  md: "max-w-4xl",
   lg: "max-w-6xl",
-  xl: "max-w-7xl",
+  xl: "max-w-none",
   "2xl": "max-w-screen-2xl",
   full: "max-w-none"
 }
@@ -66,7 +66,7 @@ export default function StudentDashboardLayout({
         {/* Main Content Area */}
         <main
           id="main-content"
-          className={cn("relative mt-[100px]", className)}
+          className={cn("relative", className)}
           role="main"
           aria-label="Main content"
           tabIndex={-1}

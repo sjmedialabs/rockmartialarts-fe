@@ -341,7 +341,7 @@ export default function SuperAdminMessagesPage() {
           userName={superAdminData?.full_name || "Admin"}
           onLogout={handleLogout}
         />
-        <main className="max-w mt-[100px]-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
@@ -359,7 +359,7 @@ export default function SuperAdminMessagesPage() {
           userName={superAdminData?.full_name || "Admin"}
           onLogout={handleLogout}
         />
-        <main className="max-w mt-[100px]-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <Card>
               <CardContent className="flex items-center justify-center h-96">
@@ -387,7 +387,7 @@ export default function SuperAdminMessagesPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w mt-[100px]-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Page Header */}
           <div className="flex justify-between items-center mb-8">

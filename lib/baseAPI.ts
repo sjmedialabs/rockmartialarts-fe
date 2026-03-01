@@ -1,6 +1,16 @@
 // Base API configuration utility
-import { apiConfig } from './config'
+import { apiConfig, getBackendApiUrl } from './config'
 import { TokenManager } from './tokenManager'
+
+/** Build full URL for an endpoint (e.g. /api/dashboard/stats). Uses proxy in browser or when NEXT_PUBLIC_USE_BACKEND_PROXY=true. */
+function buildRequestUrl(endpoint: string): string {
+  const useProxy =
+    process.env.NEXT_PUBLIC_USE_BACKEND_PROXY === 'true' || (typeof window !== 'undefined')
+  if (useProxy && endpoint.startsWith('/api/')) {
+    return getBackendApiUrl(endpoint.replace(/^\/api\//, ''))
+  }
+  return `${apiConfig.baseURL}${endpoint}`
+}
 
 export class BaseAPI {
   protected baseURL: string
@@ -55,8 +65,9 @@ export class BaseAPI {
       }
     }
 
+    const url = buildRequestUrl(endpoint)
     console.log('🚀 Making API request:')
-    console.log('📍 URL:', `${this.baseURL}${endpoint}`)
+    console.log('📍 URL:', url)
     console.log('🔧 Method:', method)
     console.log('📋 Headers:', defaultHeaders)
 
@@ -72,7 +83,7 @@ export class BaseAPI {
     }
 
     try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, config)
+      const response = await fetch(url, config)
       
       console.log('📨 Response status:', response.status, response.statusText)
       console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()))

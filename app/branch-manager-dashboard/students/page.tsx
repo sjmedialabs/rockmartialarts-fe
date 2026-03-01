@@ -10,7 +10,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useRouter } from "next/navigation"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
+import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface Student {
@@ -96,7 +97,7 @@ export default function BranchManagerStudentList() {
       console.log('💰 Fetching payment data for students:', studentIds.length)
 
       // Fetch all payments for the branch manager (already filtered by managed branches)
-      const paymentsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/payments?limit=1000`, {
+      const paymentsResponse = await fetch(getBackendApiUrl('payments?limit=1000'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -183,7 +184,7 @@ export default function BranchManagerStudentList() {
 
         // First, let's get the branches this manager manages to understand the filtering
         console.log('🔍 DEBUGGING: Fetching branches first to understand filtering...')
-        const branchesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches?limit=100`, {
+        const branchesResponse = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -203,7 +204,7 @@ export default function BranchManagerStudentList() {
 
         // Call real backend API to get students
         console.log('👨‍🎓 Now fetching students...')
-        const studentsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/students/details`, {
+        const studentsResponse = await fetch(getBackendApiUrl('users/students/details'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -338,7 +339,7 @@ export default function BranchManagerStudentList() {
 
       // Fetch fresh students data - backend handles filtering by managed branches
       console.log('🔄 Refreshing students data...')
-      const studentsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/students/details`, {
+      const studentsResponse = await fetch(getBackendApiUrl('users/students/details'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -445,7 +446,7 @@ export default function BranchManagerStudentList() {
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(`http://31.97.224.169:8003/api/users/${studentToDelete}`, {
+        const response = await fetch(getBackendApiUrl(`users/${studentToDelete}`), {
           method: 'DELETE',
           headers: authHeaders
         })
@@ -492,16 +493,12 @@ export default function BranchManagerStudentList() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Students" />
-      
-      <main className="w-full p-4 lg:py-4 px-19">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start py-8 mb-4 lg:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-medium text-gray-600">Branch Students</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage students in your branch</p>
-          </div>
+    <>
+      <Header title="Students" role="branch_admin" />
+      <div className="flex flex-col lg:flex-row justify-between items-start py-4 mb-4 lg:items-center gap-4">
+        <div>
+          <p className="text-sm text-gray-500 mt-1">Manage students in your branch</p>
+        </div>
           <div className="flex flex-wrap gap-2 lg:gap-3">
             <Button
               variant="outline"
@@ -764,8 +761,6 @@ export default function BranchManagerStudentList() {
             )}
           </div>
         </div>
-      </main>
-
       {/* Delete Confirmation Modal */}
       {showDeletePopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -791,6 +786,6 @@ export default function BranchManagerStudentList() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

@@ -37,11 +37,14 @@ interface StudentDetails {
   date_of_birth?: string
   gender?: string
   address?: {
-    street?: string
+    line1?: string
+    area?: string
     city?: string
     state?: string
-    postal_code?: string
+    pincode?: string
     country?: string
+    street?: string
+    postal_code?: string
   }
   emergency_contact?: {
     name?: string
@@ -356,7 +359,7 @@ export default function StudentDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <DashboardHeader />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-6">
             <Skeleton className="h-8 w-48 mb-2" />
             <Skeleton className="h-4 w-96" />
@@ -396,7 +399,7 @@ export default function StudentDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <DashboardHeader />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold  mb-2">Student Not Found</h2>
@@ -424,7 +427,7 @@ export default function StudentDetailPage() {
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
       
-      <div className="xl:px-12 px-4 sm:px-6 lg:px-8 py-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -531,10 +534,13 @@ export default function StudentDetailPage() {
                       Address
                     </h3>
                     <div className="text-sm ">
-                      {student.address.street && <p>{student.address.street}</p>}
-                      {(student.address.city || student.address.state || student.address.postal_code) && (
+                      {(student.address.line1 || student.address.street) && (
+                        <p>{student.address.line1 || student.address.street}</p>
+                      )}
+                      {student.address.area && <p>{student.address.area}</p>}
+                      {(student.address.city || student.address.state || student.address.pincode || student.address.postal_code) && (
                         <p>
-                          {[student.address.city, student.address.state, student.address.postal_code]
+                          {[student.address.city, student.address.state, student.address.pincode || student.address.postal_code]
                             .filter(Boolean)
                             .join(', ')}
                         </p>

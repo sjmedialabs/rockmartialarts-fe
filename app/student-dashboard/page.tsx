@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import StudentDashboardLayout from "@/components/student-dashboard-layout"
+import Header from "@/components/layout/Header"
 import { CardSkeleton, LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import {
   Calendar,
@@ -24,6 +24,7 @@ import {
   Star,
   AlertCircle
 } from "lucide-react"
+import { getBackendApiUrl } from "@/lib/config"
 
 export default function StudentDashboard() {
   const router = useRouter()
@@ -77,8 +78,8 @@ export default function StudentDashboard() {
 
         console.log("🔄 Fetching student profile data...")
 
-        // Fetch student profile data
-        const profileResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/profile`, {
+        // Fetch student profile data (use proxy to avoid CORS / Method Not Allowed)
+        const profileResponse = await fetch(getBackendApiUrl("auth/profile"), {
           method: 'GET',
           headers
         })
@@ -112,7 +113,7 @@ export default function StudentDashboard() {
         console.log("🔄 Fetching attendance data...")
 
         // Fetch attendance data
-        const attendanceResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/attendance/student/my-attendance`, {
+        const attendanceResponse = await fetch(getBackendApiUrl("attendance/student/my-attendance"), {
           method: 'GET',
           headers
         })
@@ -250,11 +251,8 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <StudentDashboardLayout
-        studentName="Loading..."
-        onLogout={handleLogout}
-        isLoading={true}
-      >
+      <>
+        <Header title="Dashboard" role="student" />
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -266,19 +264,14 @@ export default function StudentDashboard() {
             <CardSkeleton lines={5} />
           </div>
         </div>
-      </StudentDashboardLayout>
+      </>
     )
   }
 
-  // Show error state if there's an error but we have some basic data
   if (error && !studentData) {
     return (
-      <StudentDashboardLayout
-        studentName="Student"
-        onLogout={handleLogout}
-        pageTitle="Dashboard"
-        pageDescription="Unable to load dashboard data"
-      >
+      <>
+        <Header title="Dashboard" role="student" />
         <div className="space-y-6">
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-6">
@@ -302,17 +295,13 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </div>
-      </StudentDashboardLayout>
+      </>
     )
   }
 
   return (
-    <StudentDashboardLayout
-      studentName={studentData?.name || "Student"}
-      onLogout={handleLogout}
-      pageTitle="Dashboard"
-      pageDescription={`Welcome back, ${studentData?.name || "Student"}! Here's your training overview.`}
-    >
+    <>
+      <Header title="Dashboard" role="student" />
       <div className="space-y-8">
         {/* Error Warning Banner */}
         {error && studentData && (
@@ -625,6 +614,6 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
-    </StudentDashboardLayout>
+    </>
   )
 }

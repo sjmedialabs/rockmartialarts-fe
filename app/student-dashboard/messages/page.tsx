@@ -323,7 +323,7 @@ export default function StudentMessagesPage() {
           studentName={studentData?.name || "Student"}
           onLogout={handleLogout}
         />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <Card>
               <CardContent className="flex items-center justify-center h-96">
@@ -351,7 +351,7 @@ export default function StudentMessagesPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Page Header */}
           <div className="flex justify-between items-center mb-8">

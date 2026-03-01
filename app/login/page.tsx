@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ReCaptchaWrapper, useReCaptcha, ReCaptchaComponent } from "@/components/recaptcha"
 
@@ -66,26 +67,34 @@ function LoginFormContent() {
         requestBody.recaptchaToken = recaptchaToken;
       }
 
-      console.log("Student login request:", {
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/login`,
-        body: { ...requestBody, password: "***hidden***" }
-      });
+      // Use same-origin proxy so the browser never talks directly to the backend (avoids connection/CORS issues)
+      const loginUrl = "/api/backend/auth/login";
+      console.log("Student login request:", { url: loginUrl, body: { ...requestBody, password: "***hidden***" } });
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/login`, {
+      const res = await fetch(loginUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody)
       });
-      
-      const data = await res.json();
-      console.log("Student login response:", {
-        status: res.status,
-        ok: res.ok,
-        data: data
-      });
-      
+
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        setError("Server returned an invalid response. Is the backend running?");
+        if (isEnabled) resetRecaptcha();
+        setLoading(false);
+        return;
+      }
+      console.log("Student login response:", { status: res.status, ok: res.ok, data });
+
       if (!res.ok) {
-        setError(data.message || `Login failed (${res.status})`);
+        const errMsg = typeof data.detail === "string"
+          ? data.detail
+          : Array.isArray(data.detail)
+            ? data.detail.map((e: any) => e.msg || e.message || JSON.stringify(e)).join(", ")
+            : data.detail?.message || data.message || `Login failed (${res.status})`;
+        setError(errMsg);
         // Reset reCAPTCHA on error
         if (isEnabled) {
           resetRecaptcha();
@@ -138,11 +147,14 @@ function LoginFormContent() {
       router.push("/student-dashboard");
     } catch (err) {
       console.error("Student login error:", err);
-      setError("An error occurred during login. Please check your connection and try again.");
-      // Reset reCAPTCHA on error
-      if (isEnabled) {
-        resetRecaptcha();
-      }
+      const msg = err instanceof Error ? err.message : String(err);
+      const isNetwork = /fetch|network|failed to load/i.test(msg) || msg === "Load failed";
+      setError(
+        isNetwork
+          ? "Cannot reach the server. Make sure the backend is running (see terminal)."
+          : "An error occurred during login. Please try again."
+      );
+      if (isEnabled) resetRecaptcha();
     } finally {
       setLoading(false);
     }
@@ -161,7 +173,7 @@ function LoginFormContent() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white mt-[100px]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
           {/* Header */}
           <div className="text-center space-y-2">
@@ -208,8 +220,7 @@ function LoginFormContent() {
                     />
                   </svg>
                 </div>
-                <Input
-                  type="password"
+                <PasswordInput
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

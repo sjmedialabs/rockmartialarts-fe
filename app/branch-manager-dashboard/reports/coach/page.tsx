@@ -22,7 +22,7 @@ import {
   XCircle,
   Eye
 } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { reportsAPI, CoachReportsResponse, CoachReportFiltersResponse, CoachData } from "@/lib/reportsAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { toast } from "sonner"
@@ -219,9 +219,9 @@ export default function BranchManagerCoachReportPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader />
+      <Header title="Reports" role="branch_admin" />
       
-      <main className="w-full p-4 lg:p-6 max-w-7xl mx-auto">
+      <main className="w-full p-4 lg:px-8 mx-auto">
         {/* Page Header */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-4">

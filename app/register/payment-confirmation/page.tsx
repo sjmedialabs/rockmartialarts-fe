@@ -1,4 +1,5 @@
 "use client"
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -57,7 +58,7 @@ export default function PaymentConfirmationPage() {
 
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/courses/${registrationData.course_id}/payment-info?` +
+          getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?`) +
           `branch_id=${registrationData.branch_id}&duration=${registrationData.duration}`,
           {
             method: 'GET',
@@ -110,7 +111,7 @@ export default function PaymentConfirmationPage() {
       console.log('Sending payment data:' , JSON.stringify(paymentData, null, 2))
 
       // Make API call to payment processing endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/payments/process-registration`, {
+      const response = await fetch(getBackendApiUrl('payments/process-registration'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -27,7 +27,8 @@ import {
   AlertCircle,
   XCircle
 } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
+import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface CoachDetails {
@@ -114,7 +115,7 @@ export default function BranchManagerCoachDetailPage() {
 
       // Fetch coach basic details
       console.log('🔍 Fetching coach details for ID:', coachId)
-      const coachResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}`, {
+      const coachResponse = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -168,7 +169,7 @@ export default function BranchManagerCoachDetailPage() {
 
       // Fetch course assignments
       console.log('🔍 Fetching course assignments...')
-      const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}/courses`, {
+      const coursesResponse = await fetch(getBackendApiUrl(`coaches/${coachId}/courses`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -195,7 +196,7 @@ export default function BranchManagerCoachDetailPage() {
 
       // Fetch student assignments
       console.log('🔍 Fetching student assignments...')
-      const studentsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}/students`, {
+      const studentsResponse = await fetch(getBackendApiUrl(`coaches/${coachId}/students`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -258,9 +259,9 @@ export default function BranchManagerCoachDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Coach Details" />
+        <Header title="Coach Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="animate-pulse space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="h-8 w-8 bg-gray-200 rounded"></div>
@@ -314,9 +315,9 @@ export default function BranchManagerCoachDetailPage() {
 
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Coach Details" />
+        <Header title="Coach Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="flex items-center mb-6">
               <Button
                 variant="ghost"
@@ -361,9 +362,9 @@ export default function BranchManagerCoachDetailPage() {
   if (!coach) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Coach Details" />
+        <Header title="Coach Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="animate-pulse space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="h-8 w-8 bg-gray-200 rounded"></div>
@@ -386,10 +387,10 @@ export default function BranchManagerCoachDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Coach Details" />
+      <Header title="Coach Details" role="branch_admin" />
 
       <main className="w-full p-4 lg:py-4 px-19">
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">

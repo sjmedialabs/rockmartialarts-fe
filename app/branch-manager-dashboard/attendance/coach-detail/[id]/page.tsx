@@ -1,5 +1,5 @@
 "use client"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -66,9 +66,9 @@ export default function BranchManagerCoachAttendanceDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-      <BranchManagerDashboardHeader currentPage="Coach Attendance" />
+      <Header title="Coach Attendance" role="branch_admin" />
 
-      <main className="w-full p-4 lg:p-6 overflow-x-hidden xl:px-12 flex gap-4 flex-col">
+      <main className="w-full p-4 lg:px-8 overflow-x-hidden flex gap-4 flex-col">
         {/* Page Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
           <h1 className="text-2xl font-bold text-[#0A1629]">Coach Attendance</h1>

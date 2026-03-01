@@ -16,7 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter, useParams } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface FormErrors {
@@ -349,8 +349,8 @@ export default function BranchManagerEditCourse() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Edit Course" />
-        <main className="w-full p-4 lg:p-6">
+        <Header title="Edit Course" role="branch_admin" />
+        <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto mb-4"></div>
@@ -365,8 +365,8 @@ export default function BranchManagerEditCourse() {
   if (errors.general) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Edit Course" />
-        <main className="w-full p-4 lg:p-6">
+        <Header title="Edit Course" role="branch_admin" />
+        <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -384,9 +384,9 @@ export default function BranchManagerEditCourse() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Edit Course" />
+      <Header title="Edit Course" role="branch_admin" />
 
-      <main className="w-full p-4 lg:p-6 xl:px-12">
+      <main className="w-full p-4 lg:px-8">
         {/* Header with Back Button */}
         <div className="flex justify-between items-center mb-8">
           <div>

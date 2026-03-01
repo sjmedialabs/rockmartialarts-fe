@@ -1,4 +1,6 @@
 // Branch Manager Authentication utility
+import { getBackendApiUrl } from "@/lib/config"
+
 export interface BranchManagerUser {
   id: string
   full_name: string
@@ -169,7 +171,7 @@ export const BranchManagerAuth = {
       }
 
       // Fetch branches using the branch manager's token
-      const response = await fetch('/api/branches', {
+      const response = await fetch(getBackendApiUrl('branches'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

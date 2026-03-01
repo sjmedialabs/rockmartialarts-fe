@@ -8,7 +8,8 @@ import { Search, Edit, Trash2, RefreshCw, Eye, BookOpen, Users } from "lucide-re
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Switch } from "@/components/ui/switch"
 import { useRouter } from "next/navigation"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
+import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface Course {
@@ -70,7 +71,7 @@ export default function BranchManagerCoursesList() {
 
         // First, let's get the branches this manager manages to understand the filtering
         console.log('🔍 DEBUGGING: Fetching branches first to understand filtering...')
-        const branchesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches?limit=100`, {
+        const branchesResponse = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -90,7 +91,7 @@ export default function BranchManagerCoursesList() {
 
         // Call real backend API to get courses (backend handles filtering by managed branches)
         console.log('📚 Now fetching courses...')
-        const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses?limit=100`, {
+        const coursesResponse = await fetch(getBackendApiUrl('courses?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -198,7 +199,7 @@ export default function BranchManagerCoursesList() {
 
       // Fetch fresh courses data - backend handles filtering by managed branches
       console.log('🔄 Refreshing courses data...')
-      const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses?limit=100`, {
+      const coursesResponse = await fetch(getBackendApiUrl('courses?limit=100'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -285,16 +286,12 @@ export default function BranchManagerCoursesList() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Courses" />
-      
-      <main className="w-full p-4 lg:py-4 px-19">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start py-8 mb-4 lg:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-medium text-gray-600">Branch Courses</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage courses offered in your branch</p>
-          </div>
+    <>
+      <Header title="Courses" role="branch_admin" />
+      <div className="flex flex-col lg:flex-row justify-between items-start py-4 mb-4 lg:items-center gap-4">
+        <div>
+          <p className="text-sm text-gray-500 mt-1">Manage courses offered in your branch</p>
+        </div>
           <div className="flex flex-wrap gap-2 lg:gap-3">
             <Button
               variant="outline"
@@ -533,8 +530,6 @@ export default function BranchManagerCoursesList() {
             )}
           </div>
         </div>
-      </main>
-
       {/* Delete Confirmation Modal */}
       {showDeletePopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -560,6 +555,6 @@ export default function BranchManagerCoursesList() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

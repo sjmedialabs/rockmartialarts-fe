@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, FileText, Users, BookOpen, DollarSign, Calendar } from "lucide-react"
 import { useRouter } from "next/navigation"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface ReportCategory {
@@ -136,7 +136,7 @@ export default function BranchManagerReports() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Reports" />
+      <Header title="Reports" role="branch_admin" />
       
       <main className="w-full p-4 lg:py-4 px-19">
         {/* Header */}

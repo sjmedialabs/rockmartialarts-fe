@@ -1,5 +1,6 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, Edit, Trash2, X, Eye } from "lucide-react"
@@ -7,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface Branch {
   id: string
@@ -91,7 +92,7 @@ const itemsPerPage = 5
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches`, {
+        const response = await fetch(getBackendApiUrl("branches"), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -148,7 +149,7 @@ const itemsPerPage = 5
 
       const statsPromises = branchesWithoutStats.map(async (branch) => {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/${branch.id}/stats`, {
+          const response = await fetch(getBackendApiUrl(`branches/${branch.id}/stats`), {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -200,7 +201,7 @@ const itemsPerPage = 5
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches?active_only=true&limit=100`, {
+      const response = await fetch(getBackendApiUrl("coaches?active_only=true&limit=100"), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -244,7 +245,7 @@ const itemsPerPage = 5
       }
 
       // Update the branch with the new manager_id
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/${selectedBranch}`, {
+      const response = await fetch(getBackendApiUrl(`branches/${selectedBranch}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -301,7 +302,7 @@ const itemsPerPage = 5
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/${branchToDelete}`, {
+        const response = await fetch(getBackendApiUrl(`branches/${branchToDelete}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -371,31 +372,32 @@ const paginatedBranches = filteredBranches.slice(
 
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden mt-10">
-      <DashboardHeader currentPage="Branches" />
-
-      <main className="w-full mt-[100px] p-4 xl:px-19 lg:p-6 overflow-x-hidden">
+    <div className="w-full p-4 lg:px-8 overflow-x-hidden">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Branches list</h1>
           <div className="flex space-x-3">
-            <Button
-              onClick={() => router.push("/dashboard/create-branch")}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
-            >
-              + Add Branch
-            </Button>
-            <Button
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6"
-              onClick={handleOpenAssignModal}
-            >
-              Assign Manager
-            </Button>
-            <Button
-              className="bg-green-500 hover:bg-green-600 text-white px-6"
-              onClick={() => router.push("/dashboard/branch-managers")}
-            >
-              Branch Managers
-            </Button>
+            {!BranchManagerAuth.isAuthenticated() && (
+              <>
+                <Button
+                  onClick={() => router.push("/dashboard/create-branch")}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+                >
+                  + Add Branch
+                </Button>
+                <Button
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-6"
+                  onClick={handleOpenAssignModal}
+                >
+                  Assign Manager
+                </Button>
+                <Button
+                  className="bg-green-500 hover:bg-green-600 text-white px-6"
+                  onClick={() => router.push("/dashboard/branch-managers")}
+                >
+                  Branch Managers
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -572,7 +574,7 @@ const paginatedBranches = filteredBranches.slice(
                               const token = TokenManager.getToken()
                               if (!token) return
 
-                              const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/${branch.id}`, {
+                              const response = await fetch(getBackendApiUrl(`branches/${branch.id}`), {
                                 method: 'PUT',
                                 headers: {
                                   'Authorization': `Bearer ${token}`,
@@ -634,8 +636,6 @@ const paginatedBranches = filteredBranches.slice(
     Next
   </Button>
 </div>
-
-      </main>
 
       {showAssignPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

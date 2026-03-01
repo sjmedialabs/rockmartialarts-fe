@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Shield, Lock, Mail } from "lucide-react"
 import { ReCaptchaWrapper, useReCaptcha, ReCaptchaComponent } from "@/components/recaptcha"
@@ -59,17 +60,24 @@ function SuperAdminLoginFormContent() {
         requestBody.recaptchaToken = recaptchaToken;
       }
 
-      // Call the SuperAdmin login API endpoint
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/superadmin/login`, {
+      // Use same-origin proxy so the browser never talks directly to the backend
+      const res = await fetch("/api/backend/superadmin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody)
       });
-      
-      const response = await res.json();
+
+      let response: any;
+      try {
+        response = await res.json();
+      } catch {
+        setError("Server returned an invalid response. Is the backend running?");
+        if (isEnabled) resetRecaptcha();
+        setLoading(false);
+        return;
+      }
       console.log("Superadmin login response:", response);
 
-      // Handle HTTP errors
       if (!res.ok) {
         setError(response.detail || response.message || `Login failed (${res.status})`);
         if (isEnabled) {
@@ -131,13 +139,17 @@ function SuperAdminLoginFormContent() {
       });
       
       // Redirect to admin dashboard
-      router.push("/dashboard");
+      router.push("/super-admin/dashboard");
     } catch (err) {
       console.error("SuperAdmin login error:", err);
-      setError("An error occurred during login. Please try again.");
-      if (isEnabled) {
-        resetRecaptcha();
-      }
+      const msg = err instanceof Error ? err.message : String(err);
+      const isNetwork = /fetch|network|failed to load/i.test(msg) || msg === "Load failed";
+      setError(
+        isNetwork
+          ? "Cannot reach the server. Make sure the backend is running (see terminal)."
+          : "An error occurred during login. Please try again."
+      );
+      if (isEnabled) resetRecaptcha();
     } finally {
       setLoading(false);
     }
@@ -169,7 +181,7 @@ function SuperAdminLoginFormContent() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white mt-[100px]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
           {/* Header */}
           <div className="text-center space-y-4">
@@ -229,9 +241,8 @@ function SuperAdminLoginFormContent() {
                     />
                   </svg>
                 </div>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   placeholder="StrongPassword@123"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

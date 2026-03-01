@@ -25,6 +25,7 @@ import {
   MapPin,
   Star
 } from "lucide-react"
+import { getBackendApiUrl } from "@/lib/config"
 
 export default function StudentCoursesPage() {
   console.log("🎯 StudentCoursesPage component rendered")
@@ -83,7 +84,7 @@ export default function StudentCoursesPage() {
 
       try {
         // Try backend API first
-        response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/enrollments/students/${studentId}/courses`, {
+        response = await fetch(getBackendApiUrl(`enrollments/students/${studentId}/courses`), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,

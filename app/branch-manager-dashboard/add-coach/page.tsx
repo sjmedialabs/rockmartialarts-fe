@@ -1,9 +1,11 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -11,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Award, MapPin, Phone, X } from "lucide-react"
 import { useRouter } from "next/navigation"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
 
@@ -202,7 +204,7 @@ export default function AddCoachPage() {
         console.log('Branch manager ID:', currentBranchManager.id)
 
         // Call real backend API to get all branches
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches?limit=100`, {
+        const response = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -271,7 +273,7 @@ export default function AddCoachPage() {
         setIsLoadingCourses(true)
 
         // Use public endpoint for courses (no authentication required)
-        const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/public/all`, {
+        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'), {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -343,7 +345,7 @@ export default function AddCoachPage() {
         throw new Error("Authentication token not found")
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${createdCoachId}/send-credentials`, {
+      const response = await fetch(getBackendApiUrl(`coaches/${createdCoachId}/send-credentials`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -478,7 +480,7 @@ export default function AddCoachPage() {
       }
 
       // Call the backend API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches`, {
+      const response = await fetch(getBackendApiUrl('coaches'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -518,7 +520,7 @@ export default function AddCoachPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Add Coach" />
+      <Header title="Add Coach" role="branch_admin" />
 
       <main className="w-full py-4 px-19 lg:py-6">
         {/* Header with Back Button */}
@@ -589,9 +591,8 @@ export default function AddCoachPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Password *</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Enter secure password"

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, CreditCard, User, Calendar, MapPin, BookOpen, DollarSign, Receipt, Download, Mail, MessageCircle } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface PaymentDetails {
@@ -141,7 +141,7 @@ export default function BranchManagerPaymentDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader />
+        <Header title="Payment" role="branch_admin" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
@@ -162,7 +162,7 @@ export default function BranchManagerPaymentDetailPage() {
   if (error || !payment) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader />
+        <Header title="Payment" role="branch_admin" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -180,7 +180,7 @@ export default function BranchManagerPaymentDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader />
+      <Header title="Payment" role="branch_admin" />
       
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}

@@ -2,11 +2,13 @@
 
 import type React from "react"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input" 
+import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { User, Lock, Mail } from "lucide-react"
 import { ReCaptchaWrapper, useReCaptcha, ReCaptchaComponent } from "@/components/recaptcha"
@@ -88,12 +90,12 @@ function CoachLoginFormContent() {
       }
 
       console.log("Coach login request:", {
-        url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/login`,
+        url: getBackendApiUrl('coaches/login'),
         body: { ...requestBody, password: "***hidden***" }
       });
 
       // Call the coach login API endpoint
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/login`, {
+      const res = await fetch(getBackendApiUrl('coaches/login'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody)
@@ -192,7 +194,7 @@ function CoachLoginFormContent() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white mt-[100px]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
           {/* Header */}
           <div className="text-center space-y-4">
@@ -251,13 +253,12 @@ function CoachLoginFormContent() {
                     />
                   </svg>
                 </div>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                 className="pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500"
+                  className="pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500"
                   required
                 />
               </div>
@@ -330,7 +331,7 @@ function CoachLoginFormContent() {
             <h3 className="font-medium text-gray-700 mb-2 text-sm">API Debug Info</h3>
             <div className="space-y-1 text-xs text-gray-600 font-mono">
               <p><strong>POST</strong> /api/coaches/login</p>
-              <p><strong>Endpoint:</strong> {process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/login</p>
+              <p><strong>Endpoint:</strong> {typeof window !== 'undefined' ? getBackendApiUrl('coaches/login') : '/api/backend/coaches/login'}</p>
               <p><strong>Expected:</strong> access_token + coach object</p>
               <p><strong>Storage:</strong> access_token, coach, user</p>
             </div>

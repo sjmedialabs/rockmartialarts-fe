@@ -1,4 +1,5 @@
 "use client"
+import { getBackendApiUrl } from "@/lib/config"
 import { DualLineChart } from "@/components/charts/LineChart"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -6,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star, Users, BookOpen, Loader2, AlertCircle, MapPin, Building2, DollarSign, GraduationCap, UserCheck, TrendingUp, Calendar, RefreshCw } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import add_icon from "@/public/images/add_icon.png"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback } from "react"
@@ -252,7 +253,7 @@ export default function BranchManagerDashboard() {
       // Get dashboard stats for revenue data
       let dashboardRevenue = 0
       try {
-        const dashboardResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dashboard/stats?_t=${Date.now()}`, {
+        const dashboardResponse = await fetch(`${getBackendApiUrl('dashboard/stats')}?_t=${Date.now()}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -268,8 +269,8 @@ export default function BranchManagerDashboard() {
         console.warn('⚠️ Could not fetch dashboard revenue:', err)
       }
 
-      // Use the correct backend API endpoint for branches with cache busting
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches?_t=${Date.now()}`, {
+      // Use backend API via proxy (avoids 405 / double-slash)
+      const response = await fetch(`${getBackendApiUrl('branches')}?_t=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -391,79 +392,23 @@ export default function BranchManagerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <BranchManagerDashboardHeader currentPage="Dashboard" />
-
-      <main className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Dashboard Header with Action Buttons */}
-        <div className="flex flex-col lg:flex-row justify-between items-start mb-8 gap-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-gray-900">Branch Manager Dashboard</h1>
-            {branchesLoading ? (
-              <div className="flex items-center space-x-2">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                <p className="text-sm text-gray-600">Loading branch information...</p>
-              </div>
-            ) : branchesError ? (
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-red-500" />
-                <p className="text-sm text-red-600">Error loading branches: {branchesError}</p>
-              </div>
-            ) : managedBranches.length > 0 ? (
-              <p className="text-sm text-gray-600">
-                Managing {managedBranches.length} branch{managedBranches.length !== 1 ? 'es' : ''}: {managedBranches.map(b => b.branch.name).join(', ')}
-              </p>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-yellow-500" />
-                <p className="text-sm text-yellow-600">No branches assigned to this manager</p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="outline"
-              className="flex items-center space-x-2 bg-white hover:bg-gray-50 border-gray-200 text-gray-700 shadow-sm"
-              onClick={() => router.push("/branch-manager-dashboard/create-student")}
-            >
-              <img src={add_icon.src} alt="" className="w-5 h-5" />
-              <span className="hidden sm:inline">Add Student</span>
-              <span className="sm:hidden">Student</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="flex items-center space-x-2 bg-white hover:bg-gray-50 border-gray-200 text-gray-700 shadow-sm"
-              onClick={() => router.push("/branch-manager-dashboard/create-course")}
-            >
-              <img src={add_icon.src} alt="" className="w-5 h-5" />
-              <span className="hidden sm:inline">Add Course</span>
-              <span className="sm:hidden">Course</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="flex items-center space-x-2 bg-white hover:bg-gray-50 border-gray-200 text-gray-700 shadow-sm"
-              onClick={() => router.push("/branch-manager-dashboard/add-coach")}
-            >
-              <img src={add_icon.src} alt="" className="w-5 h-5" />
-              <span className="hidden sm:inline">Add Coach</span>
-              <span className="sm:hidden">Coach</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="flex items-center space-x-2 bg-white hover:bg-gray-50 border-gray-200 text-gray-700 shadow-sm"
-              onClick={() => {
-                loadDashboardData()
-                loadBranchesData()
-                loadCoachesData()
-                loadPaymentData()
-              }}
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-          </div>
+    <>
+      <Header title="Dashboard" role="branch_admin" />
+      {branchesLoading ? (
+        <div className="flex items-center space-x-2 mb-4">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+          <p className="text-sm text-gray-600">Loading branch information...</p>
         </div>
+      ) : branchesError ? (
+        <div className="flex items-center space-x-2 mb-4">
+          <AlertCircle className="w-4 h-4 text-red-500" />
+          <p className="text-sm text-red-600">Error loading branches: {branchesError}</p>
+        </div>
+      ) : managedBranches.length > 0 ? (
+        <p className="text-sm text-gray-600 mb-4">
+          Managing {managedBranches.length} branch{managedBranches.length !== 1 ? "es" : ""}: {managedBranches.map((b) => b.branch.name).join(", ")}
+        </p>
+      ) : null}
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -865,7 +810,6 @@ export default function BranchManagerDashboard() {
             </Card>
           </div>
         </div>
-      </main>
-    </div>
+    </>
   )
 }

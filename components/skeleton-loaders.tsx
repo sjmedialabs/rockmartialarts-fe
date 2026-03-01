@@ -125,7 +125,7 @@ export const SearchBarSkeleton = () => (
 export const ReportsPageSkeleton = () => (
   <div className="min-h-screen bg-gray-50">
     {/* Dashboard header would be here */}
-    <main className="w-full p-4 lg:p-6 max-w-7xl mx-auto">
+    <main className="w-full p-4 lg:px-8 mx-auto">
       <PageHeaderSkeleton />
       <SearchBarSkeleton />
       <ReportCategoriesGridSkeleton />
@@ -137,7 +137,7 @@ export const ReportsPageSkeleton = () => (
 export const CategoryPageSkeleton = () => (
   <div className="min-h-screen bg-gray-50">
     {/* Dashboard header would be here */}
-    <main className="w-full p-4 lg:p-6">
+    <main className="w-full p-4 lg:px-8">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
           <SkeletonBox width="120px" height="40px" className="rounded-md" />

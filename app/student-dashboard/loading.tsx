@@ -3,7 +3,7 @@ export default function StudentDashboardLoading() {
     <div className="min-h-screen bg-gray-50">
       {/* Header Skeleton */}
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
@@ -17,7 +17,7 @@ export default function StudentDashboardLoading() {
       </div>
 
       {/* Main Content Skeleton */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Card Skeletons */}

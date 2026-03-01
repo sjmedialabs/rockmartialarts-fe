@@ -1,6 +1,8 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -9,7 +11,6 @@ import { Search, Edit, Trash2, RefreshCw, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { useRouter } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 
@@ -40,8 +41,9 @@ interface Student {
     duration: string
   } | null
   branch_info?: {
-    location_id: string
-    branch_id: string
+    location_id?: string
+    branch_id?: string
+    branch_name?: string
   } | null
   address?: {
     line1: string
@@ -55,6 +57,16 @@ interface Student {
 
 export default function StudentList() {
   const router = useRouter()
+  // Redirect super admin to role-based URL so the address bar shows /super-admin/dashboard/students
+  useEffect(() => {
+    const user = TokenManager.getUser()
+    const role = (user as any)?.role
+    if (role === "superadmin" || role === "super_admin") {
+      router.replace("/super-admin/dashboard/students")
+      return
+    }
+  }, [router])
+
   const [showAssignPopup, setShowAssignPopup] = useState(false)
   const [showDeletePopup, setShowDeletePopup] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null)
@@ -70,10 +82,16 @@ export default function StudentList() {
   const [assignmentLoading, setAssignmentLoading] = useState(false)
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [unassignedStudents, setUnassignedStudents] = useState<Student[]>([])
+  const [unassignedStudentsLoading, setUnassignedStudentsLoading] = useState(false)
+  const [assignStudentSearch, setAssignStudentSearch] = useState("")
+  const [assignStudentDropdownOpen, setAssignStudentDropdownOpen] = useState(false)
+  const [listViewFilter, setListViewFilter] = useState<'all' | 'unassigned'>('all')
 // Pagination state
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 5
-  // Fetch students from API
+  const [refreshKey, setRefreshKey] = useState(0)
+  // Fetch students from API (re-runs when refreshKey changes, e.g. after assign)
   useEffect(() => {
     const fetchStudents = async () => {
       try {
@@ -86,7 +104,7 @@ const itemsPerPage = 5
         if (!token) {
           console.log("No token found, attempting to get development token...")
           try {
-            const loginResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/superadmin/login`, {
+            const loginResponse = await fetch(getBackendApiUrl('superadmin/login'), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -124,7 +142,7 @@ const itemsPerPage = 5
         }
 
         // Try enhanced API first, fallback to basic API
-        let response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/students/details`, {
+        let response = await fetch(getBackendApiUrl('users/students/details'), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -135,7 +153,7 @@ const itemsPerPage = 5
         // If enhanced API fails, try basic users API
         if (!response.ok) {
           console.log("Enhanced API failed, trying basic users API...")
-          response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users?role=student`, {
+          response = await fetch(getBackendApiUrl('users?role=student'), {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -173,7 +191,7 @@ const itemsPerPage = 5
           created_at: student.created_at,
           // Add fallback course info from user model if available
           course_info: student.course || null,
-          branch_info: student.branch || null
+          branch_info: student.branch_info || student.branch || null
         })) : []
 
         setStudents(studentsArray)
@@ -187,7 +205,7 @@ const itemsPerPage = 5
     }
 
     fetchStudents()
-  }, [])
+  }, [refreshKey])
 
   // Fetch branches and courses for the assignment modal
   const fetchBranchesAndCourses = async () => {
@@ -196,7 +214,7 @@ const itemsPerPage = 5
       if (!token) return
 
       // Fetch branches
-      const branchesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches`, {
+      const branchesResponse = await fetch(getBackendApiUrl('branches'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (branchesResponse.ok) {
@@ -205,7 +223,7 @@ const itemsPerPage = 5
       }
 
       // Fetch courses
-      const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses`, {
+      const coursesResponse = await fetch(getBackendApiUrl('courses'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (coursesResponse.ok) {
@@ -217,9 +235,45 @@ const itemsPerPage = 5
     }
   }
 
-  const handleAssignClick = () => {
+  const fetchUnassignedStudents = async () => {
+    setUnassignedStudentsLoading(true)
+    try {
+      const token = TokenManager.getToken()
+      if (!token) return
+      const response = await fetch(getBackendApiUrl('users/students/details?unassigned_only=true'), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setUnassignedStudents(Array.isArray(data.students) ? data.students : [])
+      } else {
+        setUnassignedStudents([])
+      }
+    } catch (e) {
+      console.error('Failed to fetch unassigned students:', e)
+      setUnassignedStudents([])
+    } finally {
+      setUnassignedStudentsLoading(false)
+    }
+  }
+
+  const handleAssignClick = async () => {
     fetchBranchesAndCourses()
     setShowAssignPopup(true)
+    setUnassignedStudents([])
+    await fetchUnassignedStudents()
+  }
+
+  const handleListViewFilterChange = (value: 'all' | 'unassigned') => {
+    setListViewFilter(value)
+    setCurrentPage(1)
+    if (value === 'unassigned' && unassignedStudents.length === 0) {
+      fetchUnassignedStudents()
+    }
   }
 
   const handleAssignConfirm = async () => {
@@ -238,7 +292,7 @@ const itemsPerPage = 5
       }
 
       // Update student with branch and course assignments
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${selectedStudent}`, {
+      const response = await fetch(getBackendApiUrl(`users/${selectedStudent}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -262,13 +316,19 @@ const itemsPerPage = 5
         throw new Error(errorData.detail || errorData.message || `Failed to assign student (${response.status})`)
       }
 
-      // Update local state to reflect changes
+      const assignedBranchName = branches.find((b: any) => b.id === selectedBranch)?.branch?.name
+        || branches.find((b: any) => b.id === selectedBranch)?.name
+        || "Assigned"
       setStudents(prevStudents =>
         prevStudents.map(student =>
           student.id === selectedStudent
             ? {
                 ...student,
-                branch_info: { location_id: "hyderabad", branch_id: selectedBranch },
+                branch_info: {
+                  location_id: "hyderabad",
+                  branch_id: selectedBranch,
+                  branch_name: assignedBranchName
+                },
                 course_info: selectedCourses.length > 0 ? {
                   category_id: "martial-arts",
                   course_id: selectedCourses[0],
@@ -284,6 +344,7 @@ const itemsPerPage = 5
       setSelectedStudent("")
       setSelectedBranch("")
       setSelectedCourses([])
+      setRefreshKey((k) => k + 1)
 
     } catch (error) {
       setAssignmentError(error instanceof Error ? error.message : 'Failed to assign student')
@@ -329,9 +390,9 @@ const itemsPerPage = 5
           throw new Error(`Insufficient permissions. Only Super Admin and Coach Admin can delete students. Current role: ${user?.role || 'none'}`)
         }
 
-        console.log("🚀 Making DELETE request to:", `${process.env.NEXT_PUBLIC_API_BASE_URL}/users/${studentToDelete}`)
+        console.log("🚀 Making DELETE request to:", getBackendApiUrl(`users/${studentToDelete}`))
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentToDelete}`, {
+        const response = await fetch(getBackendApiUrl(`users/${studentToDelete}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -400,7 +461,7 @@ const itemsPerPage = 5
       const student = (Array.isArray(students) ? students : []).find(s => s.id === studentId)
       if (!student) return
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentId}`, {
+      const response = await fetch(getBackendApiUrl(`users/${studentId}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -433,8 +494,11 @@ const itemsPerPage = 5
     setSelectedCourses((prev) => (prev.includes(course) ? prev.filter((c) => c !== course) : [...prev, course]))
   }
 
+  // Base list: all students or unassigned only (when filter is unassigned)
+  const listBaseStudents = listViewFilter === 'unassigned' ? unassignedStudents : students
+
   // Enhanced search functionality - filter students based on search term
-  const filteredStudents = Array.isArray(students) ? students.filter((student) => {
+  const filteredStudents = Array.isArray(listBaseStudents) ? listBaseStudents.filter((student) => {
     if (!searchTerm) return true
 
     const searchLower = searchTerm.toLowerCase()
@@ -470,7 +534,7 @@ const paginatedStudents = filteredStudents.slice(
       <DashboardHeader currentPage="Students" />
 
       {/* Main Content */}
-      <main className="w-full mt-[100px] p-4 lg:p-6 xl:px-12">
+      <main className="w-full p-4 lg:px-8">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-[#4F5077]">Student list</h1>
@@ -507,10 +571,10 @@ const paginatedStudents = filteredStudents.slice(
             <div className="bg-white p-4 rounded-lg shadow border">
               <div className="text-center">
                 <p className="text-sm text-[#4F5077] mb-1">
-                  {searchTerm ? `Filtered Students (${filteredStudents.length}/${students.length})` : 'Total Students'}
+                  {listViewFilter === 'unassigned' ? 'Unassigned students' : searchTerm ? `Filtered (${filteredStudents.length}/${listBaseStudents.length})` : 'Total Students'}
                 </p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {searchTerm ? filteredStudents.length : students.length}
+                  {searchTerm ? filteredStudents.length : listBaseStudents.length}
                 </p>
               </div>
             </div>
@@ -542,9 +606,24 @@ const paginatedStudents = filteredStudents.slice(
           </div>
         )}
 
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
+        {/* List view filter + Search */}
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-[#4F5077]">Show:</span>
+            <Select value={listViewFilter} onValueChange={(v) => handleListViewFilterChange(v as 'all' | 'unassigned')}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All students</SelectItem>
+                <SelectItem value="unassigned">Unassigned only</SelectItem>
+              </SelectContent>
+            </Select>
+            {listViewFilter === 'unassigned' && unassignedStudentsLoading && (
+              <span className="text-sm text-gray-500">Loading unassigned...</span>
+            )}
+          </div>
+          <div className="relative max-w-md flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
             <Input
               placeholder="Search by name, ID, location"
@@ -565,9 +644,8 @@ const paginatedStudents = filteredStudents.slice(
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Gender</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Age</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Courses (Expertise)</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Level</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Duration</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Email Id</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Branch</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Phone Number</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Action</th>
                 </tr>
@@ -575,7 +653,7 @@ const paginatedStudents = filteredStudents.slice(
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading students...</span>
@@ -584,7 +662,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={9} className="py-8 px-6 text-center">
+                    <td colSpan={8} className="py-8 px-6 text-center">
                       <div className="text-red-500 mb-2">
                         <strong>Error loading students:</strong>
                       </div>
@@ -599,9 +677,18 @@ const paginatedStudents = filteredStudents.slice(
                       </Button>
                     </td>
                   </tr>
+                ) : listViewFilter === 'unassigned' && unassignedStudentsLoading ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                        <span>Loading unassigned students...</span>
+                      </div>
+                    </td>
+                  </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
                       <div className="mb-2">
                         {searchTerm ? `No students found matching "${searchTerm}"` : 'No students found'}
                       </div>
@@ -661,18 +748,12 @@ const paginatedStudents = filteredStudents.slice(
                         )}
                       </td>
                       <td className="py-4 px-6">
-                        {student.courses && student.courses.length > 0 && student.courses[0].level ?
-                          student.courses[0].level :
-                          student.role === 'student' ? 'Beginner' : 'N/A'
-                        }
-                      </td>
-                      <td className="py-4 px-6">
                         {student.courses && student.courses.length > 0 && student.courses[0].duration ?
                           student.courses[0].duration :
                           student.course_info?.duration || 'N/A'
                         }
                       </td>
-                      <td className="py-4 px-6">{student.email || 'N/A'}</td>
+                      <td className="py-4 px-6">{student.branch_info?.branch_name || 'Not assigned'}</td>
                       <td className="py-4 px-6">{student.phone || 'N/A'}</td>
                       <td className="py-4 px-6">
                         <div className="flex items-center space-x-2">
@@ -772,6 +853,8 @@ const paginatedStudents = filteredStudents.slice(
                 setSelectedStudent("")
                 setSelectedBranch("")
                 setSelectedCourses([])
+                setAssignStudentSearch("")
+                setAssignStudentDropdownOpen(false)
               }} className="p-1">
                 ×
               </Button>
@@ -784,21 +867,85 @@ const paginatedStudents = filteredStudents.slice(
             )}
 
             <div className="space-y-4">
-              {/* Student Dropdown */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Select Student</label>
-                <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a student..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredStudents.map((student) => (
-                      <SelectItem key={student.id} value={student.id}>
-                        {student.full_name || student.student_name} ({student.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Student: type to search, unassigned only; list shows only on input click */}
+              <div className="relative">
+                <label className="block text-sm font-medium mb-2">Select Student (unassigned only)</label>
+                {unassignedStudentsLoading ? (
+                  <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                    Loading unassigned students...
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      type="text"
+                      placeholder="Type to search unassigned students..."
+                      value={assignStudentSearch}
+                      onChange={(e) => {
+                        setAssignStudentSearch(e.target.value)
+                        setSelectedStudent("")
+                      }}
+                      onFocus={() => setAssignStudentDropdownOpen(true)}
+                      onClick={() => setAssignStudentDropdownOpen(true)}
+                      className="w-full"
+                    />
+                    {selectedStudent && (
+                      <p className="mt-1.5 flex items-center gap-2 text-sm text-gray-700">
+                        <span>Selected: {unassignedStudents.find(s => s.id === selectedStudent)?.full_name || unassignedStudents.find(s => s.id === selectedStudent)?.student_name} ({unassignedStudents.find(s => s.id === selectedStudent)?.email})</span>
+                        <Button type="button" variant="ghost" size="sm" className="h-auto p-0 text-blue-600 hover:text-blue-800" onClick={() => { setSelectedStudent(""); setAssignStudentSearch(""); setAssignStudentDropdownOpen(false) }}>Change</Button>
+                      </p>
+                    )}
+                    {!selectedStudent && assignStudentDropdownOpen && (
+                      <div
+                        className="mt-1 max-h-48 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg z-20 absolute left-0 right-0"
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        {(() => {
+                          const q = assignStudentSearch.trim().toLowerCase()
+                          const filtered = q
+                            ? unassignedStudents.filter(s => {
+                                const name = (s.full_name || s.student_name || "").toLowerCase()
+                                const email = (s.email || "").toLowerCase()
+                                return name.includes(q) || email.includes(q)
+                              })
+                            : unassignedStudents
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="px-3 py-4 text-center text-sm text-gray-500">
+                                {unassignedStudents.length === 0 ? "No unassigned students." : "No match. Type name or email."}
+                              </div>
+                            )
+                          }
+                          return (
+                            <ul className="py-1">
+                              {filtered.map((student) => (
+                                <li key={student.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedStudent(student.id)
+                                      setAssignStudentSearch("")
+                                      setAssignStudentDropdownOpen(false)
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                                  >
+                                    {student.full_name || student.student_name} ({student.email})
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )
+                        })()}
+                      </div>
+                    )}
+                  </>
+                )}
+                {assignStudentDropdownOpen && !selectedStudent && (
+                  <div
+                    className="fixed inset-0 z-10"
+                    aria-hidden
+                    onClick={() => setAssignStudentDropdownOpen(false)}
+                  />
+                )}
               </div>
 
               {/* Branch Dropdown */}

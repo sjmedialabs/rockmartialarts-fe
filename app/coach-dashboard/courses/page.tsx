@@ -185,7 +185,7 @@ export default function AssignedCoursesPage() {
           currentPage="Assigned Courses"
           coachName={coachData?.full_name || coachData?.name}
         />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
@@ -204,7 +204,7 @@ export default function AssignedCoursesPage() {
         coachName={coachData?.full_name || coachData?.name}
       />
       
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-[100px]">
+      <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Page Header */}
           <div className="mb-6">

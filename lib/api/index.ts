@@ -18,9 +18,10 @@ export { searchAPI } from '../searchAPI'
 export { dashboardAPI } from '../dashboardAPI'
 export { paymentAPI } from '../paymentAPI'
 
-// API configuration utilities
+// API configuration utilities (no trailing slash to avoid "//api/...")
 export const getAPIBaseURL = (): string => {
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+  const raw = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+  return raw.replace(/\/+$/, '')
 }
 
 // Helper function to check if API is in development mode

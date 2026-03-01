@@ -25,7 +25,8 @@ import {
   CheckCircle,
   XCircle
 } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
+import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface StudentDetails {
@@ -129,7 +130,7 @@ export default function BranchManagerStudentDetailPage() {
 
       // Fetch student basic details
       console.log('🔍 Fetching student details for ID:', studentId)
-      const studentResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentId}`, {
+      const studentResponse = await fetch(getBackendApiUrl(`users/${studentId}`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -192,7 +193,7 @@ export default function BranchManagerStudentDetailPage() {
 
       // Fetch enrollment history
       console.log('🔍 Fetching enrollment history...')
-      const enrollmentResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentId}/enrollments`, {
+      const enrollmentResponse = await fetch(getBackendApiUrl(`users/${studentId}/enrollments`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -219,7 +220,7 @@ export default function BranchManagerStudentDetailPage() {
 
       // Fetch payment history
       console.log('🔍 Fetching payment history...')
-      const paymentResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentId}/payments`, {
+      const paymentResponse = await fetch(getBackendApiUrl(`users/${studentId}/payments`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -311,9 +312,9 @@ export default function BranchManagerStudentDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Student Details" />
+        <Header title="Student Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="animate-pulse space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="h-8 w-8 bg-gray-200 rounded"></div>
@@ -367,9 +368,9 @@ export default function BranchManagerStudentDetailPage() {
 
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Student Details" />
+        <Header title="Student Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="flex items-center mb-6">
               <Button
                 variant="ghost"
@@ -414,9 +415,9 @@ export default function BranchManagerStudentDetailPage() {
   if (!student) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Student Details" />
+        <Header title="Student Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="animate-pulse space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="h-8 w-8 bg-gray-200 rounded"></div>
@@ -439,10 +440,10 @@ export default function BranchManagerStudentDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Student Details" />
+      <Header title="Student Details" role="branch_admin" />
 
       <main className="w-full p-4 lg:py-4 px-19">
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">

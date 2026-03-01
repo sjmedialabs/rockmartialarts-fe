@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Edit, Trash2, ToggleLeft, ToggleRight, Eye, Mail, Loader2, Plus } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useRouter } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { SuperAdminAuth } from "@/lib/auth"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface BranchManager {
   id: string
@@ -64,6 +66,13 @@ export default function BranchManagersListPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
 
+  // Branch admin cannot access branch managers list — redirect to dashboard
+  useEffect(() => {
+    if (BranchManagerAuth.isAuthenticated()) {
+      router.replace("/dashboard")
+    }
+  }, [router])
+
   // Fetch branch managers from API
 useEffect(() => {
   const fetchData = async () => {
@@ -72,15 +81,14 @@ useEffect(() => {
       setError(null)
 
       console.log("🔄 Starting to fetch branch managers & branches...")
-      console.log("🔗 API Base URL:", process.env.NEXT_PUBLIC_API_BASE_URL)
-
-      // 🔹 Step 1: Health check
-      try {
-        const healthResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/health`)
-        console.log("🏥 Health check:", healthResponse.status, await healthResponse.json())
-      } catch (healthError) {
-        console.error("❌ Health check failed:", healthError)
-        throw new Error("Backend server is not responding. Please ensure the server is running on port 8003.")
+      const backendBase = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL
+      if (backendBase) {
+        try {
+          const healthResponse = await fetch(`${backendBase.replace(/\/$/, "")}/health`)
+          console.log("🏥 Health check:", healthResponse.status, await healthResponse.json().catch(() => ({})))
+        } catch (healthError) {
+          console.warn("Health check failed (continuing):", healthError)
+        }
       }
 
       // 🔹 Step 2: Superadmin auth check
@@ -100,7 +108,7 @@ useEffect(() => {
       }
 
       // 🔹 Step 3: Fetch Branch Managers
-      const managersUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers`
+      const managersUrl = getBackendApiUrl("branch-managers")
       console.log("📡 Fetching managers:", managersUrl)
 
       const managersResponse = await fetch(managersUrl, {
@@ -126,7 +134,7 @@ useEffect(() => {
       console.log("✅ Branch managers fetched:", branchManagersList)
 
       // 🔹 Step 4: Fetch Branches (Authenticated)
-      const branchesUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches?skip=0&limit=50`
+      const branchesUrl = getBackendApiUrl("branches?skip=0&limit=50")
       console.log("📡 Fetching branches:", branchesUrl)
 
       const branchesResponse = await fetch(branchesUrl, {
@@ -207,9 +215,9 @@ useEffect(() => {
           throw new Error(`Insufficient permissions. Only Super Admin can delete branch managers. Current role: ${user?.role || 'none'}`)
         }
 
-        console.log("🚀 Making DELETE request to:", `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers/${selectedManager}`)
+        console.log("🚀 Making DELETE request to:", getBackendApiUrl(`branch-managers/${selectedManager}`))
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers/${selectedManager}`, {
+        const response = await fetch(getBackendApiUrl(`branch-managers/${selectedManager}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -281,7 +289,7 @@ useEffect(() => {
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers/${selectedManagerForCredentials.id}/send-credentials`, {
+      const response = await fetch(getBackendApiUrl(`branch-managers/${selectedManagerForCredentials.id}/send-credentials`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -322,7 +330,7 @@ useEffect(() => {
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers/${managerId}`, {
+      const response = await fetch(getBackendApiUrl(`branch-managers/${managerId}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -393,8 +401,8 @@ const filteredManagers = branchManagers.filter((manager) => {
     return (
       <div className="min-h-screen bg-gray-50">
         <DashboardHeader currentPage="Branch Managers" />
-        <main className="w-full mt-[100px] p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+        <main className="w-full p-4 lg:px-8">
+          <div className="mx-auto">
             <div className="animate-pulse space-y-6">
               <div className="flex justify-between items-center">
                 <div className="h-8 bg-gray-200 rounded w-1/4"></div>
@@ -422,8 +430,8 @@ const filteredManagers = branchManagers.filter((manager) => {
     return (
       <div className="min-h-screen bg-gray-50">
         <DashboardHeader currentPage="Branch Managers" />
-        <main className="w-full mt-[100px] p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+        <main className="w-full p-4 lg:px-8">
+          <div className="mx-auto">
             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
@@ -462,7 +470,7 @@ const filteredManagers = branchManagers.filter((manager) => {
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader currentPage="Branch Managers" />
       
-      <main className="w-full mt-[100px] p-4 lg:py-4 xl:px-12">
+      <main className="w-full p-4 lg:px-8">
         <div className=" mx-auto">
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">

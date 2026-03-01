@@ -303,7 +303,7 @@ function ReportsPageContent() {
     return (
       <div className="min-h-screen bg-gray-50">
         <DashboardHeader currentPage="Reports" />
-        <main className="w-full mt-[100px] p-4 lg:p-6 max-w-7xl mx-auto">
+        <main className="w-full p-4 lg:px-8 mx-auto">
           <PageHeaderSkeleton />
           <SearchBarSkeleton />
           <ReportCategoriesGridSkeleton />
@@ -316,7 +316,7 @@ function ReportsPageContent() {
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader currentPage="Reports" />
 
-      <main className="w-full mt-[100px] p-4 lg:p-6 xl:px-12 mx-auto">
+      <main className="w-full p-4 lg:px-8 mx-auto">
         {/* Page Header - Enhanced with loading states */}
         <div className="flex justify-between items-center mb-6">
           <div>

@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { Send, Search, MessageCircle, Plus, Reply, Archive, Trash2, Loader2, Mail, MailOpen, Clock, User } from "lucide-react"
 import { format } from "date-fns"
 import messageAPI, { Conversation, Message, MessageRecipient, MessageStats } from "@/lib/messageAPI"
@@ -302,11 +302,8 @@ export default function BranchManagerMessagesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader 
-          branchManagerName={branchManagerData?.full_name || "Branch Manager"}
-          onLogout={handleLogout}
-        />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <Header title="Messages" role="branch_admin" />
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-green-600" />
@@ -320,11 +317,8 @@ export default function BranchManagerMessagesPage() {
   if (error && !conversations.length) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader 
-          branchManagerName={branchManagerData?.full_name || "Branch Manager"}
-          onLogout={handleLogout}
-        />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <Header title="Messages" role="branch_admin" />
+        <main className="mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <Card>
               <CardContent className="flex items-center justify-center h-96">
@@ -346,13 +340,10 @@ export default function BranchManagerMessagesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader
-        branchManagerName={branchManagerData?.full_name || "Branch Manager"}
-        onLogout={handleLogout}
-      />
+      <Header title="Messages" role="branch_admin" />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Page Header */}
           <div className="flex justify-between items-center mb-8">

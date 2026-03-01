@@ -1,10 +1,12 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import type React from "react"
 
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
@@ -13,7 +15,7 @@ import { CalendarIcon, MapPinIcon, Building2Icon, FolderIcon, BookOpenIcon, Cloc
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useRouter, useParams } from "next/navigation"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface Branch {
@@ -125,7 +127,7 @@ export default function BranchManagerEditStudent() {
         if (!token) throw new Error("Authentication token not found.")
 
         // Fetch student data first - this is critical and should not fall back to mock data
-        const studentResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentId}`, {
+        const studentResponse = await fetch(getBackendApiUrl(`users/${studentId}`), {
           headers: { 'Authorization': `Bearer ${token}` }
         })
 
@@ -149,7 +151,7 @@ export default function BranchManagerEditStudent() {
           (async () => {
             try {
               setIsLoadingLocations(true)
-              const locationsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/locations/public/details?active_only=true`)
+              const locationsResponse = await fetch(getBackendApiUrl('locations/public/details?active_only=true'))
               if (locationsResponse.ok) {
                 const locationsData = await locationsResponse.json()
                 const locations = locationsData.locations || []
@@ -175,7 +177,7 @@ export default function BranchManagerEditStudent() {
           (async () => {
             try {
               setIsLoadingCourses(true)
-              const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/public/all`)
+              const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'))
               if (coursesResponse.ok) {
                 const coursesData = await coursesResponse.json()
                 const allCourses = coursesData.courses || []
@@ -196,7 +198,7 @@ export default function BranchManagerEditStudent() {
           (async () => {
             try {
               setIsLoadingCategories(true)
-              const categoriesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/public/details?active_only=true`)
+              const categoriesResponse = await fetch(getBackendApiUrl('categories/public/details?active_only=true'))
               if (categoriesResponse.ok) {
                 const categoriesData = await categoriesResponse.json()
                 const categories = categoriesData.categories || []
@@ -313,7 +315,7 @@ export default function BranchManagerEditStudent() {
 
       try {
         setIsLoadingBranches(true)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/public/by-location/${formData.location}?active_only=true`)
+        const response = await fetch(getBackendApiUrl(`branches/public/by-location/${formData.location}?active_only=true`))
 
         if (response.ok) {
           const data = await response.json()
@@ -397,7 +399,7 @@ export default function BranchManagerEditStudent() {
         } : undefined
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${studentId}`, {
+      const response = await fetch(getBackendApiUrl(`users/${studentId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -449,8 +451,8 @@ export default function BranchManagerEditStudent() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Edit Student" />
-        <main className="w-full p-4 lg:p-6">
+        <Header title="Edit Student" role="branch_admin" />
+        <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto mb-4"></div>
@@ -465,8 +467,8 @@ export default function BranchManagerEditStudent() {
   if (errors.submit) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Edit Student" />
-        <main className="w-full p-4 lg:p-6">
+        <Header title="Edit Student" role="branch_admin" />
+        <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Student</h2>
@@ -488,9 +490,9 @@ export default function BranchManagerEditStudent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Edit Student" />
+      <Header title="Edit Student" role="branch_admin" />
 
-      <main className="w-full xl:px-12 mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="w-full mx-auto p-4 sm:p-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 text-[#4F5077]">
           <div className="mb-4 sm:mb-0">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Edit Student</h1>
@@ -629,8 +631,7 @@ export default function BranchManagerEditStudent() {
                       <Label className="block text-sm font-medium mb-2">New Password</Label>
                       <div className="relative">
                         <UserIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="Leave blank to keep current"
                           value={formData.password}
                           onChange={(e) => handleInputChange("password", e.target.value)}

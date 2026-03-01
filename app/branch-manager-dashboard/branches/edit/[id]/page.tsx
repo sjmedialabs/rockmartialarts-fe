@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Users, Clock, CreditCard, AlertCircle, Loader2, X } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface FormData {
@@ -303,8 +303,8 @@ export default function EditBranch() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Edit Branch" />
-        <main className="w-full xl:px-12 mx-auto p-4 sm:p-6 lg:p-8">
+        <Header title="Edit Branch" role="branch_admin" />
+        <main className="w-full mx-auto p-4 sm:p-6 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
@@ -318,9 +318,9 @@ export default function EditBranch() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Edit Branch" />
+      <Header title="Edit Branch" role="branch_admin" />
 
-      <main className="w-full xl:px-12 mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="w-full mx-auto p-4 sm:p-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">

@@ -1,0 +1,10 @@
+"use client"
+
+export default function ProfilePage() {
+  return (
+    <div>
+      <h1>Profile Page - Under Development</h1>
+      <p>Profile image upload feature will be added soon.</p>
+    </div>
+  )
+}

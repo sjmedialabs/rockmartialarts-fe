@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, RefreshCw, DollarSign, Clock, Users, TrendingUp, Eye, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
+import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
@@ -84,7 +85,7 @@ export default function BranchManagerPaymentTrackingPage() {
         
         // First, let's get the branches this manager manages to understand the filtering
         console.log('🔍 DEBUGGING: Fetching branches first to understand filtering...')
-        const branchesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches?limit=100`, {
+        const branchesResponse = await fetch(getBackendApiUrl('branches?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -105,13 +106,13 @@ export default function BranchManagerPaymentTrackingPage() {
         // Fetch payment stats and payments in parallel
         console.log('💰 Now fetching payment data...')
         const [statsResponse, paymentsResponse] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/payments/stats`, {
+          fetch(getBackendApiUrl('payments/stats'), {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
             }
           }),
-          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/payments?limit=100`, {
+          fetch(getBackendApiUrl('payments?limit=100'), {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
@@ -206,13 +207,13 @@ export default function BranchManagerPaymentTrackingPage() {
       // Fetch fresh payment data - backend handles filtering by managed branches
       console.log('🔄 Refreshing payment data...')
       const [statsResponse, paymentsResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/payments/stats`, {
+        fetch(getBackendApiUrl('payments/stats'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           }
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/payments?limit=100`, {
+        fetch(getBackendApiUrl('payments?limit=100'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -306,7 +307,7 @@ export default function BranchManagerPaymentTrackingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Payment Tracking" />
+      <Header title="Payment Tracking" role="branch_admin" />
       
       <main className="w-full p-4 lg:py-4 px-19">
         {/* Header */}

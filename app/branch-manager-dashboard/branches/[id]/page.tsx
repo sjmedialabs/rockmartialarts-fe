@@ -21,7 +21,8 @@ import {
   TrendingUp,
   User
 } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
+import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface BranchDetails {
@@ -109,7 +110,7 @@ export default function BranchManagerBranchDetailPage() {
       console.log('🔍 Fetching branch details for ID:', branchId)
 
       // Call the new backend API endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-details/${branchId}`, {
+      const response = await fetch(getBackendApiUrl(`branch-details/${branchId}`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -178,9 +179,9 @@ export default function BranchManagerBranchDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Branch Details" />
+        <Header title="Branch Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="animate-pulse space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="h-8 w-8 bg-gray-200 rounded"></div>
@@ -204,9 +205,9 @@ export default function BranchManagerBranchDetailPage() {
   if (error || !branch) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Branch Details" />
+        <Header title="Branch Details" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="text-center py-8">
               <p className="text-red-600">{error || "Branch not found"}</p>
               <Button 
@@ -224,10 +225,10 @@ export default function BranchManagerBranchDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Branch Details" />
+      <Header title="Branch Details" role="branch_admin" />
       
       <main className="w-full p-4 lg:py-4 px-19">
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">

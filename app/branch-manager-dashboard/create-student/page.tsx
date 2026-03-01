@@ -1,10 +1,12 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import type React from "react"
 
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -17,7 +19,7 @@ import { useRouter } from "next/navigation"
 import { branchAPI } from "@/lib/branchAPI"
 import { courseAPI } from "@/lib/courseAPI"
 import { useToast } from "@/hooks/use-toast"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface Branch {
@@ -158,7 +160,7 @@ export default function CreateStudent() {
         setIsLoadingLocations(true)
         console.log('Starting to load branches from API...')
 
-        const branchesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/public/all?active_only=true`)
+        const branchesResponse = await fetch(getBackendApiUrl('branches/public/all?active_only=true'))
         console.log('Branches API response status:', branchesResponse.status)
 
         if (branchesResponse.ok) {
@@ -234,7 +236,7 @@ export default function CreateStudent() {
       try {
         // Load categories
         setIsLoadingCategories(true)
-        const categoriesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/public/all?active_only=true`)
+        const categoriesResponse = await fetch(getBackendApiUrl('categories/public/all?active_only=true'))
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json()
           console.log('Categories loaded:', categoriesData)
@@ -256,7 +258,7 @@ export default function CreateStudent() {
       try {
         // Load courses
         setIsLoadingCourses(true)
-        const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/public/all?active_only=true`)
+        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all?active_only=true'))
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json()
           console.log('Courses loaded:', coursesData)
@@ -280,7 +282,7 @@ export default function CreateStudent() {
         setIsLoadingCoaches(true)
         const token = BranchManagerAuth.getToken()
         if (token) {
-          const coachesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches`, {
+          const coachesResponse = await fetch(getBackendApiUrl('coaches'), {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -478,7 +480,7 @@ export default function CreateStudent() {
         console.log("Creating student with payment processing:", paymentData)
 
         // Use payment processing endpoint - same as superadmin version
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/payments/process-registration`, {
+        const response = await fetch(getBackendApiUrl('payments/process-registration'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -526,7 +528,7 @@ export default function CreateStudent() {
         const authHeaders = BranchManagerAuth.getAuthHeaders()
 
         // Make API call using authenticated user creation endpoint
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users`, {
+        const response = await fetch(getBackendApiUrl('users'), {
           method: 'POST',
           headers: authHeaders,
           body: JSON.stringify(apiPayload),
@@ -558,7 +560,7 @@ export default function CreateStudent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Create Student" />
+      <Header title="Create Student" role="branch_admin" />
 
       <main className="w-full p-4 lg:py-4 px-19">
         {/* Loading State */}
@@ -750,8 +752,7 @@ export default function CreateStudent() {
                         <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="Enter password"
                           value={formData.password}
                           onChange={(e) => handleInputChange("password", e.target.value)}

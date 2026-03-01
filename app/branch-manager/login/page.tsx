@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Building2, Lock, Mail } from "lucide-react"
 import { ReCaptchaWrapper, useReCaptcha, ReCaptchaComponent } from "@/components/recaptcha"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { TokenManager } from "@/lib/tokenManager"
 
 // Create a separate component for the branch manager login form content
 function BranchManagerLoginFormContent() {
@@ -21,10 +23,10 @@ function BranchManagerLoginFormContent() {
   const router = useRouter();
   const { getToken, resetRecaptcha, isEnabled } = useReCaptcha()
 
-  // Redirect to dashboard if already logged in as branch manager
+  // Redirect to dashboard if already logged in as branch manager (same screens as super admin)
   useEffect(() => {
     if (BranchManagerAuth.isAuthenticated()) {
-      router.replace("/branch-manager-dashboard");
+      router.replace("/dashboard");
     }
   }, [router]);
 
@@ -62,14 +64,22 @@ function BranchManagerLoginFormContent() {
         body: { ...requestBody, password: "***hidden***" }
       });
 
-      // Call the branch manager login API endpoint
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-managers/login`, {
+      // Use same-origin proxy so the browser never talks directly to the backend
+      const res = await fetch("/api/backend/branch-managers/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody)
       });
 
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        setError("Server returned an invalid response. Is the backend running?");
+        if (isEnabled) resetRecaptcha();
+        setLoading(false);
+        return;
+      }
       console.log("Branch Manager login response:", data);
 
       if (!res.ok) {
@@ -91,8 +101,21 @@ function BranchManagerLoginFormContent() {
         return;
       }
 
-      // Store authentication data using the new BranchManagerAuth utility
+      // Store authentication data using BranchManagerAuth (primary for branch-admin)
       const userData = BranchManagerAuth.storeLoginData(data);
+      // Also sync to TokenManager so /branch-admin/dashboard/* pages that use TokenManager get the same token
+      TokenManager.storeAuthData({
+        access_token: data.access_token,
+        token_type: data.token_type || "bearer",
+        expires_in: data.expires_in ?? 86400,
+        user: {
+          id: userData.id,
+          full_name: userData.full_name,
+          email: userData.email,
+          role: "branch_manager",
+          ...userData
+        }
+      });
 
       console.log("Branch Manager login successful:", {
         manager_id: userData.id,
@@ -104,14 +127,18 @@ function BranchManagerLoginFormContent() {
         expires_in: data.expires_in
       });
 
-      // Redirect to branch manager dashboard
-      router.push("/branch-manager-dashboard");
+      // Redirect to dashboard (same screens as super admin)
+      router.push("/branch-admin/dashboard");
     } catch (err) {
       console.error("Branch Manager login error:", err);
-      setError("An error occurred during login. Please check your connection and try again.");
-      if (isEnabled) {
-        resetRecaptcha();
-      }
+      const msg = err instanceof Error ? err.message : String(err);
+      const isNetwork = /fetch|network|failed to load/i.test(msg) || msg === "Load failed";
+      setError(
+        isNetwork
+          ? "Cannot reach the server. Make sure the backend is running (see terminal)."
+          : "An error occurred during login. Please try again."
+      );
+      if (isEnabled) resetRecaptcha();
     } finally {
       setLoading(false);
     }
@@ -143,7 +170,7 @@ function BranchManagerLoginFormContent() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white mt-[100px]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
           {/* Header */}
           <div className="text-center space-y-4">
@@ -200,12 +227,11 @@ function BranchManagerLoginFormContent() {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-[#000]" />
                 </div>
-                <Input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   autoComplete="current-password"
-                   className="pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500"
+                  className="pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { checkBranchManagerAuth, getBranchManagerAuthHeaders } from "@/lib/branchManagerAuth"
 
 interface AttendanceRecord {
@@ -391,7 +391,7 @@ export default function BranchManagerStudentAttendancePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader />
+      <Header title="Attendance" role="branch_admin" />
       
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">

@@ -1,5 +1,6 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,7 @@ import {
   Loader2,
   RefreshCw
 } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { studentAPI } from "@/lib/studentAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { toast } from "sonner"
@@ -164,7 +165,7 @@ export default function BranchManagerStudentReports() {
 
       try {
         // For branch managers, we'll get their assigned branches
-        const response = await fetch('/api/branches', {
+        const response = await fetch(getBackendApiUrl('branches'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -365,9 +366,9 @@ export default function BranchManagerStudentReports() {
   if (!currentBranchManager || !token) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Reports" />
+        <Header title="Reports" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading...</p>
@@ -380,10 +381,10 @@ export default function BranchManagerStudentReports() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Reports" />
+      <Header title="Reports" role="branch_admin" />
 
       <main className="w-full p-4 lg:py-4 px-19">
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="mx-auto space-y-6">
 
           {/* Header Section - Same as superadmin */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

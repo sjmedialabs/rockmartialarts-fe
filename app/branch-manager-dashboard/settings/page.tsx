@@ -24,7 +24,7 @@ import {
   AlertTriangle,
   Info
 } from "lucide-react"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { useToast } from "@/hooks/use-toast"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
@@ -257,7 +257,7 @@ export default function BranchManagerSettingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Settings" />
+        <Header title="Settings" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
           <div className="max-w-4xl mx-auto">
             <div className="animate-pulse space-y-6">
@@ -282,7 +282,7 @@ export default function BranchManagerSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Settings" />
+      <Header title="Settings" role="branch_admin" />
       
       <main className="w-full p-4 lg:py-4 px-19">
         <div className="max-w-4xl mx-auto">

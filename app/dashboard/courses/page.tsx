@@ -1,5 +1,6 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -63,7 +64,7 @@ export default function CourseListPage() {
         setLoading(true)
         setError(null)
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/public/all`, {
+        const response = await fetch(getBackendApiUrl('courses/public/all'), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
@@ -133,7 +134,7 @@ export default function CourseListPage() {
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/${courseToDelete}`, {
+        const response = await fetch(getBackendApiUrl(`courses/${courseToDelete}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -168,7 +169,7 @@ export default function CourseListPage() {
       const course = courses.find(c => c.id === courseId)
       if (!course) return
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/${courseId}`, {
+      const response = await fetch(getBackendApiUrl(`courses/${courseId}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -208,7 +209,7 @@ export default function CourseListPage() {
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader currentPage="Courses" />
 
-      <main className="w-full mt-[100px] p-4 lg:p-6 xl:px-12">
+      <main className="w-full p-4 lg:px-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Course list</h1>
           <Button

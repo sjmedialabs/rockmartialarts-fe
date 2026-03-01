@@ -1,10 +1,12 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import type React from "react"
 
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -272,7 +274,7 @@ export default function CreateStudent() {
         // Load locations
         console.log('📍 Loading locations...')
         setIsLoadingLocations(true)
-        const locationsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/locations/public/details?active_only=true`)
+        const locationsResponse = await fetch(getBackendApiUrl('locations/public/details?active_only=true'))
         if (locationsResponse.ok) {
           const locationsData = await locationsResponse.json()
           setLocations(locationsData.locations || [])
@@ -297,7 +299,7 @@ export default function CreateStudent() {
       try {
         // Load courses
         setIsLoadingCourses(true)
-        const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/public/all`)
+        const coursesResponse = await fetch(getBackendApiUrl('courses/public/all'))
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json()
           const allCourses = coursesData.courses || []
@@ -318,7 +320,7 @@ export default function CreateStudent() {
       try {
         // Load categories
         setIsLoadingCategories(true)
-        const categoriesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/public/details?active_only=true`)
+        const categoriesResponse = await fetch(getBackendApiUrl('categories/public/details?active_only=true'))
         if (categoriesResponse.ok) {
           const categoriesData = await categoriesResponse.json()
           setCategories(categoriesData.categories || [])
@@ -385,7 +387,7 @@ export default function CreateStudent() {
         setIsLoadingCoaches(true)
         console.log('📡 Loading coaches for course:', formData.course)
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/public/by-course/${formData.course}`)
+        const response = await fetch(getBackendApiUrl(`coaches/public/by-course/${formData.course}`))
 
         if (response.ok) {
           const data = await response.json()
@@ -432,7 +434,7 @@ export default function CreateStudent() {
 
       try {
         setIsLoadingBranches(true)
-        const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/public/by-location/${formData.location}?active_only=true`
+        const url = getBackendApiUrl(`branches/public/by-location/${formData.location}?active_only=true`)
         console.log('📡 Fetching branches from:', url)
 
         const response = await fetch(url)
@@ -560,7 +562,7 @@ export default function CreateStudent() {
         console.log("Creating student with payment processing:", paymentData)
 
         // Use payment processing endpoint
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/payments/process-registration`, {
+        const response = await fetch(getBackendApiUrl('payments/process-registration'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -645,7 +647,7 @@ export default function CreateStudent() {
         console.log("Creating student without payment:", apiPayload)
 
         // Make API call using public registration endpoint (no auth required)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/register`, {
+        const response = await fetch(getBackendApiUrl('auth/register'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -946,8 +948,7 @@ export default function CreateStudent() {
                         <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="Enter password"
                           value={formData.password}
                           onChange={(e) => handleInputChange("password", e.target.value)}

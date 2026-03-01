@@ -12,7 +12,7 @@ import { ArrowLeft, Upload, Plus, X, Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 export default function CreateCoursePage() {
@@ -215,7 +215,7 @@ export default function CreateCoursePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Create Course" />
+      <Header title="Create Course" role="branch_admin" />
 
       <main className="w-full py-4 lg:py-6 px-19">
         {/* Header with Back Button */}

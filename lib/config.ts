@@ -7,7 +7,8 @@ export interface APIConfig {
 }
 
 export const getAPIConfig = (): APIConfig => {
-  const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+  const raw = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+  const baseURL = raw.replace(/\/+$/, '') // avoid "//api/..." when endpoint starts with /
   const timeout = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000', 10)
   const retryAttempts = parseInt(process.env.NEXT_PUBLIC_API_RETRY_ATTEMPTS || '3', 10)
   const isDevelopment = baseURL.includes('localhost') || baseURL.includes('127.0.0.1')
@@ -57,3 +58,20 @@ export const getCurrentEnvironment = (): keyof typeof environments => {
 
 // Export current config
 export const apiConfig = getAPIConfig()
+
+/**
+ * Use proxy (same-origin /api/backend/...) to avoid CORS and "Method Not Allowed" when
+ * the browser talks to the backend on another port. In the browser we always use the
+ * proxy so requests work without relying on env being set at build time.
+ */
+export function getBackendApiUrl(path: string): string {
+  const p = path.startsWith('/') ? path.slice(1) : path
+  const useProxy =
+    process.env.NEXT_PUBLIC_USE_BACKEND_PROXY === 'true' ||
+    typeof window !== 'undefined'
+  if (useProxy) {
+    return `/api/backend/${p}`
+  }
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8003').replace(/\/$/, '')
+  return `${base}/api/${p}`
+}

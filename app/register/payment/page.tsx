@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -45,7 +46,7 @@ export default function PaymentPage() {
       try {
         // Fetch course details to get actual price
         const courseResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/courses/${registrationData.course_id}`,
+          getBackendApiUrl(`courses/${registrationData.course_id}`),
           {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
@@ -76,8 +77,7 @@ export default function PaymentPage() {
         const oneMonthDuration = "1-month"
         
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/courses/${registrationData.course_id}/payment-info?` +
-          `branch_id=${registrationData.branch_id}&duration=${oneMonthDuration}`,
+          getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?branch_id=${registrationData.branch_id}&duration=${oneMonthDuration}`),
           {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
@@ -197,7 +197,7 @@ export default function PaymentPage() {
       </div>
 
       {/* Right Side - Payment Details */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white mt-[100px]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
           {/* Header */}
           <div className="text-center space-y-3">

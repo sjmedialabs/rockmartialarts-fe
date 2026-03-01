@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -66,7 +67,7 @@ export default function SelectCoursePage() {
     const fetchCategories = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch('http://31.97.224.169:8003/api/categories/public/details?active_only=true')
+        const response = await fetch(getBackendApiUrl('categories/public/details?active_only=true'))
         
         if (!response.ok) {
           throw new Error('Failed to fetch categories')
@@ -99,7 +100,7 @@ export default function SelectCoursePage() {
         setIsLoadingCourses(true)
         setError(null) // Clear any previous errors
 
-        const response = await fetch(`http://31.97.224.169:8003/api/courses/public/by-category/${formData.category_id}?active_only=true`)
+        const response = await fetch(getBackendApiUrl(`courses/public/by-category/${formData.category_id}?active_only=true`))
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
@@ -197,7 +198,7 @@ export default function SelectCoursePage() {
       </div>
 
       {/* Right Side - Course Selection Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white mt-[100px]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
           {/* Header */}
           <div className="text-center space-y-3">

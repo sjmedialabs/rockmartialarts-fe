@@ -1,5 +1,6 @@
 "use client"
 
+import { getBackendApiUrl } from "@/lib/config"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -55,9 +56,33 @@ export default function CoachesListPage() {
   const [error, setError] = useState<string | null>(null)
   const [assignmentLoading, setAssignmentLoading] = useState(false)
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
+  const [branchesLoading, setBranchesLoading] = useState(false)
 // Pagination state
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 5
+
+  // Fetch branches for the assignment modal (preload on mount)
+  useEffect(() => {
+    const loadBranches = async () => {
+      const token = TokenManager.getToken()
+      if (!token) return
+      try {
+        setBranchesLoading(true)
+        const response = await fetch(getBackendApiUrl("branches?skip=0&limit=100"), {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setBranches(data.branches || data || [])
+        }
+      } catch (e) {
+        console.error("Error fetching branches:", e)
+      } finally {
+        setBranchesLoading(false)
+      }
+    }
+    loadBranches()
+  }, [])
 
   // Fetch coaches from API
   useEffect(() => {
@@ -71,7 +96,7 @@ const itemsPerPage = 5
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches`, {
+        const response = await fetch(getBackendApiUrl("coaches"), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -102,26 +127,7 @@ const itemsPerPage = 5
     fetchCoaches()
   }, [])
 
-  // Fetch branches for the assignment modal
-  const fetchBranches = async () => {
-    try {
-      const token = TokenManager.getToken()
-      if (!token) return
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setBranches(data.branches || data || [])
-      }
-    } catch (error) {
-      console.error("Error fetching branches:", error)
-    }
-  }
-
   const handleAssignClick = () => {
-    fetchBranches()
     setShowAssignPopup(true)
   }
 
@@ -141,7 +147,7 @@ const itemsPerPage = 5
       }
 
       // Update the branch with the new manager_id (coach)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/${assignData.branch}`, {
+      const response = await fetch(getBackendApiUrl(`branches/${assignData.branch}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -181,7 +187,7 @@ const itemsPerPage = 5
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${selectedCoach}`, {
+        const response = await fetch(getBackendApiUrl(`coaches/${selectedCoach}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -229,7 +235,7 @@ const itemsPerPage = 5
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${selectedCoachForCredentials.id}/send-credentials`, {
+      const response = await fetch(getBackendApiUrl(`coaches/${selectedCoachForCredentials.id}/send-credentials`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -274,7 +280,7 @@ const itemsPerPage = 5
       const coach = coaches.find(c => c.id === coachId)
       if (!coach) return
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/coaches/${coachId}`, {
+      const response = await fetch(getBackendApiUrl(`coaches/${coachId}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -331,7 +337,7 @@ const paginatedCoaches = filteredCoaches.slice(
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader currentPage="Coaches" />
 
-      <main className="w-full mt-[100px] p-4 xl:px-12 lg:py-6">
+      <main className="w-full p-4 lg:px-8">
         {/* Page Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Coach list</h1>
@@ -531,15 +537,16 @@ const paginatedCoaches = filteredCoaches.slice(
                 <Select
                   value={assignData.branch}
                   onValueChange={(value) => setAssignData({ ...assignData, branch: value })}
+                  disabled={branchesLoading}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a branch..." />
+                    <SelectValue placeholder={branchesLoading ? "Loading branches..." : branches.length === 0 ? "No branches available" : "Choose a branch..."} />
                   </SelectTrigger>
                   <SelectContent>
                     {branches.map((branch) => {
-                      const branchName = branch.branch?.name || branch.name
-                      const address = branch.branch?.address || branch.address
-                      const addressText = address ? `${address.area}, ${address.city}` : 'No address'
+                      const branchName = branch.branch?.name ?? branch.name ?? "Unnamed Branch"
+                      const address = branch.branch?.address ?? branch.address
+                      const addressText = address ? [address.area, address.city].filter(Boolean).join(", ") || "No address" : "No address"
 
                       return (
                         <SelectItem key={branch.id} value={branch.id}>
@@ -557,7 +564,7 @@ const paginatedCoaches = filteredCoaches.slice(
                   onValueChange={(value) => setAssignData({ ...assignData, coach: value })}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a coach..." />
+                    <SelectValue placeholder={filteredCoaches.length === 0 ? "No coaches available" : "Choose a coach..."} />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredCoaches.map((coach) => (

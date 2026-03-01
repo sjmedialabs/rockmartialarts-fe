@@ -29,7 +29,7 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import BranchManagerDashboardHeader from "@/components/branch-manager-dashboard-header"
+import Header from "@/components/layout/Header"
 import { reportsAPI } from "@/lib/reportsAPI"
 import { toast } from "sonner"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
@@ -438,9 +438,9 @@ export default function BranchManagerIndividualReport() {
   if (!currentCategory || !currentReport) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BranchManagerDashboardHeader currentPage="Reports" />
+        <Header title="Reports" role="branch_admin" />
         <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto">
             <div className="text-center py-12">
               <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Report Not Found</h2>
@@ -457,10 +457,10 @@ export default function BranchManagerIndividualReport() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BranchManagerDashboardHeader currentPage="Reports" />
+      <Header title="Reports" role="branch_admin" />
       
       <main className="w-full p-4 lg:py-4 px-19">
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto">
           {/* Breadcrumb */}
           <div className="flex items-center mb-6">
             <Button

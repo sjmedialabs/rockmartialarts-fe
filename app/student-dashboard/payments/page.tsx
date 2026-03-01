@@ -1,189 +1,125 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import StudentDashboardLayout from "@/components/student-dashboard-layout"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import StudentDashboardLayout from "@/components/student-dashboard-layout"
-import { CardSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton"
-import { ErrorBoundary } from "@/components/error-boundary"
-import studentPaymentAPI, { PaymentRecord, PaymentStats, EnrollmentWithPayments } from "@/lib/studentPaymentAPI"
+import { Separator } from "@/components/ui/separator"
 import {
+  Calendar,
   CreditCard,
-  DollarSign,
   AlertCircle,
+  RefreshCw,
+  Download,
   CheckCircle,
   Clock,
-  Calendar,
-  Receipt,
+  BookOpen,
   TrendingUp,
-  Download,
-  RefreshCw
+  IndianRupee,
+  ArrowRight
 } from "lucide-react"
+import { studentPaymentAPI, type PaymentRecord } from "@/lib/studentPaymentAPI"
+import { studentProfileAPI, type StudentEnrollment } from "@/lib/studentProfileAPI"
 
 export default function StudentPaymentsPage() {
   const router = useRouter()
-  const [studentData, setStudentData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([])
-  const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
-  const [enrollments, setEnrollments] = useState<EnrollmentWithPayments[]>([])
-  const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [studentData, setStudentData] = useState<any>(null)
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([])
+  const [enrollments, setEnrollments] = useState<StudentEnrollment[]>([])
+  const [totalPaid, setTotalPaid] = useState(0)
+  const [totalPending, setTotalPending] = useState(0)
 
   useEffect(() => {
-    // Check if user is logged in
     const token = localStorage.getItem("token")
     const user = localStorage.getItem("user")
-    
+
     if (!token) {
       router.push("/login")
       return
     }
 
-    // Try to get user data from localStorage
     if (user) {
-      try {
-        const userData = JSON.parse(user)
-        
-        // Check if user is actually a student
-        if (userData.role !== "student") {
-          if (userData.role === "coach") {
-            router.push("/coach-dashboard")
-          } else {
-            router.push("/dashboard")
-          }
-          return
+      const userData = JSON.parse(user)
+      if (userData.role !== "student") {
+        if (userData.role === "coach") {
+          router.push("/coach-dashboard")
+        } else {
+          router.push("/dashboard")
         }
-        
-        setStudentData({
-          name: userData.full_name || `${userData.first_name} ${userData.last_name}` || userData.name || "Student",
-          email: userData.email || "student@example.com",
-        })
-
-        // Load payment data
-        loadPaymentData(token)
-      } catch (error) {
-        console.error("Error parsing user data:", error)
-        setStudentData({
-          name: "Student",
-          email: "student@example.com",
-        })
-        setError("Error loading user data")
+        return
       }
-    } else {
       setStudentData({
-        name: "Student",
-        email: "student@example.com",
+        name: userData.full_name || userData.name || "Student",
+        email: userData.email || ""
       })
-      setError("No user data found")
     }
+
+    loadPaymentData(token)
   }, [router])
 
-  const loadPaymentData = async (token: string, showRefreshing = false) => {
+  const loadPaymentData = async (token: string) => {
     try {
-      if (showRefreshing) {
-        setRefreshing(true)
-      } else {
-        setLoading(true)
-      }
+      setLoading(true)
       setError(null)
 
-      console.log("🔄 Loading payment data with token:", token?.substring(0, 20) + "...")
+      // Load payment history
+      const history = await studentPaymentAPI.getPaymentHistory(token)
+      setPaymentHistory(history)
 
-      // Load payment history first (this is working according to our tests)
-      console.log("📊 Fetching payment history...")
-      const historyData = await studentPaymentAPI.getPaymentHistory(token)
-      console.log("✅ Payment history loaded:", historyData?.length, "records")
-      setPaymentHistory(historyData)
+      // Calculate totals from payment history
+      const paid = history
+        .filter(p => p.payment_status === 'paid')
+        .reduce((sum, p) => sum + p.amount, 0)
+      const pending = history
+        .filter(p => p.payment_status === 'pending' || p.payment_status === 'overdue')
+        .reduce((sum, p) => sum + p.amount, 0)
+      
+      setTotalPaid(paid)
+      setTotalPending(pending)
 
-      // Load payment stats
-      console.log("📈 Fetching payment stats...")
-      const statsData = await studentPaymentAPI.getPaymentStats(token)
-      console.log("✅ Payment stats loaded:", statsData)
-      setPaymentStats(statsData)
+      // Load enrollments with course details
+      const profileResponse = await studentProfileAPI.getProfile(token)
+      const enrollmentsData = profileResponse.profile.enrollments || []
+      setEnrollments(enrollmentsData)
 
-      // Load enrollments (this might fail, so handle separately)
-      console.log("🎓 Fetching enrollments...")
-      try {
-        const enrollmentsData = await studentPaymentAPI.getEnrollmentsWithPayments(token)
-        console.log("✅ Enrollments loaded:", enrollmentsData?.length, "records")
-        setEnrollments(enrollmentsData)
-      } catch (enrollmentError) {
-        console.warn("⚠️ Enrollment loading failed (non-critical):", enrollmentError)
-        setEnrollments([]) // Set empty array so UI doesn't break
-      }
-
-      console.log("🎉 Payment data loading completed successfully")
-    } catch (error) {
-      console.error("❌ Error loading payment data:", error)
+    } catch (error: any) {
+      console.error("Error loading payment data:", error)
       setError(`Failed to load payment data: ${error.message}. Please try again.`)
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    setRefreshing(true)
     const token = localStorage.getItem("token")
     if (token) {
-      loadPaymentData(token, true)
+      await loadPaymentData(token)
     }
+    setRefreshing(false)
   }
 
   const handleLogout = () => {
-    // Clear all authentication data
     localStorage.removeItem("token")
     localStorage.removeItem("user")
-    localStorage.removeItem("access_token")
-    localStorage.removeItem("token_type")
-    localStorage.removeItem("expires_in")
-    localStorage.removeItem("token_expiration")
     localStorage.removeItem("auth_data")
-
-    // Redirect to login page
     router.push("/login")
   }
 
-  if (loading) {
-    return (
-      <StudentDashboardLayout
-        pageTitle="Payments"
-        pageDescription="Manage your payments and billing information"
-        showBreadcrumb={true}
-        breadcrumbItems={[
-          { label: "Dashboard", href: "/student-dashboard" },
-          { label: "Payments" }
-        ]}
-      >
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <CardSkeleton />
-            <CardSkeleton />
-          </div>
-          <TableSkeleton />
-        </div>
-      </StudentDashboardLayout>
-    )
-  }
-
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'INR'
+      currency: 'INR',
+      minimumFractionDigits: 2
     }).format(amount)
   }
 
-  // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
@@ -192,237 +128,394 @@ export default function StudentPaymentsPage() {
     })
   }
 
+  const getDaysUntilDue = (dueDate: string) => {
+    const due = new Date(dueDate)
+    const now = new Date()
+    const diffTime = due.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
+  }
+
   const getStatusBadge = (status: string) => {
-    const statusInfo = studentPaymentAPI.formatPaymentStatus(status)
+    const variants: any = {
+      paid: { variant: "default", className: "bg-green-100 text-green-800 border-green-200" },
+      pending: { variant: "secondary", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+      overdue: { variant: "destructive", className: "bg-red-100 text-red-800 border-red-200" },
+      cancelled: { variant: "outline", className: "bg-gray-100 text-gray-800 border-gray-200" }
+    }
+    const config = variants[status] || variants.pending
     return (
-      <Badge className={`${statusInfo.bgColor} ${statusInfo.color} border-0`}>
-        {statusInfo.label}
+      <Badge className={config.className}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     )
   }
 
-  return (
-    <ErrorBoundary>
+  const getPaymentMethodIcon = (method: string) => {
+    return <CreditCard className="h-4 w-4" />
+  }
+
+  const handlePayment = (enrollment: StudentEnrollment, isRenewal: boolean = false) => {
+    // In a real implementation, integrate with payment gateway
+    const message = isRenewal 
+      ? `Renew subscription for ${enrollment.course_name}\n\nThis will extend your access for the next billing period starting from ${formatDate(enrollment.end_date)}.`
+      : `Make payment for ${enrollment.course_name}\n\nCurrent status: ${enrollment.payment_status}`
+    
+    alert(`Payment Gateway Integration\n\n${message}\n\nPayment gateway (Razorpay/Stripe) will be integrated here.`)
+  }
+
+  const handleExport = () => {
+    // Simple CSV export
+    const headers = ["Transaction ID", "Date", "Type", "Course", "Amount", "Method", "Status"]
+    const rows = paymentHistory.map(p => [
+      p.transaction_id || p.id,
+      formatDate(p.payment_date || p.created_at),
+      studentPaymentAPI.formatPaymentType(p.payment_type),
+      p.course_details?.course_name || "N/A",
+      formatCurrency(p.amount),
+      p.payment_method.replace(/_/g, ' '),
+      p.payment_status
+    ])
+    
+    const csv = [headers, ...rows].map(row => row.join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `payment_history_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+  }
+
+  if (loading) {
+    return (
       <StudentDashboardLayout
-        studentName={studentData?.name || "Student"}
+        studentName={studentData?.name}
         onLogout={handleLogout}
-        pageTitle="Payments"
-        pageDescription="Manage your payments and billing information"
-        showBreadcrumb={true}
-        breadcrumbItems={[
-          { label: "Dashboard", href: "/student-dashboard" },
-          { label: "Payments" }
-        ]}
-        headerActions={
-          <Button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            variant="outline"
-            size="sm"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
-        }
+        isLoading={true}
       >
-        {/* Error State */}
+        <div className="space-y-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </StudentDashboardLayout>
+    )
+  }
+
+  return (
+    <StudentDashboardLayout
+      studentName={studentData?.name}
+      onLogout={handleLogout}
+      isLoading={loading}
+    >
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <CreditCard className="h-8 w-8" />
+              Payment History
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your subscriptions and view transaction history
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={paymentHistory.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        </div>
+
         {error && (
-          <Alert className="mb-6">
+          <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {error}
-              <Button
-                onClick={handleRefresh}
-                variant="link"
-                className="ml-2 p-0 h-auto"
-              >
-                Try again
-              </Button>
-            </AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        {/* Debug Info (remove in production) */}
-        {process.env.NODE_ENV === 'development' && (
-          <Alert className="mb-6 bg-blue-50 border-blue-200">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <strong>Debug Info:</strong> Payment History: {paymentHistory?.length || 0} records,
-              Stats: {paymentStats ? 'loaded' : 'not loaded'},
-              Enrollments: {enrollments?.length || 0} records
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Payment Statistics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-green-700">
-                    {paymentStats ? formatCurrency(paymentStats.total_paid) : '₹0'}
-                  </p>
-                  <p className="text-sm text-green-600 mt-1">Total Paid</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
+        {/* Payment Statistics */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(totalPaid)}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                All time payments
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-yellow-700">
-                    {paymentStats ? formatCurrency(paymentStats.total_pending) : '₹0'}
-                  </p>
-                  <p className="text-sm text-yellow-600 mt-1">Pending</p>
-                </div>
-                <Clock className="h-8 w-8 text-yellow-600" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+              <Clock className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">
+                {formatCurrency(totalPending)}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Due payments
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-red-700">
-                    {paymentStats ? formatCurrency(paymentStats.total_overdue) : '₹0'}
-                  </p>
-                  <p className="text-sm text-red-600 mt-1">Overdue</p>
-                </div>
-                <AlertCircle className="h-8 w-8 text-red-600" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Courses</CardTitle>
+              <BookOpen className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                {enrollments.filter(e => e.is_active).length}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Enrolled courses
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-bold text-blue-700">
-                    {paymentStats?.next_due_date ? formatDate(paymentStats.next_due_date) : 'No due date'}
-                  </p>
-                  <p className="text-sm text-blue-600 mt-1">Next Due Date</p>
-                  {paymentStats?.next_due_amount && (
-                    <p className="text-xs text-blue-500 mt-1">
-                      {formatCurrency(paymentStats.next_due_amount)}
-                    </p>
-                  )}
-                </div>
-                <Calendar className="h-8 w-8 text-blue-600" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">
+                {paymentHistory.length}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Total records
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Outstanding Payments */}
-        {paymentHistory.filter(payment => payment.payment_status === "overdue" || payment.payment_status === "pending").length > 0 && (
-          <Card className="mb-8 border-red-200 bg-red-50">
+        {/* Course Subscriptions */}
+        {enrollments.length > 0 && (
+          <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle className="text-red-700 flex items-center">
-                    <AlertCircle className="h-5 w-5 mr-2" />
-                    Outstanding Payments
-                  </CardTitle>
-                  <CardDescription>Payments that require immediate attention</CardDescription>
-                </div>
-                <Button className="bg-red-600 hover:bg-red-700 text-white">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  PAY NOW
-                </Button>
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Course Subscriptions
+              </CardTitle>
+              <CardDescription>
+                Manage your course enrollments and renewal dates. You can renew anytime before or after expiration.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {paymentHistory
-                  .filter(payment => payment.payment_status === "overdue" || payment.payment_status === "pending")
-                  .map((payment) => (
-                    <div key={payment.id} className="flex justify-between items-center p-4 bg-white rounded-lg border border-red-200 shadow-sm">
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">
-                          {studentPaymentAPI.formatPaymentType(payment.payment_type)}
-                          {payment.course_details && ` - ${payment.course_details.course_name}`}
-                        </p>
-                        <p className="text-sm text-gray-600">Due: {formatDate(payment.due_date)}</p>
-                        {payment.notes && (
-                          <p className="text-xs text-gray-500 mt-1">{payment.notes}</p>
-                        )}
-                      </div>
-                      <div className="text-right ml-4">
-                        <p className="font-bold text-lg text-red-600">{formatCurrency(payment.amount)}</p>
-                        {getStatusBadge(payment.payment_status)}
+                {enrollments.map((enrollment) => {
+                  const daysUntil = getDaysUntilDue(enrollment.end_date)
+                  const isExpiringSoon = daysUntil <= 30 && daysUntil > 0
+                  const isExpired = daysUntil < 0
+                  const isActive = enrollment.is_active && enrollment.payment_status === 'paid' && !isExpired
+
+                  return (
+                    <div
+                      key={enrollment.id}
+                      className={`p-4 rounded-lg border ${
+                        isExpired ? 'border-red-200 bg-red-50' : 
+                        isExpiringSoon ? 'border-yellow-200 bg-yellow-50' : 
+                        isActive ? 'border-green-200 bg-green-50' :
+                        'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-lg">{enrollment.course_name}</h3>
+                            {enrollment.is_active ? (
+                              <Badge className="bg-green-100 text-green-800 border-green-200">
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-gray-100 text-gray-800 border-gray-200">
+                                Inactive
+                              </Badge>
+                            )}
+                            {isActive && (
+                              <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Paid
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4" />
+                              <span>Started: {formatDate(enrollment.start_date)}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4" />
+                              <span className={isExpired ? 'text-red-600 font-medium' : isExpiringSoon ? 'text-yellow-600 font-medium' : ''}>
+                                {isExpired ? 'Expired' : 'Expires'}: {formatDate(enrollment.end_date)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <IndianRupee className="h-4 w-4" />
+                              <span>Payment: {getStatusBadge(enrollment.payment_status)}</span>
+                            </div>
+                          </div>
+
+                          {/* Status Messages */}
+                          {isExpired && (
+                            <div className="mt-3 p-2 rounded text-sm bg-red-100 text-red-800">
+                              <div className="flex items-center gap-2">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>Subscription expired {Math.abs(daysUntil)} days ago. Renew now to regain access.</span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {isExpiringSoon && (
+                            <div className="mt-3 p-2 rounded text-sm bg-yellow-100 text-yellow-800">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                <span>Subscription expires in {daysUntil} days. Renew early to avoid interruption.</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {isActive && (
+                            <div className="mt-3 p-2 rounded text-sm bg-green-100 text-green-800">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Your subscription is active. You can renew anytime to extend for upcoming months.</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
+                          {isExpired ? (
+                            <Button 
+                              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
+                              onClick={() => handlePayment(enrollment, false)}
+                            >
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Renew Now
+                            </Button>
+                          ) : enrollment.payment_status !== 'paid' ? (
+                            <Button 
+                              className="bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto"
+                              onClick={() => handlePayment(enrollment, false)}
+                            >
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Pay Now
+                            </Button>
+                          ) : (
+                            <>
+                              <Button 
+                                className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                                onClick={() => handlePayment(enrollment, true)}
+                              >
+                                <ArrowRight className="h-4 w-4 mr-2" />
+                                Renew for Next Period
+                              </Button>
+                              {isExpiringSoon && (
+                                <p className="text-xs text-center text-muted-foreground">
+                                  Renew before {formatDate(enrollment.end_date)}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  ))}
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Payment History */}
+        {/* Transaction History */}
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="flex items-center">
-                  <Receipt className="h-5 w-5 mr-2" />
-                  Payment History
-                </CardTitle>
-                <CardDescription>Your complete payment transaction history</CardDescription>
-              </div>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </div>
+            <CardTitle>Transaction History</CardTitle>
+            <CardDescription>
+              Your complete payment transaction history
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {paymentHistory.length === 0 ? (
-              <div className="text-center py-8">
-                <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <div className="text-center py-12">
+                <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">No payment history found</p>
-                <p className="text-sm text-gray-400 mt-1">Your payment transactions will appear here</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Transaction ID</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Course</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Amount</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Method</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                    <tr className="border-b text-left text-sm text-muted-foreground">
+                      <th className="pb-3 font-medium">Transaction ID</th>
+                      <th className="pb-3 font-medium">Date</th>
+                      <th className="pb-3 font-medium">Type</th>
+                      <th className="pb-3 font-medium">Course</th>
+                      <th className="pb-3 font-medium text-right">Amount</th>
+                      <th className="pb-3 font-medium">Method</th>
+                      <th className="pb-3 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paymentHistory.map((payment) => (
-                      <tr key={payment.id} className="border-b hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-gray-900 font-medium">
-                          {payment.transaction_id || payment.id.slice(0, 8)}
+                      <tr key={payment.id} className="border-b last:border-b-0 hover:bg-gray-50">
+                        <td className="py-4 text-sm font-mono">
+                          {payment.transaction_id || payment.id.substring(0, 16).toUpperCase()}
                         </td>
-                        <td className="py-3 px-4 text-gray-600">
-                          {payment.payment_date ? formatDate(payment.payment_date) : formatDate(payment.created_at)}
+                        <td className="py-4 text-sm">
+                          {formatDate(payment.payment_date || payment.created_at)}
                         </td>
-                        <td className="py-3 px-4 text-gray-900">
+                        <td className="py-4 text-sm">
                           {studentPaymentAPI.formatPaymentType(payment.payment_type)}
                         </td>
-                        <td className="py-3 px-4 text-gray-600">
+                        <td className="py-4 text-sm">
                           {payment.course_details?.course_name || 'N/A'}
                         </td>
-                        <td className="py-3 px-4 text-gray-900 font-semibold">
+                        <td className="py-4 text-sm text-right font-semibold">
                           {formatCurrency(payment.amount)}
                         </td>
-                        <td className="py-3 px-4 text-gray-600 capitalize">
-                          {payment.payment_method.replace('_', ' ')}
+                        <td className="py-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            {getPaymentMethodIcon(payment.payment_method)}
+                            <span className="capitalize">
+                              {payment.payment_method.replace(/_/g, ' ')}
+                            </span>
+                          </div>
                         </td>
-                        <td className="py-3 px-4">{getStatusBadge(payment.payment_status)}</td>
+                        <td className="py-4">
+                          {getStatusBadge(payment.payment_status)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -431,101 +524,7 @@ export default function StudentPaymentsPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* Course Enrollments Summary */}
-        {enrollments.length > 0 && (
-          <div className="mt-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2" />
-                  Course Enrollments Summary
-                </CardTitle>
-                <CardDescription>Overview of your enrolled courses and payment status</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {enrollments.map((enrollment) => (
-                    <div key={enrollment.id} className="p-4 border rounded-lg bg-gray-50">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{enrollment.course_name}</h4>
-                          <p className="text-sm text-gray-600">{enrollment.branch_name}</p>
-                          <p className="text-xs text-gray-500">
-                            Enrolled: {formatDate(enrollment.enrollment_date)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-lg">
-                            {formatCurrency(enrollment.fee_amount + enrollment.admission_fee)}
-                          </p>
-                          <p className="text-sm text-gray-600">Total Fee</p>
-                          {enrollment.outstanding_balance > 0 && (
-                            <p className="text-sm text-red-600 font-medium">
-                              Outstanding: {formatCurrency(enrollment.outstanding_balance)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Payment Summary (without duplicating individual payments) */}
-                      {enrollment.payments.length > 0 && (
-                        <div className="mt-3 pt-3 border-t">
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">
-                              Payment Status: {enrollment.payments.length} payment{enrollment.payments.length !== 1 ? 's' : ''} made
-                            </span>
-                            <div className="flex items-center space-x-2">
-                              <span className="font-medium">
-                                Total Paid: {formatCurrency(
-                                  enrollment.payments
-                                    .filter(p => p.payment_status === 'paid')
-                                    .reduce((sum, p) => sum + p.amount, 0)
-                                )}
-                              </span>
-                              {enrollment.outstanding_balance === 0 ? (
-                                <Badge className="bg-green-100 text-green-800">Fully Paid</Badge>
-                              ) : (
-                                <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            See detailed payment history in the table above
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Available Payment Methods */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <CreditCard className="h-5 w-5 mr-2" />
-                Available Payment Methods
-              </CardTitle>
-              <CardDescription>Choose from various payment options</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {studentPaymentAPI.getAvailablePaymentMethods().map((method) => (
-                  <div key={method.value} className="flex items-center p-3 border rounded-lg hover:bg-gray-50 transition-colors">
-                    <span className="text-2xl mr-3">{method.icon}</span>
-                    <span className="font-medium">{method.label}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </StudentDashboardLayout>
-    </ErrorBoundary>
+      </div>
+    </StudentDashboardLayout>
   )
 }

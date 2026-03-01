@@ -50,6 +50,7 @@ export default function RootLayout({
       <head>
         <meta name="color-scheme" content="light" />
         <meta name="theme-color" content="#f59e0b" />
+        <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
       </head>
       <body className={`font-sans ${poppins.variable}`}>
         <AccessibilityProvider>

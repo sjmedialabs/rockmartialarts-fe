@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { usePermissions } from "@/hooks/use-permissions"
 import NotificationDropdown from "@/components/notification-dropdown"
 import {
   Menu,
@@ -36,6 +37,9 @@ export default function StudentDashboardHeader({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  // *** MOVED HERE: Call usePermissions at the top level, before any early returns ***
+  const { hasPermission } = usePermissions('student')
 
   // Handle hydration
   useEffect(() => {
@@ -94,50 +98,60 @@ export default function StudentDashboardHeader({
     )
   }
 
-  const navigationItems = [
+  const allNavigationItems = [
     {
       name: "Dashboard",
       path: "/student-dashboard",
       icon: Home,
       exact: true,
-      description: "Overview and quick stats"
+      description: "Overview and quick stats",
+      permissionId: "dashboard"
     },
     {
       name: "My Courses",
       path: "/student-dashboard/courses",
       icon: BookOpen,
       exact: false,
-      description: "View enrolled courses"
+      description: "View enrolled courses",
+      permissionId: "courses"
     },
     {
       name: "Attendance",
       path: "/student-dashboard/attendance",
       icon: Calendar,
       exact: false,
-      description: "Track class attendance"
+      description: "Track class attendance",
+      permissionId: "attendance"
     },
     {
       name: "Progress",
       path: "/student-dashboard/progress",
       icon: TrendingUp,
       exact: false,
-      description: "Monitor training progress"
+      description: "Monitor training progress",
+      permissionId: "reports"
     },
     {
       name: "Payments",
       path: "/student-dashboard/payments",
       icon: CreditCard,
       exact: false,
-      description: "Manage fees and payments"
+      description: "View payment history",
+      permissionId: "payments"
     },
     {
       name: "Messages",
       path: "/student-dashboard/messages",
       icon: MessageSquare,
       exact: false,
-      description: "Communication center"
+      description: "Communication hub",
+      permissionId: "messages"
     }
   ]
+
+  // Filter navigation items based on permissions
+  const navigationItems = allNavigationItems.filter(item => hasPermission(item.permissionId))
+
 
   return (
     <header className="bg-white shadow-sm border border-gray-200/80 backdrop-blur-sm mx-4 xl:mx-12 mt-6 rounded-lg">

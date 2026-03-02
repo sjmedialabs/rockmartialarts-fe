@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface CourseDetails {
   id: string
@@ -116,7 +117,7 @@ export default function BranchManagerCourseDetailPage() {
       if (!token) {
         console.log("No token found, attempting to get development token...")
         try {
-          const loginResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branch-manager/login`, {
+          const loginResponse = await fetch(getBackendApiUrl('branch-managers/login'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -155,7 +156,7 @@ export default function BranchManagerCourseDetailPage() {
       }
 
       // Fetch course details
-      const courseResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses/${courseId}`, {
+      const courseResponse = await fetch(getBackendApiUrl(`courses/${courseId}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

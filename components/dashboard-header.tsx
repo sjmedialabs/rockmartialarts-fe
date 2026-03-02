@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, MoreVertical, Menu, Settings, User, LogOut } from "lucide-react"
+import { ChevronDown, MoreVertical, Menu, Settings, User, LogOut, Building2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuPortal } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useRouter, usePathname } from "next/navigation"
@@ -10,6 +10,7 @@ import { useState, useEffect } from "react"
 import NotificationDropdown from "@/components/notification-dropdown"
 import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { getRoleLabel } from "@/lib/dashboard-config"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface DashboardHeaderProps {
   currentPage?: string;
@@ -23,6 +24,9 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
   const roleLabel = getRoleLabel(role);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [profileImage, setProfileImage] = useState<string>("/placeholder.svg");
+  const [branchName, setBranchName] = useState<string | null>(null);
+
+  const isBranchAdmin = basePath.includes("branch-admin");
 
   // Load profile image from localStorage on mount
   useEffect(() => {
@@ -42,6 +46,14 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
+
+  // Branch name for branch admin (client-only)
+  useEffect(() => {
+    if (isBranchAdmin && typeof window !== "undefined") {
+      const user = BranchManagerAuth.getCurrentUser();
+      setBranchName(user?.branch_name ?? null);
+    }
+  }, [isBranchAdmin]);
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
@@ -68,6 +80,12 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
             <div className="flex-shrink-0">
               <img src="/footer_logo.png" alt="Logo" className="xl:w-[95px] w-[80px] h-auto" />
             </div>
+            {isBranchAdmin && branchName && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-800">
+                <Building2 className="w-4 h-4 flex-shrink-0" />
+                <span className="text-sm font-medium truncate max-w-[180px]">{branchName}</span>
+              </div>
+            )}
 
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -81,6 +99,12 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
                     <div className="flex items-center space-x-3">
                       <img src="/footer_logo.png" alt="Logo" className="w-8 h-8" />
                     </div>
+                    {isBranchAdmin && branchName && (
+                      <div className="flex items-center gap-2 mt-3 px-2 py-2 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-800">
+                        <Building2 className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm font-medium truncate">{branchName}</span>
+                      </div>
+                    )}
                   </div>
                   <nav className="flex-1 p-6">
                     <div className="space-y-3">
@@ -162,7 +186,12 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
                     <AvatarImage src={profileImage} />
                     <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white font-semibold text-sm">{roleLabel.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-semibold text-gray-800 hidden lg:inline">{roleLabel}</span>
+                  <span className="text-sm font-semibold text-gray-800 hidden lg:inline">
+                    {roleLabel}
+                    {isBranchAdmin && branchName && (
+                      <span className="text-gray-500 font-normal ml-1">· {branchName}</span>
+                    )}
+                  </span>
                   <ChevronDown className="w-4 h-4 text-gray-600 transition-transform duration-200" />
                 </button>
               </DropdownMenuTrigger>

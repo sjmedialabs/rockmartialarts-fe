@@ -641,7 +641,7 @@ export default function BranchManagerStudentList() {
                   <div key={student.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                     <div className="flex items-center space-x-4">
                       <Avatar className="w-10 h-10">
-                        <AvatarImage src="/placeholder.svg" />
+                        <AvatarImage src="" />
                         <AvatarFallback className="bg-blue-100 text-blue-600">
                           {student.full_name.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>

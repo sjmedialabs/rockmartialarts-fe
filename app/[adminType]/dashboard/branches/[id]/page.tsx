@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 
 interface BranchDetails {
   id: string
@@ -78,6 +79,7 @@ interface Coach {
 export default function BranchDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const branchId = params.id as string
 
   const [branch, setBranch] = useState<BranchDetails | null>(null)
@@ -173,11 +175,11 @@ export default function BranchDetailPage() {
   }
 
   const handleEdit = () => {
-    router.push(`/dashboard/branches/edit/${branchId}`)
+    router.push(`${basePath}/branches/edit/${branchId}`)
   }
 
   const handleBack = () => {
-    router.push('/dashboard/branches')
+    router.push(`${basePath}/branches`)
   }
 
   if (loading) {
@@ -400,7 +402,7 @@ export default function BranchDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => router.push('/dashboard/courses')}
+                    onClick={() => router.push(`${basePath}/courses`)}
                   >
                     View All Courses
                   </Button>
@@ -435,7 +437,7 @@ export default function BranchDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => router.push(`/dashboard/courses/${course.id}`)}
+                          onClick={() => router.push(`${basePath}/courses/${course.id}`)}
                           className="border border-gray-200"
                         >
                           View
@@ -462,7 +464,7 @@ export default function BranchDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => router.push('/dashboard/coaches')}
+                    onClick={() => router.push(`${basePath}/coaches`)}
                   >
                     View All Coaches
                   </Button>
@@ -507,7 +509,7 @@ export default function BranchDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => router.push(`/dashboard/coaches/${coach.id}`)}
+                          onClick={() => router.push(`${basePath}/coaches/${coach.id}`)}
                           className="border border-gray-200"
                         >
                           View
@@ -605,7 +607,7 @@ export default function BranchDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/branches/edit/${branchId}`)}
+                  onClick={() => router.push(`${basePath}/branches/edit/${branchId}`)}
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Branch Details
@@ -614,7 +616,7 @@ export default function BranchDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/students?branch_id=${branchId}`)}
+                  onClick={() => router.push(`${basePath}/students?branch_id=${branchId}`)}
                 >
                   <Users className="w-4 h-4 mr-2" />
                   View Branch Students
@@ -623,7 +625,7 @@ export default function BranchDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/courses?branch_id=${branchId}`)}
+                  onClick={() => router.push(`${basePath}/courses?branch_id=${branchId}`)}
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
                   Manage Branch Courses

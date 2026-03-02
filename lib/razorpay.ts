@@ -108,7 +108,7 @@ export const openRazorpayCheckout = async (
     currency: paymentDetails.currency || 'INR',
     name: paymentDetails.name,
     description: paymentDetails.description,
-    order_id: paymentDetails.orderId,
+    ...(paymentDetails.orderId ? { order_id: paymentDetails.orderId } : {}),
     prefill: {
       name: paymentDetails.customerName,
       email: paymentDetails.customerEmail,

@@ -35,7 +35,7 @@ export function ProfileDropdown() {
             }}
           >
             <Avatar className="w-8 h-8">
-              <AvatarImage src="/placeholder.svg" />
+              <AvatarImage src="" />
               <AvatarFallback>SA</AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium hidden lg:inline">Super admin</span>

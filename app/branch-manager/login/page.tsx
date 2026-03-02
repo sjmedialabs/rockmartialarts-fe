@@ -26,7 +26,7 @@ function BranchManagerLoginFormContent() {
   // Redirect to dashboard if already logged in as branch manager (same screens as super admin)
   useEffect(() => {
     if (BranchManagerAuth.isAuthenticated()) {
-      router.replace("/dashboard");
+      router.replace("/branch-admin/dashboard");
     }
   }, [router]);
 
@@ -128,7 +128,7 @@ function BranchManagerLoginFormContent() {
       });
 
       // Redirect to dashboard (same screens as super admin)
-      router.push("/branch-admin/dashboard");
+      router.replace("/branch-admin/dashboard");
     } catch (err) {
       console.error("Branch Manager login error:", err);
       const msg = err instanceof Error ? err.message : String(err);

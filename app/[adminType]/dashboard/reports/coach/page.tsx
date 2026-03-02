@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -40,6 +41,7 @@ interface FilterState {
 
 export default function CoachReportPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   
   // State management
   const [loading, setLoading] = useState(false)
@@ -222,7 +224,7 @@ export default function CoachReportPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push('/dashboard/reports')}
+              onClick={() => router.push(`${basePath}/reports`)}
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -592,7 +594,7 @@ export default function CoachReportPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/dashboard/coaches/${coach.id}`)}
+                            onClick={() => router.push(`${basePath}/coaches/${coach.id}`)}
                             className="flex items-center space-x-1"
                           >
                             <Eye className="w-3 h-3" />

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
@@ -115,6 +116,7 @@ interface FormData {
 export default function EditBranch() {
   const router = useRouter()
   const params = useParams()
+  const basePath = useDashboardBasePath()
   const branchId = params.id as string
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -718,7 +720,7 @@ export default function EditBranch() {
       if (response.ok) {
         setShowSuccessPopup(true)
         setTimeout(() => {
-          router.push("/dashboard/branches")
+          router.push(`${basePath}/branches`)
         }, 2000)
       } else {
         const errorData = await response.json()
@@ -779,7 +781,7 @@ export default function EditBranch() {
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
-              onClick={() => router.push("/dashboard/branches")}
+              onClick={() => router.push(`${basePath}/branches`)}
               className="flex items-center"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1356,7 +1358,7 @@ export default function EditBranch() {
         <div className="mt-6 flex justify-end space-x-4">
           <Button
             variant="outline"
-            onClick={() => router.push("/dashboard/branches")}
+            onClick={() => router.push(`${basePath}/branches`)}
           >
             Cancel
           </Button>

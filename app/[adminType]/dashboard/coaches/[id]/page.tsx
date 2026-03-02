@@ -26,6 +26,7 @@ import {
   Briefcase
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 
 interface CoachDetails {
@@ -81,6 +82,7 @@ interface StudentAssignment {
 export default function CoachDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const coachId = params.id as string
 
   const [coach, setCoach] = useState<CoachDetails | null>(null)
@@ -215,11 +217,11 @@ export default function CoachDetailPage() {
   }
 
   const handleEdit = () => {
-    router.push(`/dashboard/coaches/edit/${coachId}`)
+    router.push(`${basePath}/coaches/edit/${coachId}`)
   }
 
   const handleBack = () => {
-    router.push('/dashboard/coaches')
+    router.push(`${basePath}/coaches`)
   }
 
   const getStatusColor = (status: string) => {
@@ -755,7 +757,7 @@ export default function CoachDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/coaches/edit/${coachId}`)}
+                  onClick={() => router.push(`${basePath}/coaches/edit/${coachId}`)}
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Coach Details
@@ -764,7 +766,7 @@ export default function CoachDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/courses?coach_id=${coachId}`)}
+                  onClick={() => router.push(`${basePath}/courses?coach_id=${coachId}`)}
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
                   Manage Course Assignments
@@ -773,7 +775,7 @@ export default function CoachDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/students?coach_id=${coachId}`)}
+                  onClick={() => router.push(`${basePath}/students?coach_id=${coachId}`)}
                 >
                   <Users className="w-4 h-4 mr-2" />
                   View Assigned Students
@@ -782,7 +784,7 @@ export default function CoachDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/schedule?coach_id=${coachId}`)}
+                  onClick={() => router.push(`${basePath}/schedule?coach_id=${coachId}`)}
                 >
                   <Clock className="w-4 h-4 mr-2" />
                   View Schedule
@@ -791,7 +793,7 @@ export default function CoachDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/performance?coach_id=${coachId}`)}
+                  onClick={() => router.push(`${basePath}/performance?coach_id=${coachId}`)}
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
                   Performance Reports

@@ -19,10 +19,27 @@ import {
   BookOpen,
   TrendingUp,
   IndianRupee,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from "lucide-react"
 import { studentPaymentAPI, type PaymentRecord } from "@/lib/studentPaymentAPI"
 import { studentProfileAPI, type StudentEnrollment } from "@/lib/studentProfileAPI"
+import { openRazorpayCheckout, type RazorpayPaymentResponse } from "@/lib/razorpay"
+import { getBackendApiUrl } from "@/lib/config"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+
+type TenureOption = {
+  id: string
+  label: string
+  months: number
+}
 
 export default function StudentPaymentsPage() {
   const router = useRouter()
@@ -34,6 +51,14 @@ export default function StudentPaymentsPage() {
   const [enrollments, setEnrollments] = useState<StudentEnrollment[]>([])
   const [totalPaid, setTotalPaid] = useState(0)
   const [totalPending, setTotalPending] = useState(0)
+  const [paymentProcessingId, setPaymentProcessingId] = useState<string | null>(null)
+  const [tenureModal, setTenureModal] = useState<{
+    enrollment: StudentEnrollment
+    isRenewal: boolean
+  } | null>(null)
+  const [tenureOptions, setTenureOptions] = useState<TenureOption[]>([])
+  const [tenurePrices, setTenurePrices] = useState<Record<string, number | null>>({})
+  const [tenurePricesLoading, setTenurePricesLoading] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -62,6 +87,70 @@ export default function StudentPaymentsPage() {
 
     loadPaymentData(token)
   }, [router])
+
+  // When tenure modal opens, fetch price for each duration
+  useEffect(() => {
+    if (!tenureModal) {
+      setTenureOptions([])
+      setTenurePrices({})
+      setTenurePricesLoading(false)
+      return
+    }
+    setTenurePricesLoading(true)
+    const token = localStorage.getItem("token")
+    if (!token) {
+      setTenurePricesLoading(false)
+      return
+    }
+    const { course_id, branch_id } = tenureModal.enrollment
+    ;(async () => {
+      try {
+        // 1) Load durations for this course from master data (dynamic, admin-configured)
+        const durationsRes = await fetch(
+          getBackendApiUrl(`durations/public/by-course/${course_id}?active_only=true&include_pricing=true`)
+        )
+        const durationsData = await durationsRes.json().catch(() => ({}))
+        const durations: any[] = Array.isArray(durationsData.durations) ? durationsData.durations : []
+
+        // Map to tenure options (id + label + months)
+        const options: TenureOption[] = durations.map((d) => ({
+          id: String(d.id),
+          label: String(d.name || d.code || ""),
+          months: typeof d.duration_months === "number" ? d.duration_months : parseInt(String(d.duration_months), 10) || 0,
+        })).filter((opt) => opt.id && opt.label && opt.months > 0)
+
+        setTenureOptions(options)
+
+        if (options.length === 0) {
+          setTenurePrices({})
+          return
+        }
+
+        // 2) Fetch course data directly to read admin-configured fee_per_duration
+        const courseRes = await fetch(
+          getBackendApiUrl(`courses/${course_id}`),
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        const courseData = await courseRes.json().catch(() => ({}))
+        const feePerDuration = courseData.fee_per_duration || {}
+        const branchPricing = courseData.branch_pricing || {}
+
+        // Use branch-specific pricing if available, otherwise default fees
+        const branchFees = branchPricing[branch_id]
+        const feeLookup = (typeof branchFees === "object" && branchFees !== null) ? branchFees : feePerDuration
+
+        const next: Record<string, number | null> = {}
+        options.forEach((opt) => {
+          const raw = feeLookup[opt.id]
+          const n = typeof raw === "number" ? raw : parseFloat(String(raw))
+          next[opt.id] = !isNaN(n) && n > 0 ? n : null
+        })
+        setTenurePrices(next)
+      } finally {
+        setTenurePricesLoading(false)
+      }
+    })()
+  }, [tenureModal])
 
   const loadPaymentData = async (token: string) => {
     try {
@@ -155,13 +244,122 @@ export default function StudentPaymentsPage() {
     return <CreditCard className="h-4 w-4" />
   }
 
-  const handlePayment = (enrollment: StudentEnrollment, isRenewal: boolean = false) => {
-    // In a real implementation, integrate with payment gateway
-    const message = isRenewal 
-      ? `Renew subscription for ${enrollment.course_name}\n\nThis will extend your access for the next billing period starting from ${formatDate(enrollment.end_date)}.`
-      : `Make payment for ${enrollment.course_name}\n\nCurrent status: ${enrollment.payment_status}`
-    
-    alert(`Payment Gateway Integration\n\n${message}\n\nPayment gateway (Razorpay/Stripe) will be integrated here.`)
+  /** Fetches course fee for a duration from API only (super admin / branch admin pricing). Returns null if API fails. */
+  const getCourseAmount = async (
+    courseId: string,
+    branchId: string,
+    token: string,
+    durationCode: string = "1-month"
+  ): Promise<number | null> => {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    }
+    try {
+      const url = getBackendApiUrl(
+        `courses/${courseId}/payment-info?branch_id=${branchId}&duration=${encodeURIComponent(durationCode)}`
+      )
+      const res = await fetch(url, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        const total = data?.pricing?.total_amount ?? data?.pricing?.course_fee
+        if (typeof total === "number" && total > 0) return total
+      }
+    } catch (_) {
+      /* API error */
+    }
+    return null
+  }
+
+  const openTenureModal = (enrollment: StudentEnrollment, isRenewal: boolean) => {
+    setTenureModal({ enrollment, isRenewal })
+  }
+
+  const handlePayment = async (
+    enrollment: StudentEnrollment,
+    isRenewal: boolean,
+    tenure: { months: number; id: string },
+    amountFromApi: number | null
+  ) => {
+    setTenureModal(null)
+    const token = localStorage.getItem("token")
+    const user = localStorage.getItem("user")
+    if (!token || !user) {
+      router.push("/login")
+      return
+    }
+    if (amountFromApi == null || amountFromApi <= 0) {
+      setError("Price not available for this duration. Please contact support.")
+      return
+    }
+    setPaymentProcessingId(enrollment.id)
+    setError(null)
+    try {
+      const amount = amountFromApi
+      const userData = JSON.parse(user)
+      const enrollmentData = {
+        enrollment_id: enrollment.id,
+        course_id: enrollment.course_id,
+        branch_id: enrollment.branch_id,
+        course_name: enrollment.course_name,
+        branch_name: enrollment.branch_name,
+        duration_months: tenure.months,
+        amount,
+        student_name: userData.full_name || userData.name || "",
+        student_email: userData.email || "",
+        student_phone: userData.phone || "",
+      }
+      await openRazorpayCheckout({
+        amount,
+        currency: "INR",
+        name: "Rock Martial Arts",
+        description: isRenewal
+          ? `Renew: ${enrollment.course_name} (${tenure.months} month${tenure.months > 1 ? "s" : ""})`
+          : `Payment: ${enrollment.course_name} (${tenure.months} month${tenure.months > 1 ? "s" : ""})`,
+        customerName: enrollmentData.student_name,
+        customerEmail: enrollmentData.student_email,
+        customerContact: enrollmentData.student_phone,
+        onSuccess: async (response: RazorpayPaymentResponse) => {
+          try {
+            setError(null)
+            const verifyRes = await fetch("/api/payments/verify", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                enrollmentData,
+              }),
+            })
+            const data = await verifyRes.json().catch(() => ({}))
+            if (!verifyRes.ok) {
+              throw new Error(data?.error ?? data?.detail ?? "Verification failed")
+            }
+            await loadPaymentData(token)
+            window.location.reload()
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Payment verification failed")
+          } finally {
+            setPaymentProcessingId(null)
+          }
+        },
+        onDismiss: () => setPaymentProcessingId(null),
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Payment could not be started"
+      if (msg.includes("Razorpay Key ID not configured")) {
+        setError(
+          "Razorpay is not configured. Add NEXT_PUBLIC_RAZORPAY_KEY_ID to .env.local and restart the dev server (npm run dev)."
+        )
+      } else {
+        setError(msg)
+      }
+      setPaymentProcessingId(null)
+    }
   }
 
   const handleExport = () => {
@@ -420,27 +618,42 @@ export default function StudentPaymentsPage() {
                           {isExpired ? (
                             <Button 
                               className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
-                              onClick={() => handlePayment(enrollment, false)}
+                              onClick={() => openTenureModal(enrollment, false)}
+                              disabled={paymentProcessingId === enrollment.id}
                             >
-                              <AlertCircle className="h-4 w-4 mr-2" />
-                              Renew Now
+                              {paymentProcessingId === enrollment.id ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                              )}
+                              {paymentProcessingId === enrollment.id ? "Processing…" : "Renew Now"}
                             </Button>
                           ) : enrollment.payment_status !== 'paid' ? (
                             <Button 
                               className="bg-yellow-600 hover:bg-yellow-700 w-full sm:w-auto"
-                              onClick={() => handlePayment(enrollment, false)}
+                              onClick={() => openTenureModal(enrollment, false)}
+                              disabled={paymentProcessingId === enrollment.id}
                             >
-                              <CreditCard className="h-4 w-4 mr-2" />
-                              Pay Now
+                              {paymentProcessingId === enrollment.id ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <CreditCard className="h-4 w-4 mr-2" />
+                              )}
+                              {paymentProcessingId === enrollment.id ? "Processing…" : "Pay Now"}
                             </Button>
                           ) : (
                             <>
                               <Button 
                                 className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-                                onClick={() => handlePayment(enrollment, true)}
+                                onClick={() => openTenureModal(enrollment, true)}
+                                disabled={paymentProcessingId === enrollment.id}
                               >
-                                <ArrowRight className="h-4 w-4 mr-2" />
-                                Renew for Next Period
+                                {paymentProcessingId === enrollment.id ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <ArrowRight className="h-4 w-4 mr-2" />
+                                )}
+                                {paymentProcessingId === enrollment.id ? "Processing…" : "Renew for Next Period"}
                               </Button>
                               {isExpiringSoon && (
                                 <p className="text-xs text-center text-muted-foreground">
@@ -458,6 +671,73 @@ export default function StudentPaymentsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Tenure selection modal */}
+        <Dialog open={!!tenureModal} onOpenChange={(open) => !open && setTenureModal(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Select tenure</DialogTitle>
+              <DialogDescription>
+                Choose a tenure. Only tenures configured by admin for this course are shown.
+              </DialogDescription>
+            </DialogHeader>
+            {tenurePricesLoading ? (
+              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Loading prices…</span>
+              </div>
+            ) : (
+              <div className="space-y-2 py-2">
+                {(() => {
+                  const available = tenureOptions.filter(
+                    (option) => typeof tenurePrices[option.id] === "number" && tenurePrices[option.id]! > 0
+                  )
+                  if (available.length === 0) {
+                    return (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No tenure configured for this course. Please contact support.
+                      </p>
+                    )
+                  }
+                  return (
+                    <div className="grid grid-cols-2 gap-3">
+                      {available.map((option) => {
+                        const price = tenurePrices[option.id]!
+                        return (
+                          <Button
+                            key={option.id}
+                            variant="outline"
+                            className="h-auto flex flex-col items-center justify-center py-4 gap-1"
+                            onClick={() =>
+                              tenureModal &&
+                              handlePayment(
+                                tenureModal.enrollment,
+                                tenureModal.isRenewal,
+                                { months: option.months, id: option.id },
+                                price
+                              )
+                            }
+                          >
+                            <span className="font-semibold">{option.label}</span>
+                            <span className="text-sm font-medium text-green-700 flex items-center gap-1">
+                              <IndianRupee className="h-3.5 w-3.5" />
+                              {new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(price)}
+                            </span>
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setTenureModal(null)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Transaction History */}
         <Card>

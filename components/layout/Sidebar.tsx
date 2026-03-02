@@ -33,19 +33,29 @@ export default function Sidebar({ role, onNavigate }: SidebarProps) {
       </div>
       <nav className="flex-1 p-6">
         <div className="space-y-3">
-          {menuItems.map((item) =>
-            item.children ? (
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            return item.children ? (
               <div key={item.path} className="px-3 py-2">
-                <p className="text-sm font-medium text-gray-500 mb-2">{item.label}</p>
-                {item.children.map((child) => (
-                  <button
-                    key={child.path}
-                    onClick={() => onNavigate(child.path)}
-                    className={childClass(child.path)}
-                  >
-                    {child.label}
-                  </button>
-                ))}
+                <p className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                  {Icon && <Icon className="w-4 h-4" />}
+                  {item.label}
+                </p>
+                {item.children.map((child) => {
+                  const ChildIcon = child.icon
+                  return (
+                    <button
+                      key={child.path}
+                      onClick={() => onNavigate(child.path)}
+                      className={childClass(child.path)}
+                    >
+                      <span className="flex items-center gap-2">
+                        {ChildIcon && <ChildIcon className="w-3.5 h-3.5" />}
+                        {child.label}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             ) : (
               <button
@@ -53,10 +63,13 @@ export default function Sidebar({ role, onNavigate }: SidebarProps) {
                 onClick={() => onNavigate(item.path)}
                 className={itemClass(item.path)}
               >
-                {item.label}
+                <span className="flex items-center gap-2">
+                  {Icon && <Icon className="w-4 h-4" />}
+                  {item.label}
+                </span>
               </button>
             )
-          )}
+          })}
         </div>
       </nav>
     </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -129,6 +130,7 @@ const REPORT_CATEGORIES = [
 
 export default function CourseReportPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
 
   // State management
   const [searchTerm, setSearchTerm] = useState("")
@@ -188,7 +190,7 @@ export default function CourseReportPage() {
 
     setTimeout(() => {
       setCategoryLoading(null)
-      router.push(`/dashboard/reports/${categoryId}`)
+      router.push(`${basePath}/reports/${categoryId}`)
       toast.success(`Opening ${categoryName}...`)
     }, 300)
   }

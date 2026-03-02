@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { getBackendApiUrl } from "@/lib/config"
 
 interface BranchManagerDetails {
@@ -80,6 +81,7 @@ interface BranchManagerDetails {
 export default function BranchManagerDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const managerId = params.id as string
 
   const [manager, setManager] = useState<BranchManagerDetails | null>(null)
@@ -170,7 +172,7 @@ export default function BranchManagerDetailPage() {
             <div className="text-center py-8">
               <p className="text-red-600">{error || "Branch manager not found"}</p>
               <Button 
-                onClick={() => router.push("/dashboard/branch-managers")}
+                onClick={() => router.push(`${basePath}/branch-managers`)}
                 className="mt-4"
               >
                 Back to Branch Managers
@@ -194,7 +196,7 @@ export default function BranchManagerDetailPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push("/dashboard/branch-managers")}
+                onClick={() => router.push(`${basePath}/branch-managers`)}
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -207,7 +209,7 @@ export default function BranchManagerDetailPage() {
             </div>
             <div className="flex space-x-3">
               <Button
-                onClick={() => router.push(`/dashboard/branch-managers/edit/${managerId}`)}
+                onClick={() => router.push(`${basePath}/branch-managers/edit/${managerId}`)}
                 className="bg-yellow-400 hover:bg-yellow-500 text-white"
               >
                 <Edit className="w-4 h-4 mr-2" />

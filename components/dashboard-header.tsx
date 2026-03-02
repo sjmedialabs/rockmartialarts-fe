@@ -23,7 +23,7 @@ export default function DashboardHeader({ currentPage = "Dashboard" }: Dashboard
   const role = useDashboardRole();
   const roleLabel = getRoleLabel(role);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState<string>("/placeholder.svg");
+  const [profileImage, setProfileImage] = useState<string>("");
   const [branchName, setBranchName] = useState<string | null>(null);
 
   const isBranchAdmin = basePath.includes("branch-admin");

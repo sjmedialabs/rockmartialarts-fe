@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Award, MapPin, Phone, X, Plus } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 
@@ -98,6 +99,7 @@ interface Course {
 export default function EditCoachPage() {
   const router = useRouter()
   const params = useParams()
+  const basePath = useDashboardBasePath()
   const coachId = params.id as string
   const { toast } = useToast()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
@@ -927,7 +929,7 @@ export default function EditCoachPage() {
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
-              onClick={() => router.push("/dashboard/coaches")}
+              onClick={() => router.push(`${basePath}/coaches`)}
               className="flex items-center space-x-2 hover:bg-gray-100"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -1549,7 +1551,7 @@ export default function EditCoachPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push("/dashboard/coaches")}
+              onClick={() => router.push(`${basePath}/coaches`)}
               disabled={isSubmitting}
             >
               Cancel
@@ -1603,7 +1605,7 @@ export default function EditCoachPage() {
               <Button
                 onClick={() => {
                   setShowSuccessPopup(false)
-                  router.push("/dashboard/coaches")
+                  router.push(`${basePath}/coaches`)
                 }}
                 variant="outline"
                 className="w-full"

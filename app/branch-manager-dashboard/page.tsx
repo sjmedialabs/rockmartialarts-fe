@@ -1,6 +1,5 @@
 "use client"
 import { getBackendApiUrl } from "@/lib/config"
-import { DualLineChart } from "@/components/charts/LineChart"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,41 +7,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star, Users, BookOpen, Loader2, AlertCircle, MapPin, Building2, DollarSign, GraduationCap, UserCheck, TrendingUp, Calendar, RefreshCw } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Header from "@/components/layout/Header"
-import add_icon from "@/public/images/add_icon.png"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback } from "react"
 import { dashboardAPI, DashboardStats, Coach } from "@/lib/api"
 import { paymentAPI, PaymentStats, Payment } from "@/lib/paymentAPI"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
-
-const chartData = [
-  { _id: "01 Jan", total: 2000, count: 1000 },
-  { _id: "01 Feb", total: 5000, count: 3000 },
-  { _id: "01 Mar", total: 12000, count: 8000 },
-  { _id: "01 Apr", total: 7000, count: 6000 },
-  { _id: "01 May", total: 10000, count: 9000 },
-  { _id: "01 Jun", total: 11000, count: 9500 },
-  { _id: "01 Jul", total: 9000, count: 7000 },
-]
-
-const formatValue = (value: number) => {
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(0)}K`
-  }
-  return value.toString()
-}
-
-interface Attendance {
-  date: string
-  studentName: string
-  gender: string
-  expertise: string
-  email: string
-  joinDate: string
-  checkIn: string
-  checkOut: string
-  attendance: string
-}
 
 interface BranchInfo {
   id: string
@@ -61,48 +30,8 @@ interface BranchInfo {
   monthly_revenue?: number
 }
 
-const studentData: Attendance[] = [
-  {
-    date: "28/04/2025",
-    studentName: "Abhi ram",
-    gender: "Male",
-    expertise: "Martial Arts",
-    email: "Abhi@gmail.com",
-    joinDate: "20/04/2025",
-    checkIn: "06:30 AM",
-    checkOut: "09:00 AM",
-    attendance: "90%",
-  },
-  // 👆 Add more student records here
-]
-
-const coachData: Attendance[] = [
-  {
-    date: "28/04/2025",
-    studentName: "Coach Rohan",
-    gender: "Male",
-    expertise: "Yoga",
-    email: "rohan@gmail.com",
-    joinDate: "15/04/2025",
-    checkIn: "07:00 AM",
-    checkOut: "10:00 AM",
-    attendance: "95%",
-  },
-  // 👆 Add more coach records here
-]
-
 export default function BranchManagerDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"student" | "coach">("student")
-  const [month, setMonth] = useState("april")
-  const [sort, setSort] = useState("today")
-  const [page, setPage] = useState(1)
-  const rowsPerPage = 5
-
-  const data = activeTab === "student" ? studentData : coachData
-
-  const paginatedData = data.slice((page - 1) * rowsPerPage, page * rowsPerPage)
-  const totalPages = Math.ceil(data.length / rowsPerPage)
   
   // State management
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null)
@@ -414,7 +343,7 @@ export default function BranchManagerDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {loading ? (
             Array.from({ length: 4 }).map((_, index) => (
-              <Card key={index} className="bg-white shadow-sm border-0">
+              <Card key={index} className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-3 flex-1">
@@ -428,7 +357,7 @@ export default function BranchManagerDashboard() {
               </Card>
             ))
           ) : error ? (
-            <Card className="md:col-span-4 bg-white shadow-sm border-0">
+            <Card className="md:col-span-4 rounded-xl border bg-white shadow-sm">
               <CardContent className="p-6">
                 <div className="flex items-center justify-center space-x-3 text-red-600">
                   <AlertCircle className="w-6 h-6" />
@@ -450,7 +379,7 @@ export default function BranchManagerDashboard() {
             </Card>
           ) : (
             <>
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm hover:shadow-md transition-shadow">
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl border shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-2">
@@ -467,7 +396,7 @@ export default function BranchManagerDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm hover:shadow-md transition-shadow">
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-2">
@@ -484,7 +413,7 @@ export default function BranchManagerDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-0 shadow-sm hover:shadow-md transition-shadow">
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-2">
@@ -501,7 +430,7 @@ export default function BranchManagerDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-0 shadow-sm hover:shadow-md transition-shadow">
+              <Card className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl border shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-2">
@@ -523,7 +452,7 @@ export default function BranchManagerDashboard() {
 
         {/* Managed Branches Section */}
         <div className="mb-8">
-          <Card className="bg-white shadow-sm border-0">
+          <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-gray-900 text-lg font-semibold">
                 <Building2 className="w-5 h-5 mr-3 text-blue-600" />
@@ -539,7 +468,7 @@ export default function BranchManagerDashboard() {
               {branchesLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <Card key={index} className="bg-gray-50 border-0">
+                    <Card key={index} className="bg-gray-50 rounded-xl border">
                       <CardContent className="p-6">
                         <div className="space-y-4">
                           <div>
@@ -588,7 +517,7 @@ export default function BranchManagerDashboard() {
                   {managedBranches.map((branch) => (
                     <Card
                       key={branch.id}
-                      className="bg-gradient-to-br from-white to-gray-50 border-0 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group"
+                      className="bg-gradient-to-br from-white to-gray-50 rounded-xl border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group"
                       onClick={() => router.push(`/branch-manager-dashboard/branches/${branch.id}`)}
                     >
                       <CardContent className="p-6">
@@ -636,7 +565,7 @@ export default function BranchManagerDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {/* Revenue Chart */}
-            <Card className="bg-white shadow-sm border-0">
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader className="pb-4">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                   <CardTitle className="text-gray-900 text-lg font-semibold flex items-center">
@@ -654,21 +583,8 @@ export default function BranchManagerDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="mb-6">
-                  <DualLineChart
-                    data={chartData}
-                    height={300}
-                    color1="#10b981"
-                    color2="#3b82f6"
-                    dataKey1="total"
-                    dataKey2="count"
-                    formatValue={formatValue}
-                    showLegend={true}
-                  />
-                </div>
-
                 {/* Revenue Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-100">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="text-center p-4 bg-green-50 rounded-lg">
                     <p className="text-2xl font-bold text-green-700 mb-1">
                       {dashboardStats ? paymentAPI.formatCurrency(dashboardStats.total_revenue || 0) : '₹0'}
@@ -694,7 +610,7 @@ export default function BranchManagerDashboard() {
 
           {/* Coaches List */}
           <div className="space-y-6">
-            <Card className="bg-white shadow-sm border-0">
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center text-gray-900 text-lg font-semibold">
                   <Users className="w-5 h-5 mr-3 text-blue-600" />
@@ -754,7 +670,7 @@ export default function BranchManagerDashboard() {
                         onClick={() => router.push(`/branch-manager-dashboard/coaches/${coach.id}`)}
                       >
                         <Avatar className="w-12 h-12 ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all">
-                          <AvatarImage src="/placeholder.svg" />
+                          <AvatarImage src="" />
                           <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 font-semibold">
                             {coach.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
                           </AvatarFallback>

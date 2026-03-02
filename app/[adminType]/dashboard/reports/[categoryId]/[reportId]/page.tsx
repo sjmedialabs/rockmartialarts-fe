@@ -23,6 +23,7 @@ import {
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import DashboardHeader from "@/components/dashboard-header"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -138,6 +139,7 @@ interface ReportPageData {
 export default function IndividualReportPage() {
   const params = useParams()
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { user, token } = useAuth()
   
   const categoryId = params.categoryId as string
@@ -178,7 +180,7 @@ export default function IndividualReportPage() {
                   <p className="text-gray-600 mb-4">
                     The requested report could not be found.
                   </p>
-                  <Button onClick={() => router.push('/dashboard/reports')}>
+                  <Button onClick={() => router.push(`${basePath}/reports`)}>
                     Return to Reports
                   </Button>
                 </div>
@@ -408,7 +410,7 @@ export default function IndividualReportPage() {
           <div className="flex items-center space-x-4">
             <Button
               variant="outline"
-              onClick={() => router.push('/dashboard/reports')}
+              onClick={() => router.push(`${basePath}/reports`)}
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="w-4 h-4" />

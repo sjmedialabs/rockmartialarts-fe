@@ -304,8 +304,9 @@ export default function CreateCoursePage() {
         code: formData.courseCode,
         description: formData.description,
         difficulty_level: formData.difficultyLevel,
-        // Ensure category_id has the correct prefix
-        category_id: formData.subCategory || formData.category,
+        // Store parent category and sub-category separately so both persist
+        category_id: formData.category,
+        sub_category: formData.subCategory || undefined,
         // Add required fields with default values
         martial_art_style_id: 'style-default', // Will be configurable later
         instructor_id: user?.id && user.id.includes('instructor-') ? user.id : 'instructor-default',

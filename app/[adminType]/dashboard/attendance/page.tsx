@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { format } from "date-fns"
 import {
   BarChart,
@@ -78,6 +79,7 @@ interface BranchStats {
 
 export default function AttendanceOverviewPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   
   // State management
   const [stats, setStats] = useState<AttendanceOverviewStats>({
@@ -392,14 +394,14 @@ export default function AttendanceOverviewPage() {
                   Refresh
                 </Button>
                 <Button
-                  onClick={() => router.push('/dashboard/attendance/students')}
+                  onClick={() => router.push(`${basePath}/attendance/students`)}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Manage Students
                 </Button>
                 <Button
-                  onClick={() => router.push('/dashboard/attendance/coaches')}
+                  onClick={() => router.push(`${basePath}/attendance/coaches`)}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   <Award className="h-4 w-4 mr-2" />
@@ -492,7 +494,7 @@ export default function AttendanceOverviewPage() {
         {/* Quick Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => router.push('/dashboard/attendance/students')}>
+                onClick={() => router.push(`${basePath}/attendance/students`)}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -519,7 +521,7 @@ export default function AttendanceOverviewPage() {
           </Card>
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => router.push('/dashboard/attendance/coaches')}>
+                onClick={() => router.push(`${basePath}/attendance/coaches`)}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -711,7 +713,7 @@ export default function AttendanceOverviewPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => router.push(`/dashboard/attendance/students?branch=${branch.id}`)}
+                            onClick={() => router.push(`${basePath}/attendance/students?branch=${branch.id}`)}
                           >
                             <Eye className="h-4 w-4 mr-1" />
                             View Details

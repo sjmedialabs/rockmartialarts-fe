@@ -2,12 +2,129 @@
 
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Database } from "lucide-react"
+import { ArrowLeft, Database, Clock, Plus, Trash2 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { DropdownSettingsManager } from "@/components/dropdown-settings-manager"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { getBackendApiUrl } from "@/lib/config"
+import { TokenManager } from "@/lib/tokenManager"
+import { useToast } from "@/hooks/use-toast"
+import { useEffect, useState } from "react"
+
+type DurationItem = { id: string; name: string; code: string; duration_months: number; display_order: number }
 
 export default function DropdownSettingsPage() {
   const router = useRouter()
+  const { toast } = useToast()
+  const [durations, setDurations] = useState<DurationItem[]>([])
+  const [loadingDurations, setLoadingDurations] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [newName, setNewName] = useState("")
+  const [newCode, setNewCode] = useState("")
+  const [newMonths, setNewMonths] = useState("")
+  const [newOrder, setNewOrder] = useState("")
+
+  const loadDurations = () => {
+    const token = TokenManager.getToken()
+    if (!token) return
+    setLoadingDurations(true)
+    fetch(getBackendApiUrl("durations"), { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : { durations: [] })
+      .then((data) => {
+        const list = (data.durations || []).map((d: any) => ({
+          id: d.id,
+          name: d.name || "",
+          code: d.code || "",
+          duration_months: typeof d.duration_months === "number" ? d.duration_months : parseInt(String(d.duration_months), 10) || 0,
+          display_order: typeof d.display_order === "number" ? d.display_order : parseInt(String(d.display_order), 10) || 0
+        }))
+        setDurations(list.sort((a: DurationItem, b: DurationItem) => a.display_order - b.display_order))
+      })
+      .catch(() => setDurations([]))
+      .finally(() => setLoadingDurations(false))
+  }
+
+  useEffect(() => {
+    loadDurations()
+  }, [])
+
+  const handleAddDuration = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const name = newName.trim()
+    const code = newCode.trim()
+    const months = parseInt(newMonths, 10)
+    const order = parseInt(newOrder, 10)
+    if (!name || !code) {
+      toast({ title: "Validation", description: "Name and Code are required.", variant: "destructive" })
+      return
+    }
+    if (Number.isNaN(months) || months < 1) {
+      toast({ title: "Validation", description: "Duration (months) must be at least 1.", variant: "destructive" })
+      return
+    }
+    const token = TokenManager.getToken()
+    if (!token) {
+      toast({ title: "Error", description: "Please sign in again.", variant: "destructive" })
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch(getBackendApiUrl("durations"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name,
+          code,
+          duration_months: months,
+          display_order: Number.isNaN(order) ? 0 : order,
+          is_active: true,
+          pricing_multiplier: 1
+        })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({ title: "Error", description: data.detail || data.message || "Failed to add duration", variant: "destructive" })
+        setSaving(false)
+        return
+      }
+      toast({ title: "Saved", description: `"${name}" added. It will appear in Course duration and Add tenure dropdowns.` })
+      setNewName("")
+      setNewCode("")
+      setNewMonths("")
+      setNewOrder("")
+      loadDurations()
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to add duration", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteDuration = async (id: string) => {
+    const token = TokenManager.getToken()
+    if (!token) return
+    if (!confirm("Remove this duration? It may be in use by courses.")) return
+    try {
+      const res = await fetch(getBackendApiUrl(`durations/${id}`), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        toast({ title: "Removed", description: "Duration removed from master data." })
+        loadDurations()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast({ title: "Error", description: data.detail || data.message || "Could not remove", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Could not remove duration", variant: "destructive" })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -52,6 +169,109 @@ export default function DropdownSettingsPage() {
           </div>
 
           <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Course Duration
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  These options appear in the <strong>Course duration</strong> dropdown and in <strong>Add tenure</strong> when setting course fees. Add entries below; the same data is used everywhere.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <form onSubmit={handleAddDuration} className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add course duration
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="duration-name">Name</Label>
+                      <Input
+                        id="duration-name"
+                        placeholder="e.g. 1 month"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        className="placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="duration-code">Code</Label>
+                      <Input
+                        id="duration-code"
+                        placeholder="e.g. 1M"
+                        value={newCode}
+                        onChange={(e) => setNewCode(e.target.value)}
+                        className="placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="duration-months">Duration (months)</Label>
+                      <Input
+                        id="duration-months"
+                        type="number"
+                        min={1}
+                        placeholder="e.g. 1"
+                        value={newMonths}
+                        onChange={(e) => setNewMonths(e.target.value)}
+                        className="placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="duration-order">Display order</Label>
+                      <Input
+                        id="duration-order"
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={newOrder}
+                        onChange={(e) => setNewOrder(e.target.value)}
+                        className="placeholder:text-muted-foreground"
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? "Saving…" : "Save"}
+                  </Button>
+                </form>
+
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Saved durations (used in Course duration & Add tenure)</h4>
+                  {loadingDurations ? (
+                    <p className="text-sm text-muted-foreground">Loading…</p>
+                  ) : durations.length > 0 ? (
+                    <ul className="space-y-2">
+                      {durations.map((d) => (
+                        <li
+                          key={d.id}
+                          className="flex items-center justify-between gap-4 py-2 px-3 rounded-md border bg-background text-sm"
+                        >
+                          <span>
+                            <span className="font-medium">{d.name}</span>
+                            <span className="text-muted-foreground ml-2">
+                              ({d.duration_months} month{d.duration_months !== 1 ? "s" : ""}) — {d.code} — order {d.display_order}
+                            </span>
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteDuration(d.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No durations yet. Add one above; it will show in Course duration and Add tenure dropdowns.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             <DropdownSettingsManager
               category="countries"
               title="Countries"

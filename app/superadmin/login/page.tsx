@@ -26,7 +26,7 @@ function SuperAdminLoginFormContent() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       if (SuperAdminAuth.isAuthenticated()) {
-        router.replace("/dashboard");
+        router.replace("/super-admin/dashboard");
       }
     }
   }, [router]);
@@ -139,7 +139,7 @@ function SuperAdminLoginFormContent() {
       });
       
       // Redirect to admin dashboard
-      router.push("/super-admin/dashboard");
+      router.replace("/super-admin/dashboard");
     } catch (err) {
       console.error("SuperAdmin login error:", err);
       const msg = err instanceof Error ? err.message : String(err);

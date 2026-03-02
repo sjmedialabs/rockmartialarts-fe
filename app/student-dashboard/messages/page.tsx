@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import StudentDashboardHeader from "@/components/student-dashboard-header"
-import { Send, Search, MessageCircle, Plus, Reply, Archive, Trash2, Loader2, Mail, MailOpen, Clock, User } from "lucide-react"
+import StudentDashboardLayout from "@/components/student-dashboard-layout"
+import { CardSkeleton } from "@/components/ui/loading-skeleton"
+import { Send, Search, MessageCircle, MessageSquare, Plus, Reply, Archive, Trash2, Loader2, Mail, MailOpen, Clock, User, AlertCircle } from "lucide-react"
 import { format } from "date-fns"
 import messageAPI, { Conversation, Message, MessageRecipient, MessageStats } from "@/lib/messageAPI"
 import { TokenManager } from "@/lib/tokenManager"
@@ -310,55 +311,56 @@ export default function StudentMessagesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
-      </div>
+      <StudentDashboardLayout
+        studentName={studentData?.name}
+        onLogout={handleLogout}
+        isLoading={true}
+      >
+        <div className="space-y-6">
+          <CardSkeleton lines={3} />
+          <CardSkeleton lines={8} />
+        </div>
+      </StudentDashboardLayout>
     )
   }
 
   if (error && !conversations.length) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <StudentDashboardHeader
-          studentName={studentData?.name || "Student"}
-          onLogout={handleLogout}
-        />
-        <main className="mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <Card>
-              <CardContent className="flex items-center justify-center h-96">
-                <div className="text-center">
-                  <div className="text-red-500 mb-4">⚠️</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Messages</h3>
-                  <p className="text-gray-500 mb-4">{error}</p>
-                  <Button onClick={() => window.location.reload()}>
-                    Try Again
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
-      </div>
+      <StudentDashboardLayout
+        studentName={studentData?.name || "Student"}
+        onLogout={handleLogout}
+      >
+        <Card className="rounded-xl border bg-white shadow-sm">
+          <CardContent className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Messages</h3>
+              <p className="text-gray-500 mb-4">{error}</p>
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </StudentDashboardLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <StudentDashboardHeader
-        studentName={studentData?.name || "Student"}
-        onLogout={handleLogout}
-      />
-
-      {/* Main Content */}
-      <main className="mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Page Header */}
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Messages</h1>
-              <p className="text-gray-600">Communication with instructors and administration</p>
-            </div>
+    <StudentDashboardLayout
+      studentName={studentData?.name || "Student"}
+      onLogout={handleLogout}
+    >
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <MessageSquare className="h-8 w-8" />
+              Messages
+            </h1>
+            <p className="text-gray-600">Communication with instructors and administration</p>
+          </div>
             <Dialog open={isComposeDialogOpen} onOpenChange={setIsComposeDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-blue-600 hover:bg-blue-700">
@@ -892,8 +894,7 @@ export default function StudentMessagesPage() {
               </CardContent>
             </Card>
           </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </StudentDashboardLayout>
   )
 }

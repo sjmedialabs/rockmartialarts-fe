@@ -215,11 +215,11 @@ const itemsPerPage = 5
   }
 
   const handleViewClick = (coachId: string) => {
-    router.push(`/dashboard/coaches/${coachId}`)
+    router.push(`${basePath}/coaches/${coachId}`)
   }
 
   const handleEditClick = (coachId: string) => {
-    router.push(`/dashboard/coaches/edit/${coachId}`)
+    router.push(`${basePath}/coaches/edit/${coachId}`)
   }
 
   const handleSendCredentialsClick = (coach: Coach) => {

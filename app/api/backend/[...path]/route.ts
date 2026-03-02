@@ -12,7 +12,8 @@ const BACKEND_URL =
  */
 async function proxy(request: NextRequest, pathSegments: string[]) {
   const path = pathSegments.join("/");
-  const url = `${BACKEND_URL.replace(/\/$/, "")}/api/${path}`;
+  const search = request.nextUrl.search; // preserve query string (?key=val&…)
+  const url = `${BACKEND_URL.replace(/\/$/, "")}/api/${path}${search}`;
   const method = request.method;
 
   try {

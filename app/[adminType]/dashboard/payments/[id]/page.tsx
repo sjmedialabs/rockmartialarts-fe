@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, CreditCard, User, Calendar, MapPin, BookOpen, DollarSign, Receipt, Download, Mail, MessageCircle } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 
 interface PaymentDetails {
   id: string
@@ -34,6 +35,7 @@ interface PaymentDetails {
 export default function PaymentDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const paymentId = params.id as string
 
   const [payment, setPayment] = useState<PaymentDetails | null>(null)
@@ -155,7 +157,7 @@ export default function PaymentDetailPage() {
             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
               <h3 className="text-lg font-medium text-red-800 mb-2">Payment Not Found</h3>
               <p className="text-red-600 mb-4">{error || "The requested payment could not be found."}</p>
-              <Button onClick={() => router.push("/dashboard/payment-tracking")}>
+              <Button onClick={() => router.push(`${basePath}/payment-tracking`)}>
                 Back to Payment Tracking
               </Button>
             </div>
@@ -175,7 +177,7 @@ export default function PaymentDetailPage() {
           <div className="flex items-center space-x-4">
             <Button
               variant="outline"
-              onClick={() => router.push('/dashboard/payment-tracking')}
+              onClick={() => router.push(`${basePath}/payment-tracking`)}
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -297,7 +299,7 @@ export default function PaymentDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/students/${payment.student_id}`)}
+                  onClick={() => router.push(`${basePath}/students/${payment.student_id}`)}
                 >
                   <User className="w-4 h-4 mr-2" />
                   View Student Profile
@@ -305,7 +307,7 @@ export default function PaymentDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/courses/${payment.course_id}`)}
+                  onClick={() => router.push(`${basePath}/courses/${payment.course_id}`)}
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
                   View Course Details

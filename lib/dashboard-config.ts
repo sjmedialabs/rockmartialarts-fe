@@ -3,12 +3,27 @@
  * Super Admin UI is the master; Branch Admin and Student use same UI, different menu + data.
  */
 
+import {
+  LayoutDashboard,
+  Building,
+  Users,
+  GraduationCap,
+  MessageSquare,
+  BookOpen,
+  CalendarCheck,
+  BarChart,
+  CreditCard,
+  User,
+  type LucideIcon
+} from "lucide-react"
+
 export type DashboardRole = "super_admin" | "branch_admin" | "student"
 
 export interface NavItem {
   label: string
   path: string
-  children?: { label: string; path: string }[]
+  icon?: LucideIcon
+  children?: { label: string; path: string; icon?: LucideIcon }[]
 }
 
 export interface HeaderAction {
@@ -22,49 +37,51 @@ const SUPER_ADMIN_BASE = "/super-admin/dashboard"
 const BRANCH_ADMIN_BASE = "/branch-admin/dashboard"
 
 const SUPER_ADMIN_MENU: NavItem[] = [
-  { label: "Dashboard", path: SUPER_ADMIN_BASE },
-  { label: "Branches", path: `${SUPER_ADMIN_BASE}/branches` },
-  { label: "Coachs", path: `${SUPER_ADMIN_BASE}/coaches` },
-  { label: "Students", path: `${SUPER_ADMIN_BASE}/students` },
-  { label: "Messages", path: `${SUPER_ADMIN_BASE}/messages` },
-  { label: "Courses", path: `${SUPER_ADMIN_BASE}/courses` },
+  { label: "Dashboard", path: SUPER_ADMIN_BASE, icon: LayoutDashboard },
+  { label: "Branches", path: `${SUPER_ADMIN_BASE}/branches`, icon: Building },
+  { label: "Coachs", path: `${SUPER_ADMIN_BASE}/coaches`, icon: Users },
+  { label: "Students", path: `${SUPER_ADMIN_BASE}/students`, icon: GraduationCap },
+  { label: "Messages", path: `${SUPER_ADMIN_BASE}/messages`, icon: MessageSquare },
+  { label: "Courses", path: `${SUPER_ADMIN_BASE}/courses`, icon: BookOpen },
   {
     label: "Attendance",
     path: `${SUPER_ADMIN_BASE}/attendance`,
+    icon: CalendarCheck,
     children: [
-      { label: "Overview", path: `${SUPER_ADMIN_BASE}/attendance` },
-      { label: "Student Attendance", path: `${SUPER_ADMIN_BASE}/attendance/students` },
-      { label: "Coach Attendance", path: `${SUPER_ADMIN_BASE}/attendance/coaches` },
+      { label: "Overview", path: `${SUPER_ADMIN_BASE}/attendance`, icon: CalendarCheck },
+      { label: "Student Attendance", path: `${SUPER_ADMIN_BASE}/attendance/students`, icon: GraduationCap },
+      { label: "Coach Attendance", path: `${SUPER_ADMIN_BASE}/attendance/coaches`, icon: Users },
     ],
   },
-  { label: "Reports", path: `${SUPER_ADMIN_BASE}/reports` },
+  { label: "Reports", path: `${SUPER_ADMIN_BASE}/reports`, icon: BarChart },
 ]
 
 // Branch admin: no Branches menu, no Add Branch Manager / Add New Branch
 const BRANCH_ADMIN_MENU: NavItem[] = [
-  { label: "Dashboard", path: BRANCH_ADMIN_BASE },
-  { label: "Coachs", path: `${BRANCH_ADMIN_BASE}/coaches` },
-  { label: "Students", path: `${BRANCH_ADMIN_BASE}/students` },
-  { label: "Messages", path: `${BRANCH_ADMIN_BASE}/messages` },
-  { label: "Courses", path: `${BRANCH_ADMIN_BASE}/courses` },
+  { label: "Dashboard", path: BRANCH_ADMIN_BASE, icon: LayoutDashboard },
+  { label: "Coachs", path: `${BRANCH_ADMIN_BASE}/coaches`, icon: Users },
+  { label: "Students", path: `${BRANCH_ADMIN_BASE}/students`, icon: GraduationCap },
+  { label: "Messages", path: `${BRANCH_ADMIN_BASE}/messages`, icon: MessageSquare },
+  { label: "Courses", path: `${BRANCH_ADMIN_BASE}/courses`, icon: BookOpen },
   {
     label: "Attendance",
     path: `${BRANCH_ADMIN_BASE}/attendance`,
+    icon: CalendarCheck,
     children: [
-      { label: "Overview", path: `${BRANCH_ADMIN_BASE}/attendance` },
-      { label: "Student Attendance", path: `${BRANCH_ADMIN_BASE}/attendance/students` },
-      { label: "Coach Attendance", path: `${BRANCH_ADMIN_BASE}/attendance/coaches` },
+      { label: "Overview", path: `${BRANCH_ADMIN_BASE}/attendance`, icon: CalendarCheck },
+      { label: "Student Attendance", path: `${BRANCH_ADMIN_BASE}/attendance/students`, icon: GraduationCap },
+      { label: "Coach Attendance", path: `${BRANCH_ADMIN_BASE}/attendance/coaches`, icon: Users },
     ],
   },
-  { label: "Reports", path: `${BRANCH_ADMIN_BASE}/reports` },
+  { label: "Reports", path: `${BRANCH_ADMIN_BASE}/reports`, icon: BarChart },
 ]
 
 const STUDENT_MENU: NavItem[] = [
-  { label: "Dashboard", path: "/student-dashboard" },
-  { label: "Courses", path: "/student-dashboard/courses" },
-  { label: "Attendance", path: "/student-dashboard/attendance" },
-  { label: "Payments", path: "/student-dashboard/payments" },
-  { label: "Profile", path: "/student-dashboard/profile" },
+  { label: "Dashboard", path: "/student-dashboard", icon: LayoutDashboard },
+  { label: "Courses", path: "/student-dashboard/courses", icon: BookOpen },
+  { label: "Attendance", path: "/student-dashboard/attendance", icon: CalendarCheck },
+  { label: "Payments", path: "/student-dashboard/payments", icon: CreditCard },
+  { label: "Profile", path: "/student-dashboard/profile", icon: User },
 ]
 
 export function getMenuForRole(role: DashboardRole): NavItem[] {

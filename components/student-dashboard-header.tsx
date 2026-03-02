@@ -222,20 +222,22 @@ export default function StudentDashboardHeader({
                 const isActive = item.exact
                   ? pathname === item.path
                   : isActivePath(item.path)
+                const Icon = item.icon
 
                 return (
                   <button
                     key={item.path}
                     onClick={() => handleNavigation(item.path)}
                     disabled={isNavigating}
-                    className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-300 hover:scale-105 ${
+                    className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-300 hover:scale-105 flex items-center ${
                       isActive
-                        ? "text-gray-900 border-yellow-400 shadow-sm items-center"
+                        ? "text-gray-900 border-yellow-400 shadow-sm"
                         : "text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300"
                     } ${isNavigating ? "opacity-50 cursor-not-allowed" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     title={item.description}
                   >
+                    {Icon && <Icon className="w-4 h-4 mr-1" />}
                     {item.name}
                   </button>
                 )
@@ -255,7 +257,7 @@ export default function StudentDashboardHeader({
                     className="flex border border-gray-200 items-center space-x-2 hover:bg-gray-100/80 rounded-lg px-2 py-2 transition-all duration-200 hover:shadow-sm"
                   >
                     <Avatar className="w-6 h-6 ring-2 ring-gray-200/50 hover:ring-yellow-400/30 transition-all duration-200">
-                      <AvatarImage src="/placeholder.svg" />
+                      <AvatarImage src="" />
                       <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white font-semibold text-xs">
                         {studentName.charAt(0).toUpperCase()}
                       </AvatarFallback>

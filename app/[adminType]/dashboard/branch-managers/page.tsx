@@ -594,7 +594,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                       <div key={manager.id} className="grid grid-cols-12 gap-4 p-4 hover:bg-gray-50 transition-colors">
                         <div className="col-span-3 flex items-center space-x-3">
                           <Avatar className="w-10 h-10">
-                            <AvatarImage src="/placeholder.svg" />
+                            <AvatarImage src="" />
                             <AvatarFallback>
                               {manager.full_name ? manager.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'BM'}
                             </AvatarFallback>
@@ -640,7 +640,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => router.push(`/dashboard/branch-managers/${manager.id}`)}
+                            onClick={() => router.push(`${basePath}/branch-managers/${manager.id}`)}
                             className="p-1 h-8 w-8"
                             title="View Branch Manager"
                           >
@@ -651,7 +651,7 @@ const filteredManagers = branchManagers.filter((manager) => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => router.push(`/dashboard/branch-managers/edit/${manager.id}`)}
+                            onClick={() => router.push(`${basePath}/branch-managers/edit/${manager.id}`)}
                             className="p-1 h-8 w-8"
                             title="Edit Branch Manager"
                           >

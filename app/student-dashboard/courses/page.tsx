@@ -217,11 +217,20 @@ export default function StudentCoursesPage() {
                 const branchCourses = branchData.courses || []
                 console.log(`✅ Loaded ${branchCourses.length} courses for branch ${branchId}`)
                 
-                // Add branch info to each course
+                // Add branch info and normalize fields for each course
                 const coursesWithBranch = branchCourses.map((c: any) => ({
                   ...c,
+                  id: c.id,
+                  title: c.title || c.name || c.course_name || 'Untitled Course',
+                  description: c.description || '',
+                  difficulty_level: c.difficulty_level || c.level || 'Beginner',
+                  category_id: c.category_id || '',
                   branch_id: branchId,
-                  branch_name: enrolledData.find(e => e.branch_id === branchId)?.branch_name
+                  branch_name: enrolledData.find(e => e.branch_id === branchId)?.branch_name,
+                  pricing: {
+                    amount: c.pricing?.amount || c.price || c.fee || 0,
+                    currency: c.pricing?.currency || 'INR'
+                  }
                 }))
                 
                 availableCoursesList.push(...coursesWithBranch)
@@ -236,7 +245,18 @@ export default function StudentCoursesPage() {
         if (availableCoursesList.length === 0) {
           console.log("⚠️ No branch-specific courses found, loading all courses")
           const allCoursesResponse = await courseAPI.getCourses(token)
-          availableCoursesList = allCoursesResponse.courses || []
+          const rawCourses = allCoursesResponse.courses || []
+          availableCoursesList = rawCourses.map((c: any) => ({
+            ...c,
+            title: c.title || c.name || c.course_name || 'Untitled Course',
+            description: c.description || '',
+            difficulty_level: c.difficulty_level || c.level || 'Beginner',
+            category_id: c.category_id || '',
+            pricing: {
+              amount: c.pricing?.amount || c.price || c.fee || 0,
+              currency: c.pricing?.currency || 'INR'
+            }
+          }))
         }
 
         // Filter out enrolled courses and inactive ones
@@ -310,7 +330,7 @@ export default function StudentCoursesPage() {
 
       const enrollmentData = {
         course_id: selectedCourse.id,
-        course_name: selectedCourse.name,
+        course_name: selectedCourse.title,
         branch_id: selectedBranch,
         branch_name: selectedBranchData?.name || 'Unknown Branch',
         duration_months: parseInt(selectedDuration),

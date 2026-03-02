@@ -12,12 +12,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 
 export default function EditBranchManagerPage() {
   const router = useRouter()
   const params = useParams()
+  const basePath = useDashboardBasePath()
   const managerId = params.id as string
   const { toast } = useToast()
 
@@ -287,7 +289,7 @@ export default function EditBranchManagerPage() {
 
       // Redirect after a short delay
       setTimeout(() => {
-        router.push(`/dashboard/branch-managers/${managerId}`)
+        router.push(`${basePath}/branch-managers/${managerId}`)
       }, 1500)
 
     } catch (error) {
@@ -375,7 +377,7 @@ export default function EditBranchManagerPage() {
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
-              onClick={() => router.push(`/dashboard/branch-managers/${managerId}`)}
+              onClick={() => router.push(`${basePath}/branch-managers/${managerId}`)}
               className="flex items-center space-x-2 hover:bg-gray-100"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -716,7 +718,7 @@ export default function EditBranchManagerPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push(`/dashboard/branch-managers/${managerId}`)}
+                onClick={() => router.push(`${basePath}/branch-managers/${managerId}`)}
                 disabled={isSubmitting}
               >
                 Cancel
@@ -752,7 +754,7 @@ export default function EditBranchManagerPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Branch Manager Updated Successfully!</h3>
                 <p className="text-gray-600 mb-4">The branch manager information has been updated successfully.</p>
                 <Button
-                  onClick={() => router.push(`/dashboard/branch-managers/${managerId}`)}
+                  onClick={() => router.push(`${basePath}/branch-managers/${managerId}`)}
                   className="bg-yellow-400 hover:bg-yellow-500 text-black"
                 >
                   View Manager Details

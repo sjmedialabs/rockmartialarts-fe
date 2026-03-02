@@ -1,5 +1,4 @@
 "use client"
-import { DualLineChart } from "@/components/charts/LineChart"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,77 +14,9 @@ import { paymentAPI, PaymentStats, Payment } from "@/lib/paymentAPI"
 import { TokenManager } from "@/lib/tokenManager"
 
 
-const chartData = [
-  { _id: "01 Jan", total: 2000, count: 1000 },
-  { _id: "01 Feb", total: 5000, count: 3000 },
-  { _id: "01 Mar", total: 12000, count: 8000 },
-  { _id: "01 Apr", total: 7000, count: 6000 },
-  { _id: "01 May", total: 10000, count: 9000 },
-  { _id: "01 Jun", total: 11000, count: 9500 },
-  { _id: "01 Jul", total: 9000, count: 7000 },
-]
-const formatValue = (value: number) => {
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(0)}K`
-  }
-  return value.toString()
-}
-
-interface Attendance {
-  date: string
-  studentName: string
-  gender: string
-  expertise: string
-  email: string
-  joinDate: string
-  checkIn: string
-  checkOut: string
-  attendance: string
-}
-
-const studentData: Attendance[] = [
-  {
-    date: "28/04/2025",
-    studentName: "Abhi ram",
-    gender: "Male",
-    expertise: "Martial Arts",
-    email: "Abhi@gmail.com",
-    joinDate: "20/04/2025",
-    checkIn: "06:30 AM",
-    checkOut: "09:00 AM",
-    attendance: "90%",
-  },
-  // 👆 Add more student records here
-]
-
-const coachData: Attendance[] = [
-  {
-    date: "28/04/2025",
-    studentName: "Coach Rohan",
-    gender: "Male",
-    expertise: "Yoga",
-    email: "rohan@gmail.com",
-    joinDate: "15/04/2025",
-    checkIn: "07:00 AM",
-    checkOut: "10:00 AM",
-    attendance: "95%",
-  },
-  // 👆 Add more coach records here
-]
-
 export default function SuperAdminDashboard() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
-    const [activeTab, setActiveTab] = useState<"student" | "coach">("student")
-  const [month, setMonth] = useState("april")
-  const [sort, setSort] = useState("today")
-  const [page, setPage] = useState(1)
-  const rowsPerPage = 5
-
-  const data = activeTab === "student" ? studentData : coachData
-
-  const paginatedData = data.slice((page - 1) * rowsPerPage, page * rowsPerPage)
-  const totalPages = Math.ceil(data.length / rowsPerPage)
   // State management
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null)
   const [coaches, setCoaches] = useState<Coach[]>([])
@@ -240,7 +171,7 @@ export default function SuperAdminDashboard() {
           ) : (
             // Data loaded successfully
             <>
-              <Card className="h-48 shadow-md">
+              <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="px-4">
                   <div className="">
                     <div className="flex justify-between flex-col gap-10">
@@ -262,7 +193,7 @@ export default function SuperAdminDashboard() {
                 </CardContent>
               </Card>
 
-               <Card className="h-48 shadow-md">
+               <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="px-4">
                   <div className="">
                     <div className="flex justify-between flex-col gap-10">
@@ -284,7 +215,7 @@ export default function SuperAdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="h-48 shadow-md">
+              <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="px-4">
                   <div className="">
                     <div className="flex justify-between flex-col gap-10">
@@ -306,7 +237,7 @@ export default function SuperAdminDashboard() {
                 </CardContent>
               </Card>
 
-                <Card className="h-48 shadow-md">
+                <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="px-4">
                   <div className="">
                     <div className="flex justify-between flex-col gap-10">
@@ -332,7 +263,7 @@ export default function SuperAdminDashboard() {
           )}
         </div>
           {/* Revenue Chart */}
-          <Card className="shadow-md">
+          <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle className="text-[#4F5077]">Revenue</CardTitle>
@@ -367,7 +298,7 @@ export default function SuperAdminDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              {/* <div className="h-64">
+              <div className="h-64">
                 {paymentsLoading ? (
                   <div className="h-full flex items-center justify-center bg-gray-50 rounded">
                     <div className="text-center">
@@ -410,20 +341,14 @@ export default function SuperAdminDashboard() {
                     </div>
                   </div>
                 )}
-              </div> */}
-
-        <DualLineChart 
-          data={chartData} 
-          height={400} 
-          formatValue={formatValue} 
-        />
+              </div>
   
  
             </CardContent>
           </Card>
           </div>
           {/* List of Coaches */}
-          <Card className="shadow-md">
+          <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle className="text-[#4F5077]">List of coaches</CardTitle>
@@ -479,7 +404,7 @@ export default function SuperAdminDashboard() {
                       <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Avatar className="w-10 h-10">
-                          <AvatarImage src="/placeholder.svg" />
+                          <AvatarImage src="" />
                           <AvatarFallback>
                             {coach.full_name
                               .split(" ")
@@ -527,142 +452,38 @@ export default function SuperAdminDashboard() {
           </Card>
         </div>
 
-        {/* Student Attendance and Recent Payments */}
+        {/* Attendance Summary and Recent Payments */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Student Attendance */}
-         <Card className="lg:col-span-2 shadow-md rounded-2xl">
-      <CardHeader>
-        <div className="flex space-x-4">
-          <Button
-            className={`rounded-md px-4 ${
-              activeTab === "student"
-                ? "bg-yellow-400 hover:bg-yellow-500 text-black"
-                : "bg-gray-100 text-gray-700"
-            }`}
-            onClick={() => setActiveTab("student")}
-          >
-            Student Attendance
-          </Button>
-          <Button
-            className={`rounded-md px-4 ${
-              activeTab === "coach"
-                ? "bg-yellow-400 hover:bg-yellow-500 text-black"
-                : "bg-gray-100 text-gray-700"
-            }`}
-            onClick={() => setActiveTab("coach")}
-          >
-            Coach Attendance
-          </Button>
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        <div className="mb-4 flex justify-between items-center">
-          <h3 className="font-semibold text-lg text-[#4F5077]">Attendance</h3>
-          <div className="flex items-center space-x-4">
-            {/* Month Filter */}
-            <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger className="w-40 bg-[#f1f1f1] text-[#9593A8]">
-                <SelectValue placeholder="Select Month" />
-              </SelectTrigger>
-              <SelectContent className="">
-                <SelectItem value="march">March</SelectItem>
-                <SelectItem value="april">April</SelectItem>
-                <SelectItem value="may">May</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Sort Filter */}
-            <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger className="w-32 bg-[#f1f1f1] text-[#9593A8]">
-                <SelectValue placeholder="Sort By" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto border rounded-xl">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr className="border-b text-[#6B7A99] text-xs">
-                <th className="text-left py-3 px-1">Name</th>
-                <th className="text-left py-3 px-1">Student Name</th>
-                <th className="text-left py-3 px-1">Gender</th>
-                <th className="text-left py-3 px-1">Expertise</th>
-                <th className="text-left py-3 px-1">Email Id</th>
-                <th className="text-left py-3 px-1">Date of Join</th>
-                <th className="text-left py-3 px-1">Check In</th>
-                <th className="text-left py-3 px-1">Check Out</th>
-                <th className="text-left py-3 px-1">Attendance</th>
-                <th className="text-left py-3 px-1"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedData.map((item, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50 text-[10px]">
-                  <td className="py-3 px-2">{item.date}</td>
-                  <td className="py-3 px-2">{item.studentName}</td>
-                  <td className="py-3 px-2">{item.gender}</td>
-                  <td className="py-3 px-2">{item.expertise}</td>
-                  <td className="py-3 px-2">{item.email}</td>
-                  <td className="py-3 px-2">{item.joinDate}</td>
-                  <td className="py-3 px-2">{item.checkIn}</td>
-                  <td className="py-3 px-2">{item.checkOut}</td>
-                  <td className="py-3 px-2">{item.attendance}</td>
-                  <td className="py-3 px-2">
-                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-black px-3 py-1 rounded-md text-xs">
-                      View more
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex justify-end items-center space-x-2 mt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </Button>
-
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <Button
-              key={i}
-              variant={page === i + 1 ? "default" : "outline"}
-              size="sm"
-              className={page === i + 1 ? "bg-yellow-400 text-black" : ""}
-              onClick={() => setPage(i + 1)}
-            >
-              {i + 1}
-            </Button>
-          ))}
-
-          <Button
-            className="bg-yellow-400 hover:bg-yellow-500 text-black"
-            size="sm"
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          {/* Attendance Summary */}
+          <Card className="lg:col-span-2 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-[#4F5077] flex items-center">
+                  <Users className="w-5 h-5 mr-2" />
+                  Attendance Overview
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`${basePath}/attendance`)}
+                >
+                  View Details
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-center py-12 text-gray-500">
+                <div className="text-center">
+                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg font-medium text-gray-700 mb-1">Attendance Tracking</p>
+                  <p className="text-sm text-gray-500">View detailed student and coach attendance from the Attendance page.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Recent Payments */}
-          <Card className="shadow-md">
+          <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle className="text-[#4F5077]">Recent payments</CardTitle>

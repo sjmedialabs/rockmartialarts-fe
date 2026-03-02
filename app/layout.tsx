@@ -7,18 +7,20 @@ import { Toaster } from '@/components/ui/toaster'
 import AccessibilityProvider from '@/components/accessibility-provider'
 import './globals.css'
 
-// Load Poppins for general text
+// Load Poppins for general text (only font preloaded to reduce console warnings)
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-poppins',
+  display: 'swap',
 })
 
-// Load Roboto for monospace/code
+// Load Roboto for monospace/code (preload: false to avoid "preloaded but not used" console warnings)
 const roboto = Roboto({
   subsets: ['latin'],
   weight: ['300', '400', '500', '700'],
   variable: '--font-roboto',
+  preload: false,
 })
 
 // Load Inter (secondary sans option)
@@ -26,12 +28,14 @@ const inter = Inter({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-inter',
+  preload: false,
 })
 // Load Bebas Neue (display headings, bold titles, etc.)
 const bebasNeue = Bebas_Neue({
   subsets: ['latin'],
   weight: '400', // Bebas Neue only has one weight
   variable: '--font-bebas',
+  preload: false,
 })
 export const metadata: Metadata = {
   title: 'Martial Arts Academy - Student Portal',

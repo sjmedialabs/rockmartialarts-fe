@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getBackendApiUrl } from '@/lib/config'
 
 export interface SubscriptionStatus {
   isActive: boolean
@@ -48,17 +49,14 @@ export function useStudentSubscription() {
           return
         }
 
-        // Fetch profile to get accurate subscription status
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/profile`,
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+        // Fetch profile (use proxy in browser so URL is correct and consistent)
+        const response = await fetch(getBackendApiUrl('auth/profile'), {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
-        )
+        })
 
         if (response.ok) {
           const result = await response.json()
@@ -75,14 +73,23 @@ export function useStudentSubscription() {
               enrollment.payment_status !== 'cancelled'
           ) || false
 
-          // Get the most recent enrollment for expiry info
-          const recentEnrollment = profile.enrollments?.[0]
+          // Expiry date: use latest end_date (or completion_date) from any enrollment for display
+          const withDate = (profile.enrollments || []).filter(
+            (e: any) => e?.end_date || e?.completion_date
+          )
+          const sortedByEnd = [...withDate].sort(
+            (a: any, b: any) =>
+              new Date(b.end_date || b.completion_date || 0).getTime() -
+              new Date(a.end_date || a.completion_date || 0).getTime()
+          )
+          const latestEnrollment = sortedByEnd[0] || profile.enrollments?.[0]
+          const expiryDate = latestEnrollment?.end_date || latestEnrollment?.completion_date
 
           setStatus({
             isActive: isProfileActive && hasActiveEnrollment,
             hasActiveEnrollment,
-            expiryDate: recentEnrollment?.end_date,
-            paymentStatus: recentEnrollment?.payment_status,
+            expiryDate,
+            paymentStatus: latestEnrollment?.payment_status,
             loading: false
           })
         } else {

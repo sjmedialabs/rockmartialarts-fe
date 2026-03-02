@@ -338,11 +338,11 @@ const itemsPerPage = 5
   }
 
   const handleViewClick = (branchId: string) => {
-    router.push(`/dashboard/branches/${branchId}`)
+    router.push(`${basePath}/branches/${branchId}`)
   }
 
   const handleEditClick = (branchId: string) => {
-    router.push(`/dashboard/branches/edit/${branchId}`)
+    router.push(`${basePath}/branches/edit/${branchId}`)
   }
 
   const handleDeleteCancel = () => {

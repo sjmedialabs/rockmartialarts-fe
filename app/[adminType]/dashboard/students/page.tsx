@@ -569,7 +569,7 @@ const paginatedStudents = filteredStudents.slice(
           </div>
           <div className="flex space-x-3">
             {/* <Button
-              onClick={() => router.push("/dashboard/create-student")}
+              onClick={() => router.push(`${basePath}/create-student`)}
               className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
             >
               + Add Student

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import Header from "@/components/layout/Header"
+import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { CardSkeleton, LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import {
   Calendar,
@@ -92,12 +92,9 @@ export default function StudentDashboard() {
 
           setStudentData({
             name: profileData.full_name || `${profileData.first_name} ${profileData.last_name}` || "Student",
-            email: profileData.email || "student@example.com",
-            studentId: profileData.id || "STU-UNKNOWN",
-            joinDate: profileData.created_at ? new Date(profileData.created_at).toLocaleDateString() : "Unknown",
-            belt: "Blue Belt", // This could be added to profile later
-            nextBelt: "Purple Belt", // This could be added to profile later
-            profileImage: "/placeholder.svg",
+            email: profileData.email || "",
+            studentId: profileData.id || "",
+            joinDate: profileData.created_at ? new Date(profileData.created_at).toLocaleDateString() : "",
             course: profileData.enrollments?.[0]?.course_name || "No Course",
             phone: profileData.phone || "",
             dateOfBirth: profileData.date_of_birth || "",
@@ -130,14 +127,14 @@ export default function StudentDashboard() {
           setDashboardStats({
             enrolledCourses: profileData?.enrollments?.length || 0,
             completedClasses: attendanceResult.statistics?.attended || 0,
-            upcomingClasses: 5, // This could be calculated from schedule data
-            overallProgress: 75, // This could be calculated based on course progress
+            upcomingClasses: 0,
+            overallProgress: attendanceResult.statistics?.percentage || 0,
             attendanceRate: attendanceResult.statistics?.percentage || 0,
-            totalHours: Math.round((attendanceResult.statistics?.attended || 0) * 1.5), // Assuming 1.5 hours per class
-            achievements: 8, // This could be calculated from achievements data
-            rank: 12, // This could be calculated from performance data
-            streakDays: 15, // This could be calculated from consecutive attendance
-            nextClassTime: "Today, 6:00 PM", // This could come from schedule data
+            totalHours: Math.round((attendanceResult.statistics?.attended || 0) * 1.5),
+            achievements: 0,
+            rank: 0,
+            streakDays: 0,
+            nextClassTime: "",
             totalClasses: attendanceResult.statistics?.total_classes || 0,
             absentClasses: attendanceResult.statistics?.absent || 0,
             lateClasses: attendanceResult.statistics?.late || 0
@@ -175,21 +172,10 @@ export default function StudentDashboard() {
           branch: record.branch || "Unknown Branch"
         }))
 
-        // Add some default activities if no attendance data
-        if (activityList.length === 0) {
-          activityList.push(
-            { id: 1, type: "enrollment", title: "Course Enrollment", date: profileData?.created_at ? new Date(profileData.created_at).toLocaleDateString() : "Unknown", status: "completed", icon: BookOpen, branch: "N/A" }
-          )
-        }
-
         setRecentActivity(activityList)
 
-        // Set upcoming events
-        setUpcomingEvents([
-          { id: 1, title: "Karate Basics", date: "2024-01-22", time: "10:00 AM", instructor: "Sensei Mike", type: "class" },
-          { id: 2, title: "Sparring Session", date: "2024-01-23", time: "2:00 PM", instructor: "Sensei Sarah", type: "practice" },
-          { id: 3, title: "Belt Testing", date: "2024-01-25", time: "11:00 AM", instructor: "Coach Chen", type: "exam" }
-        ])
+        // Set upcoming events - empty, no static data
+        setUpcomingEvents([])
 
         // Set quick actions
         setQuickActions([
@@ -203,18 +189,15 @@ export default function StudentDashboard() {
         console.error("Error loading dashboard data:", error)
         setError(error.message || "Failed to load dashboard data")
 
-        // Set fallback data for basic functionality
+        // Set minimal fallback from localStorage (no hardcoded values)
         if (user) {
           const userData = JSON.parse(user)
           setStudentData({
             name: userData.full_name || `${userData.first_name} ${userData.last_name}` || "Student",
-            email: userData.email || "student@example.com",
-            studentId: userData.id || "STU-UNKNOWN",
-            joinDate: "Unknown",
-            belt: "Blue Belt",
-            nextBelt: "Purple Belt",
-            profileImage: "/placeholder.svg",
-            course: "Unknown Course"
+            email: userData.email || "",
+            studentId: userData.id || "",
+            joinDate: "",
+            course: ""
           })
         }
       } finally {
@@ -251,8 +234,11 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <>
-        <Header title="Dashboard" role="student" />
+      <StudentDashboardLayout
+        studentName={studentData?.name}
+        onLogout={handleLogout}
+        isLoading={true}
+      >
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -264,14 +250,16 @@ export default function StudentDashboard() {
             <CardSkeleton lines={5} />
           </div>
         </div>
-      </>
+      </StudentDashboardLayout>
     )
   }
 
   if (error && !studentData) {
     return (
-      <>
-        <Header title="Dashboard" role="student" />
+      <StudentDashboardLayout
+        studentName="Student"
+        onLogout={handleLogout}
+      >
         <div className="space-y-6">
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-6">
@@ -295,13 +283,16 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </div>
-      </>
+      </StudentDashboardLayout>
     )
   }
 
   return (
-    <>
-      <Header title="Dashboard" role="student" />
+    <StudentDashboardLayout
+      studentName={studentData?.name}
+      onLogout={handleLogout}
+      pageTitle="Dashboard"
+    >
       <div className="space-y-8">
         {/* Error Warning Banner */}
         {error && studentData && (
@@ -319,10 +310,10 @@ export default function StudentDashboard() {
           </Card>
         )}
 
-        {/* Stats Overview */}
+          {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Enrolled Courses */}
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60 hover:shadow-lg transition-all duration-300">
+          <Card className="rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60 shadow-sm hover:shadow-md transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -341,7 +332,7 @@ export default function StudentDashboard() {
           </Card>
 
           {/* Attendance Rate */}
-          <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200/60 hover:shadow-lg transition-all duration-300">
+          <Card className="rounded-xl border bg-gradient-to-br from-green-50 to-green-100/50 border-green-200/60 shadow-sm hover:shadow-md transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -360,7 +351,7 @@ export default function StudentDashboard() {
           </Card>
 
           {/* Training Hours */}
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200/60 hover:shadow-lg transition-all duration-300">
+          <Card className="rounded-xl border bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200/60 shadow-sm hover:shadow-md transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -378,13 +369,13 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
 
-          {/* Achievements */}
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100/50 border-yellow-200/60 hover:shadow-lg transition-all duration-300">
+          {/* Completed Classes */}
+          <Card className="rounded-xl border bg-gradient-to-br from-yellow-50 to-yellow-100/50 border-yellow-200/60 shadow-sm hover:shadow-md transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-yellow-600 mb-1">Achievements</p>
-                  <p className="text-3xl font-bold text-yellow-900">{dashboardStats?.achievements || 0}</p>
+                  <p className="text-sm font-medium text-yellow-600 mb-1">Completed Classes</p>
+                  <p className="text-3xl font-bold text-yellow-900">{dashboardStats?.completedClasses || 0}</p>
                 </div>
                 <div className="p-3 bg-yellow-200/50 rounded-xl">
                   <Award className="w-6 h-6 text-yellow-600" />
@@ -392,7 +383,7 @@ export default function StudentDashboard() {
               </div>
               <div className="mt-4 flex items-center text-sm text-yellow-700">
                 <Target className="w-4 h-4 mr-1" />
-                <span>Unlocked</span>
+                <span>Total attended</span>
               </div>
             </CardContent>
           </Card>
@@ -402,48 +393,37 @@ export default function StudentDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Progress & Quick Actions */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Progress Overview */}
-            <Card className="overflow-hidden">
+            {/* Attendance Overview */}
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b border-yellow-100">
                 <CardTitle className="flex items-center space-x-2">
                   <TrendingUp className="w-5 h-5 text-yellow-600" />
-                  <span>Training Progress</span>
+                  <span>Attendance Overview</span>
                 </CardTitle>
-                <CardDescription>Your martial arts journey to {studentData?.nextBelt}</CardDescription>
+                <CardDescription>Your class attendance summary</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <Award className="w-6 h-6 text-yellow-600" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">Current Belt: {studentData?.belt}</p>
-                        <p className="text-sm text-gray-600">Next: {studentData?.nextBelt}</p>
-                      </div>
-                    </div>
-                    <Badge className="bg-yellow-100 text-yellow-800 px-3 py-1">
-                      {dashboardStats?.overallProgress}% Complete
-                    </Badge>
-                  </div>
-
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium">Overall Progress</span>
-                      <span className="text-gray-600">{dashboardStats?.overallProgress}%</span>
+                      <span className="font-medium">Attendance Rate</span>
+                      <span className="text-gray-600">{dashboardStats?.attendanceRate || 0}%</span>
                     </div>
-                    <Progress value={dashboardStats?.overallProgress} className="h-3" />
+                    <Progress value={dashboardStats?.attendanceRate || 0} className="h-3" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                  <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-green-600">{dashboardStats?.streakDays}</p>
-                      <p className="text-sm text-gray-600">Day Streak</p>
+                      <p className="text-2xl font-bold text-green-600">{dashboardStats?.completedClasses || 0}</p>
+                      <p className="text-sm text-gray-600">Attended</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-blue-600">{dashboardStats?.rank}</p>
-                      <p className="text-sm text-gray-600">Class Rank</p>
+                      <p className="text-2xl font-bold text-red-600">{dashboardStats?.absentClasses || 0}</p>
+                      <p className="text-sm text-gray-600">Absent</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-yellow-600">{dashboardStats?.lateClasses || 0}</p>
+                      <p className="text-sm text-gray-600">Late</p>
                     </div>
                   </div>
                 </div>
@@ -451,7 +431,7 @@ export default function StudentDashboard() {
             </Card>
 
             {/* Quick Actions */}
-            <Card>
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Zap className="w-5 h-5 text-blue-600" />
@@ -493,80 +473,81 @@ export default function StudentDashboard() {
 
           {/* Right Column - Upcoming Events & Recent Activity */}
           <div className="space-y-6">
-            {/* Next Class */}
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/60">
+            {/* Enrolled Courses Quick View */}
+            <Card className="rounded-xl border bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/60 shadow-sm hover:shadow-md transition-all">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center space-x-2 text-green-800">
-                  <Clock className="w-5 h-5" />
-                  <span>Next Class</span>
+                  <BookOpen className="w-5 h-5" />
+                  <span>My Courses</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-center space-y-3">
                   <div className="p-4 bg-white/60 rounded-lg">
-                    <p className="text-2xl font-bold text-green-700">{dashboardStats?.nextClassTime}</p>
-                    <p className="text-sm text-green-600 mt-1">Karate Basics</p>
+                    <p className="text-2xl font-bold text-green-700">{dashboardStats?.enrolledCourses || 0}</p>
+                    <p className="text-sm text-green-600 mt-1">Enrolled courses</p>
                   </div>
                   <Button
                     className="w-full bg-green-600 hover:bg-green-700"
                     onClick={() => router.push('/student-dashboard/courses')}
                   >
-                    View Schedule
+                    View Courses
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Upcoming Events */}
-            <Card>
+            {/* Enrolled Courses List */}
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Calendar className="w-5 h-5 text-blue-600" />
-                  <span>Upcoming Events</span>
+                  <span>Enrollments</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="space-y-0">
-                  {upcomingEvents.map((event, index) => (
-                    <div
-                      key={event.id}
-                      className={`p-4 hover:bg-gray-50 transition-colors duration-200 ${
-                        index !== upcomingEvents.length - 1 ? 'border-b border-gray-100' : ''
-                      }`}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className={`p-2 rounded-lg ${
-                          event.type === 'exam' ? 'bg-red-100 text-red-600' :
-                          event.type === 'practice' ? 'bg-yellow-100 text-yellow-600' :
-                          'bg-blue-100 text-blue-600'
-                        }`}>
-                          {event.type === 'exam' ? <Award className="w-4 h-4" /> :
-                           event.type === 'practice' ? <Target className="w-4 h-4" /> :
-                           <BookOpen className="w-4 h-4" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{event.title}</p>
-                          <p className="text-sm text-gray-600">{event.instructor}</p>
-                          <p className="text-xs text-gray-500 mt-1">{event.date} at {event.time}</p>
+                {enrollmentData.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No enrollments found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-0">
+                    {enrollmentData.slice(0, 5).map((enrollment: any, index: number) => (
+                      <div
+                        key={enrollment.id || index}
+                        className={`p-4 hover:bg-gray-50 transition-colors duration-200 ${
+                          index !== Math.min(enrollmentData.length, 5) - 1 ? 'border-b border-gray-100' : ''
+                        }`}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                            <BookOpen className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">{enrollment.course_name}</p>
+                            <p className="text-sm text-gray-600">{enrollment.branch_name || 'Branch'}</p>
+                            <p className="text-xs text-gray-500 mt-1">{enrollment.is_active ? 'Active' : 'Inactive'}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
                 <div className="p-4 border-t border-gray-100">
                   <Button
                     variant="outline"
                     className="w-full"
                     onClick={() => router.push('/student-dashboard/courses')}
                   >
-                    View All Events
+                    View All Courses
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
             {/* Recent Activity */}
-            <Card>
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Bell className="w-5 h-5 text-purple-600" />
@@ -614,6 +595,6 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
-    </>
+    </StudentDashboardLayout>
   )
 }

@@ -115,12 +115,12 @@ export default function CourseListPage() {
 
 
   const handleViewClick = (courseId: string) => {
-    router.push(`/dashboard/courses/${courseId}`)
+    router.push(`${basePath}/courses/${courseId}`)
   }
 
   const handleEditClick = (courseId: string) => {
     console.log("Editing course:", courseId)
-    router.push(`/dashboard/courses/edit/${courseId}`)
+    router.push(`${basePath}/courses/edit/${courseId}`)
   }
 
   const handleDeleteClick = (courseId: string) => {

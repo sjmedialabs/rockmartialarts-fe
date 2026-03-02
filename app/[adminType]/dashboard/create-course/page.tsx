@@ -18,9 +18,11 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 
 export default function CreateCoursePage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const { user } = useAuth()
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
@@ -36,7 +38,15 @@ export default function CreateCoursePage() {
   const [modules, setModules] = useState<any[]>([])
   const [branches, setBranches] = useState<any[]>([])
   const [difficultyLevels, setDifficultyLevels] = useState<any[]>([])
-  const [courseDurations, setCourseDurations] = useState<any[]>([])
+  // Fixed duration options so this dropdown never shows wrong API data (e.g. currencies)
+  const [courseDurations] = useState<{ value: string; label: string }[]>([
+    { value: '1 month', label: '1 month' },
+    { value: '2 months', label: '2 months' },
+    { value: '3 months', label: '3 months' },
+    { value: '6 months', label: '6 months' },
+    { value: '1 year', label: '1 year' },
+    { value: '2 years', label: '2 years' },
+  ])
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [branchPrices, setBranchPrices] = useState<any[]>([])
   const [formData, setFormData] = useState({
@@ -153,48 +163,6 @@ export default function CreateCoursePage() {
     fetchDifficultyLevels()
   }, [toast])
 
-  // Fetch course durations from master data
-  useEffect(() => {
-    const fetchCourseDurations = async () => {
-      try {
-        const token = TokenManager.getToken()
-        const response = await fetch(getBackendApiUrl('dropdown-settings/course_durations'), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          // data is an array of {value, label, is_active, order}
-          const activeDurations = data.filter((duration: any) => duration.is_active)
-          setCourseDurations(activeDurations)
-        } else {
-          // Fallback to default course durations
-          setCourseDurations([
-            { value: '1_month', label: '1 Month', is_active: true },
-            { value: '3_months', label: '3 Months', is_active: true },
-            { value: '6_months', label: '6 Months', is_active: true },
-            { value: '1_year', label: '1 Year', is_active: true },
-            { value: '2_years', label: '2 Years', is_active: true }
-          ])
-        }
-      } catch (error) {
-        console.error('Error fetching course durations:', error)
-        // Fallback to default course durations
-        setCourseDurations([
-          { value: '1_month', label: '1 Month', is_active: true },
-          { value: '3_months', label: '3 Months', is_active: true },
-          { value: '6_months', label: '6 Months', is_active: true },
-          { value: '1_year', label: '1 Year', is_active: true },
-          { value: '2_years', label: '2 Years', is_active: true }
-        ])
-      }
-    }
-
-    fetchCourseDurations()
-  }, [toast])
   // Fetch subcategories when category changes
   useEffect(() => {
     if (!formData.category) {
@@ -469,7 +437,7 @@ export default function CreateCoursePage() {
 
   const handleSuccessOk = () => {
     setShowSuccessPopup(false)
-    router.push("/dashboard/courses")
+    router.push(`${basePath}/courses`)
   }
 
   return (
@@ -483,7 +451,7 @@ export default function CreateCoursePage() {
           </div>
           <Button
             variant="outline"
-            onClick={() => router.push("/dashboard/courses")}
+            onClick={() => router.push(`${basePath}/courses`)}
             className="flex items-center space-x-2"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -980,7 +948,7 @@ export default function CreateCoursePage() {
                       <Button 
                         type="button" 
                         variant="outline" 
-                        onClick={() => router.push("/dashboard/courses")}
+                        onClick={() => router.push(`${basePath}/courses`)}
                         disabled={isSubmitting}
                       >
                         Cancel

@@ -16,6 +16,7 @@ import { CalendarIcon, MapPinIcon, Building2Icon, FolderIcon, BookOpenIcon, Cloc
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useAuth } from "@/contexts/AuthContext"
 import { branchAPI } from "@/lib/branchAPI"
 import { courseAPI } from "@/lib/courseAPI"
@@ -67,6 +68,7 @@ interface FormErrors {
 
 export default function CreateStudent() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
   
   // Loading states
@@ -601,7 +603,7 @@ export default function CreateStudent() {
 
   const handleSuccessOk = () => {
     setShowSuccessPopup(false)
-    router.push("/dashboard/students")
+    router.push(`${basePath}/students`)
   }
 
   return (
@@ -617,7 +619,7 @@ export default function CreateStudent() {
           </div>
           <Button
             variant="outline"
-            onClick={() => router.push("/dashboard/students")}
+            onClick={() => router.push(`${basePath}/students`)}
             className="flex items-center space-x-2 px-4 py-2 border-gray-300 hover:bg-gray-50 transition-all duration-200 text-sm"
           >
             <span className="text-[#4F5077]">← Back to Students</span>
@@ -1226,7 +1228,7 @@ export default function CreateStudent() {
                   <Button 
                     type="button" 
                     variant="outline"
-                    onClick={() => router.push("/dashboard/students")}
+                    onClick={() => router.push(`${basePath}/students`)}
                     disabled={isSubmitting}
                     className="w-full sm:w-auto h-12 px-8 rounded-xl text-base font-medium border-gray-300 hover:bg-gray-50 transition-all duration-200"
                   >

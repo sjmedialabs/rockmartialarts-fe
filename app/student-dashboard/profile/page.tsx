@@ -189,7 +189,7 @@ export default function StudentProfilePage() {
             <Card>
               <CardHeader className="text-center">
                 <Avatar className="w-24 h-24 mx-auto mb-4">
-                  <AvatarImage src="/placeholder.svg" />
+                  <AvatarImage src="" />
                   <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white text-2xl font-bold">
                     {studentProfile.first_name?.charAt(0)?.toUpperCase() || "S"}
                     </AvatarFallback>

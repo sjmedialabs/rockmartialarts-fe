@@ -32,7 +32,7 @@ export default function Navbar({ role }: NavbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [profileImage, setProfileImage] = useState<string>("/placeholder.svg")
+  const [profileImage, setProfileImage] = useState<string>("")
 
   const menuItems = getMenuForRole(role)
   const basePath = getBasePath(role)
@@ -105,35 +105,42 @@ export default function Navbar({ role }: NavbarProps) {
 
           <div className="flex items-center space-x-2 lg:space-x-3 ml-auto">
             <nav className="hidden lg:flex items-center space-x-2 xl:space-x-3 2xl:space-x-4">
-              {menuItems.map((item) =>
-                item.children ? (
+              {menuItems.map((item) => {
+                const Icon = item.icon
+                return item.children ? (
                   <DropdownMenu key={item.path}>
                     <DropdownMenuTrigger asChild>
                       <button className={navButtonClass(item) + " flex items-center"}>
+                        {Icon && <Icon className="w-4 h-4 mr-1" />}
                         {item.label}
                         <ChevronDown className="w-3 h-3 ml-1 transition-transform duration-200" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuPortal>
                       <DropdownMenuContent align="start" className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
-                        {item.children.map((child) => (
-                          <DropdownMenuItem
-                            key={child.path}
-                            onClick={() => router.push(child.path)}
-                            className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
-                          >
-                            {child.label}
-                          </DropdownMenuItem>
-                        ))}
+                        {item.children.map((child) => {
+                          const ChildIcon = child.icon
+                          return (
+                            <DropdownMenuItem
+                              key={child.path}
+                              onClick={() => router.push(child.path)}
+                              className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2"
+                            >
+                              {ChildIcon && <ChildIcon className="w-4 h-4" />}
+                              {child.label}
+                            </DropdownMenuItem>
+                          )
+                        })}
                       </DropdownMenuContent>
                     </DropdownMenuPortal>
                   </DropdownMenu>
                 ) : (
-                  <button key={item.path} onClick={() => router.push(item.path)} className={navButtonClass(item)}>
+                  <button key={item.path} onClick={() => router.push(item.path)} className={navButtonClass(item) + " flex items-center"}>
+                    {Icon && <Icon className="w-4 h-4 mr-1" />}
                     {item.label}
                   </button>
                 )
-              )}
+              })}
               {(role === "super_admin" || role === "branch_admin") && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

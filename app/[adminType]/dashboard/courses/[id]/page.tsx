@@ -30,6 +30,7 @@ import {
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 
 interface CourseDetails {
   id: string
@@ -93,6 +94,7 @@ interface CourseReview {
 export default function CourseDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const courseId = params.id as string
 
   const [course, setCourse] = useState<CourseDetails | null>(null)
@@ -318,11 +320,11 @@ export default function CourseDetailPage() {
   }
 
   const handleEdit = () => {
-    router.push(`/dashboard/courses/edit/${courseId}`)
+    router.push(`${basePath}/courses/edit/${courseId}`)
   }
 
   const handleBack = () => {
-    router.push('/dashboard/courses')
+    router.push(`${basePath}/courses`)
   }
 
   const getStatusColor = (status: string) => {
@@ -947,7 +949,7 @@ export default function CourseDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/dashboard/courses/edit/${courseId}`)}
+                  onClick={() => router.push(`${basePath}/courses/edit/${courseId}`)}
                 >
                   <Edit className="w-4 h-4 mr-2 text-[#7D8592]" />
                   Edit Course Details
@@ -956,7 +958,7 @@ export default function CourseDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/dashboard/students?course_id=${courseId}`)}
+                  onClick={() => router.push(`${basePath}/students?course_id=${courseId}`)}
                 >
                   <Users className="w-4 h-4 mr-2 text-[#7D8592]" />
                   View Enrolled Students
@@ -965,7 +967,7 @@ export default function CourseDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/dashboard/enrollments?course_id=${courseId}`)}
+                  onClick={() => router.push(`${basePath}/enrollments?course_id=${courseId}`)}
                 >
                   <BookOpen className="w-4 h-4 mr-2 text-[#7D8592]" />
                   Manage Enrollments
@@ -974,7 +976,7 @@ export default function CourseDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/dashboard/curriculum?course_id=${courseId}`)}
+                  onClick={() => router.push(`${basePath}/curriculum?course_id=${courseId}`)}
                 >
                   <FileText className="w-4 h-4 mr-2 text-[#7D8592]" />
                   Edit Curriculum
@@ -983,7 +985,7 @@ export default function CourseDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-[#7D8592]"
-                  onClick={() => router.push(`/dashboard/analytics?course_id=${courseId}`)}
+                  onClick={() => router.push(`${basePath}/analytics?course_id=${courseId}`)}
                 >
                   <TrendingUp className="w-4 h-4 mr-2 text-[#7D8592]"/>
                   View Analytics

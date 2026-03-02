@@ -18,6 +18,7 @@ import {
   RefreshCw
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -186,6 +187,7 @@ const REPORT_CATEGORIES = [
 function CategoryReportsPageContent() {
   const params = useParams()
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { user } = useAuth()
 
   const categoryId = params.categoryId as string
@@ -554,7 +556,7 @@ function CategoryReportsPageContent() {
     // Navigate to the category page
     setTimeout(() => {
       setCategoryLoading(null)
-      router.push(`/dashboard/reports/${categoryId}`)
+      router.push(`${basePath}/reports/${categoryId}`)
       toast.success(`Opening ${categoryName}...`)
     }, 300)
   }

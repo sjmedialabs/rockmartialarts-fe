@@ -11,6 +11,7 @@ import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { CardSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { TokenManager } from "@/lib/tokenManager"
+import { getBackendApiUrl } from "@/lib/config"
 import {
   Calendar,
   CheckCircle,
@@ -94,7 +95,7 @@ export default function StudentAttendancePage() {
       const headers = TokenManager.getAuthHeaders()
       console.log("🔄 Fetching student attendance data...")
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/attendance/student/my-attendance`, {
+      const response = await fetch(getBackendApiUrl("attendance/student/my-attendance"), {
         method: 'GET',
         headers
       })
@@ -145,9 +146,37 @@ export default function StudentAttendancePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
-      </div>
+      <StudentDashboardLayout
+        pageTitle="Attendance"
+        pageDescription="Track your class attendance and punctuality"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="rounded-xl border bg-white shadow-sm">
+              <CardContent className="p-6">
+                <div className="text-center space-y-2">
+                  <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card className="rounded-xl border bg-white shadow-sm">
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center space-x-4 animate-pulse">
+                  <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                  <div className="h-4 w-32 bg-gray-200 rounded"></div>
+                  <div className="h-4 w-20 bg-gray-200 rounded"></div>
+                  <div className="h-6 w-16 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </StudentDashboardLayout>
     )
   }
 
@@ -195,45 +224,50 @@ export default function StudentAttendancePage() {
 
       {/* Attendance Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <Card>
+        <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
           <CardContent className="p-6">
             <div className="text-center">
+              <Calendar className="w-5 h-5 mx-auto mb-1 text-blue-500" />
               <p className="text-2xl font-bold text-blue-600">{attendanceStats.total_classes}</p>
               <p className="text-sm text-gray-500 mt-1">Total Classes</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
           <CardContent className="p-6">
             <div className="text-center">
+              <CheckCircle className="w-5 h-5 mx-auto mb-1 text-green-500" />
               <p className="text-2xl font-bold text-green-600">{attendanceStats.attended}</p>
               <p className="text-sm text-gray-500 mt-1">Attended</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
           <CardContent className="p-6">
             <div className="text-center">
+              <XCircle className="w-5 h-5 mx-auto mb-1 text-red-500" />
               <p className="text-2xl font-bold text-red-600">{attendanceStats.absent}</p>
               <p className="text-sm text-gray-500 mt-1">Absent</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
           <CardContent className="p-6">
             <div className="text-center">
+              <Clock className="w-5 h-5 mx-auto mb-1 text-yellow-500" />
               <p className="text-2xl font-bold text-yellow-600">{attendanceStats.late}</p>
               <p className="text-sm text-gray-500 mt-1">Late</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
           <CardContent className="p-6">
             <div className="text-center">
+              <TrendingUp className="w-5 h-5 mx-auto mb-1 text-purple-500" />
               <p className="text-2xl font-bold text-purple-600">{attendanceStats.percentage}%</p>
               <p className="text-sm text-gray-500 mt-1">Attendance Rate</p>
             </div>
@@ -242,7 +276,7 @@ export default function StudentAttendancePage() {
       </div>
 
       {/* Attendance Records */}
-      <Card>
+      <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Recent Attendance</CardTitle>

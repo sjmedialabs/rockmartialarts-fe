@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import DashboardHeader from "@/components/dashboard-header"
@@ -49,6 +50,7 @@ interface Duration {
 
 export default function CourseAssignmentPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const { user } = useAuth()
 
@@ -243,7 +245,7 @@ export default function CourseAssignmentPage() {
           </div>
           <Button
             variant="outline"
-            onClick={() => router.push("/dashboard/courses")}
+            onClick={() => router.push(`${basePath}/courses`)}
             className="flex items-center space-x-2"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -387,7 +389,7 @@ export default function CourseAssignmentPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push("/dashboard/courses")}
+                  onClick={() => router.push(`${basePath}/courses`)}
                 >
                   Cancel
                 </Button>

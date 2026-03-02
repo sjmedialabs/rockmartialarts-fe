@@ -1,61 +1,105 @@
 import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
+
+const BACKEND_URL =
+  (process.env.API_BASE_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    'http://127.0.0.1:8003'
+  ).replace(/\/$/, '')
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      Allow: 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Use POST to verify payment' },
+    { status: 405, headers: { Allow: 'POST' } }
+  )
+}
 
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return NextResponse.json({ error: 'Authorization header required' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Authorization header required' },
+        { status: 401 }
+      )
     }
 
     const body = await req.json()
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, enrollmentData } = body
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      enrollmentData,
+    } = body
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return NextResponse.json({ error: 'Missing payment details' }, { status: 400 })
+    if (!razorpay_payment_id) {
+      return NextResponse.json(
+        { error: 'Missing razorpay_payment_id' },
+        { status: 400 }
+      )
     }
 
-    // Mock signature verification (in production, verify with Razorpay secret)
-    const isValid = true // In production: verify signature
-
-    if (!isValid) {
-      return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 })
+    if (!enrollmentData?.enrollment_id || enrollmentData?.amount == null) {
+      return NextResponse.json(
+        { error: 'Missing enrollmentData.enrollment_id or enrollmentData.amount' },
+        { status: 400 }
+      )
     }
 
-    // Mock enrollment creation
-    const enrollment = {
-      id: `enroll_${Date.now()}`,
-      student_id: 'mock_student_id',
-      course_id: enrollmentData.course_id,
-      course_name: enrollmentData.course_name,
-      branch_id: enrollmentData.branch_id,
-      branch_name: enrollmentData.branch_name,
-      duration_months: enrollmentData.duration_months,
-      amount: enrollmentData.amount,
-      payment_id: razorpay_payment_id,
-      order_id: razorpay_order_id,
-      payment_status: 'paid',
-      enrollment_date: new Date().toISOString(),
-      start_date: new Date().toISOString(),
-      end_date: new Date(Date.now() + enrollmentData.duration_months * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      is_active: true
+    const confirmBody = {
+      enrollment_id: enrollmentData.enrollment_id,
+      amount: Number(enrollmentData.amount),
+      razorpay_payment_id,
+      razorpay_order_id: razorpay_order_id || undefined,
+      razorpay_signature: razorpay_signature || undefined,
+      duration_months: enrollmentData.duration_months ?? undefined,
+      course_name: enrollmentData.course_name ?? undefined,
+      branch_name: enrollmentData.branch_name ?? undefined,
+    }
+
+    const res = await fetch(`${BACKEND_URL}/api/payments/confirm-razorpay`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: authHeader,
+      },
+      body: JSON.stringify(confirmBody),
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const message =
+        typeof data?.detail === 'string'
+          ? data.detail
+          : Array.isArray(data?.detail)
+            ? data.detail.map((o: { msg?: string }) => o?.msg).filter(Boolean).join('; ') || 'Backend rejected verification'
+            : data?.message ?? data?.error ?? 'Backend rejected verification'
+      return NextResponse.json(
+        { error: message },
+        { status: res.status }
+      )
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Payment verified successfully',
-      enrollment,
-      receipt: {
-        payment_id: razorpay_payment_id,
-        order_id: razorpay_order_id,
-        amount: enrollmentData.amount,
-        currency: 'INR',
-        date: new Date().toISOString()
-      }
+      message: data?.message ?? 'Payment verified successfully',
+      payment_id: data?.payment_id,
     })
-
   } catch (error) {
     console.error('Error verifying payment:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

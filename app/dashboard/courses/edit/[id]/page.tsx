@@ -42,6 +42,13 @@ export default function EditCoursePage() {
   const [courseDurations, setCourseDurations] = useState<any[]>([])
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [branchPrices, setBranchPrices] = useState<any[]>([])
+  const [addedTenures, setAddedTenures] = useState<string[]>([])
+  const [addedBranchTenures, setAddedBranchTenures] = useState<Record<number, string[]>>({})
+  /** Master durations from API: id, name, code, duration_months, display_order */
+  type MasterDuration = { id: string; name: string; code: string; duration_months: number; display_order: number }
+  const [masterDurations, setMasterDurations] = useState<MasterDuration[]>([])
+  /** Fee amount per duration id (used when tenures are duration ids from master data) */
+  const [feeByDurationId, setFeeByDurationId] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState({
     courseTitle: "",
     courseCode: "",
@@ -55,6 +62,10 @@ export default function EditCoursePage() {
     maxAge: "",
     price: "",
     currency: "INR",
+    fee_1_month: "",
+    fee_3_months: "",
+    fee_6_months: "",
+    fee_1_year: "",
     branchSpecificPricing: false,
     equipmentRequired: "",
     syllabus: "",
@@ -62,6 +73,14 @@ export default function EditCoursePage() {
     videoUrl: "",
     tags: [] as string[]
   })
+
+  /** Selected course duration (from master data); used to limit add-tenure options to <= this duration. */
+  const selectedCourseDuration = masterDurations.find((d) => d.id === formData.duration)
+  /** Tenure options = same as course duration master data. Allowed = those with duration_months <= selected course duration. */
+  const allowedTenureOptions = masterDurations
+    .filter((d) => selectedCourseDuration && d.duration_months <= selectedCourseDuration.duration_months)
+    .sort((a, b) => a.display_order - b.display_order)
+  const allowedTenureIds = new Set(allowedTenureOptions.map((d) => d.id))
 
   // Fetch categories on mount
   // Fetch categories on mount
@@ -91,33 +110,61 @@ export default function EditCoursePage() {
         }
 
         const course = await response.json()
-        
-        // Populate form with existing course data
-        setFormData({
-          courseName: course.course_name || '',
-          category: course.category || '',
-          subCategory: course.sub_category || '',
-          description: course.description || '',
-          duration: course.duration?.toString() || '',
-          durationUnit: course.duration_unit || 'months',
-          level: course.level || '',
-          language: course.language || '',
-          prerequisites: course.prerequisites || '',
-          learningOutcomes: course.learning_outcomes || '',
-          syllabus: course.syllabus || '',
-          instructor: course.instructor || '',
-          maxStudents: course.max_students?.toString() || '',
-          enrollmentStartDate: course.enrollment_start_date || '',
-          enrollmentEndDate: course.enrollment_end_date || '',
-          courseStartDate: course.course_start_date || '',
-          courseEndDate: course.course_end_date || '',
-          fees: course.pricing?.amount?.toString() || '',
-          currency: course.pricing?.currency || 'INR',
-          branchSpecificPricing: course.pricing?.branch_specific_pricing || false,
-          offersCertification: course.settings?.offers_certification || false,
-          active: course.settings?.active ?? true,
+        const feePerDuration = course.fee_per_duration || {}
+        const pricing = course.pricing || {}
+        const branchPricingRaw = course.branch_pricing || {}
+        const branchPricesList: { branch_id: string; fee_per_duration: Record<string, string> }[] = []
+        const branchTenures: Record<number, string[]> = {}
+        Object.keys(branchPricingRaw).forEach((branchId, idx) => {
+          const val = branchPricingRaw[branchId]
+          if (typeof val === "object" && val !== null) {
+            const feePerDur: Record<string, string> = {}
+            Object.keys(val).forEach((k) => { if (val[k] != null) feePerDur[k] = String(val[k]) })
+            const keys = Object.keys(feePerDur)
+            branchTenures[idx] = keys
+            branchPricesList.push({ branch_id: branchId, fee_per_duration: feePerDur })
+          } else if (typeof val === "number") {
+            branchTenures[idx] = []
+            branchPricesList.push({ branch_id: branchId, fee_per_duration: {} })
+          }
         })
-
+        setBranchPrices(branchPricesList)
+        setAddedBranchTenures(branchTenures)
+        const defaultAdded = Object.keys(feePerDuration).filter((k) => feePerDuration[k] != null)
+        const feeByDur: Record<string, string> = {}
+        defaultAdded.forEach((k) => { feeByDur[k] = String(feePerDuration[k]) })
+        if (defaultAdded.length === 0 && (pricing?.amount != null || course.base_fee != null)) {
+          const firstKey = Object.keys(feePerDuration)[0] || "1-month"
+          defaultAdded.push(firstKey)
+          if (feePerDuration[firstKey] != null) feeByDur[firstKey] = String(feePerDuration[firstKey])
+        }
+        setAddedTenures(defaultAdded)
+        setFeeByDurationId(feeByDur)
+        const durationRaw = course.duration?.toString() || ""
+        setFormData({
+          courseTitle: course.title || course.course_name || "",
+          courseCode: course.code || "",
+          description: course.description || "",
+          category: course.category_id || course.category || "",
+          subCategory: course.sub_category || "",
+          difficultyLevel: course.difficulty_level || course.difficultyLevel || "",
+          duration: durationRaw,
+          maxStudents: course.max_students?.toString() || course.student_requirements?.max_students?.toString() || "",
+          minAge: course.min_age?.toString() || course.student_requirements?.min_age?.toString() || "",
+          maxAge: course.max_age?.toString() || course.student_requirements?.max_age?.toString() || "",
+          price: pricing.amount?.toString() || course.base_fee?.toString() || feePerDuration["1-month"]?.toString() || Object.values(feePerDuration)[0]?.toString() || "",
+          currency: pricing.currency || "INR",
+          fee_1_month: "",
+          fee_3_months: "",
+          fee_6_months: "",
+          fee_1_year: "",
+          branchSpecificPricing: pricing.branch_specific_pricing ?? false,
+          equipmentRequired: course.equipment_required || course.course_content?.equipment_required?.join?.(', ') || "",
+          syllabus: course.syllabus || course.course_content?.syllabus || "",
+          imageUrl: course.imageUrl || course.media_resources?.course_image_url || "",
+          videoUrl: course.videoUrl || course.media_resources?.promo_video_url || "",
+          tags: course.tags || [],
+        })
         setIsLoading(false)
       } catch (error) {
         console.error('Error fetching course:', error)
@@ -222,48 +269,46 @@ export default function EditCoursePage() {
     fetchDifficultyLevels()
   }, [toast])
 
-  // Fetch course durations from master data
+  const FALLBACK_DURATIONS: MasterDuration[] = [
+    { id: '1m', name: '1 month', code: '1M', duration_months: 1, display_order: 1 },
+    { id: '2m', name: '2 months', code: '2M', duration_months: 2, display_order: 2 },
+    { id: '3m', name: '3 months', code: '3M', duration_months: 3, display_order: 3 },
+    { id: '6m', name: '6 months', code: '6M', duration_months: 6, display_order: 4 },
+    { id: '1y', name: '1 year', code: '1Y', duration_months: 12, display_order: 5 },
+    { id: '2y', name: '2 years', code: '2Y', duration_months: 24, display_order: 6 }
+  ]
+
+  // Fetch course durations from master data (same source as Super Admin Master Data)
   useEffect(() => {
-    const fetchCourseDurations = async () => {
+    const fetchDurations = async () => {
       try {
         const token = TokenManager.getToken()
-        const response = await fetch(getBackendApiUrl('dropdown-settings/course_durations'), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+        const response = await fetch(getBackendApiUrl('durations'), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
         })
-
+        let list: MasterDuration[] = []
         if (response.ok) {
           const data = await response.json()
-          // data is an array of {value, label, is_active, order}
-          const activeDurations = data.filter((duration: any) => duration.is_active)
-          setCourseDurations(activeDurations)
-        } else {
-          // Fallback to default course durations
-          setCourseDurations([
-            { value: '1_month', label: '1 Month', is_active: true },
-            { value: '3_months', label: '3 Months', is_active: true },
-            { value: '6_months', label: '6 Months', is_active: true },
-            { value: '1_year', label: '1 Year', is_active: true },
-            { value: '2_years', label: '2 Years', is_active: true }
-          ])
+          const raw = (data.durations || []).filter((d: any) => d.is_active !== false)
+          list = raw.map((d: any) => ({
+            id: String(d.id),
+            name: String(d.name || d.label || ''),
+            code: String(d.code || ''),
+            duration_months: typeof d.duration_months === 'number' ? d.duration_months : parseInt(String(d.duration_months), 10) || 1,
+            display_order: typeof d.display_order === 'number' ? d.display_order : parseInt(String(d.display_order), 10) || 0
+          })).filter((d: MasterDuration) => d.id && d.name)
         }
+        if (list.length === 0) list = FALLBACK_DURATIONS
+        setMasterDurations(list)
+        setCourseDurations(list.map((d) => ({ value: d.id, label: d.name })))
       } catch (error) {
-        console.error('Error fetching course durations:', error)
-        // Fallback to default course durations
-        setCourseDurations([
-          { value: '1_month', label: '1 Month', is_active: true },
-          { value: '3_months', label: '3 Months', is_active: true },
-          { value: '6_months', label: '6 Months', is_active: true },
-          { value: '1_year', label: '1 Year', is_active: true },
-          { value: '2_years', label: '2 Years', is_active: true }
-        ])
+        console.error('Error fetching durations:', error)
+        setMasterDurations(FALLBACK_DURATIONS)
+        setCourseDurations(FALLBACK_DURATIONS.map((d) => ({ value: d.id, label: d.name })))
       }
     }
-
-    fetchCourseDurations()
-  }, [toast])
+    fetchDurations()
+  }, [])
   // Fetch subcategories when category changes
   useEffect(() => {
     if (!formData.category) {
@@ -289,6 +334,111 @@ export default function EditCoursePage() {
       setFormData(prev => ({ ...prev, courseCode: generatedCode }))
     }
   }, [formData.courseTitle])
+
+  // When course duration changes, restrict added tenures to those allowed (duration_months <= selected) and clear removed fee values
+  useEffect(() => {
+    if (allowedTenureIds.size === 0) return
+    setAddedTenures((prev) => {
+      const next = prev.filter((id) => allowedTenureIds.has(id))
+      return next.length === prev.length ? prev : next
+    })
+    setFeeByDurationId((prev) => {
+      const next = { ...prev }
+      let changed = false
+      Object.keys(next).forEach((id) => {
+        if (!allowedTenureIds.has(id)) {
+          delete next[id]
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+    setAddedBranchTenures((prev) => {
+      let changed = false
+      const next = { ...prev }
+      Object.keys(next).forEach((idx) => {
+        const i = parseInt(idx, 10)
+        const filtered = next[i].filter((id) => allowedTenureIds.has(id))
+        if (filtered.length !== next[i].length) {
+          next[i] = filtered
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+    setBranchPrices((prev) =>
+      prev.map((bp) => {
+        const copy = { ...(bp as any), fee_per_duration: { ...(bp as any).fee_per_duration } }
+        if (copy.fee_per_duration)
+          Object.keys(copy.fee_per_duration).forEach((id) => {
+            if (!allowedTenureIds.has(id)) delete copy.fee_per_duration[id]
+          })
+        return copy
+      })
+    )
+  }, [formData.duration, allowedTenureIds.size])
+
+  // When master durations load: resolve duration by name to id, and migrate legacy tenure keys to duration ids
+  useEffect(() => {
+    if (masterDurations.length === 0) return
+    const legacyToMonths: Record<string, number> = { "1-month": 1, "2-months": 2, "3-months": 3, "6-months": 6, "1-year": 12, "2-years": 24 }
+    const isLegacyKey = (k: string) => legacyToMonths.hasOwnProperty(k)
+    const legacyToId = (k: string): string | null => {
+      const months = legacyToMonths[k]
+      if (months == null) return null
+      const d = masterDurations.find((m) => m.duration_months === months)
+      return d?.id ?? null
+    }
+    setFormData((prev) => {
+      if (!prev.duration) return prev
+      if (masterDurations.some((d) => d.id === prev.duration)) return prev
+      const byName = masterDurations.find((d) => d.name?.toLowerCase() === prev.duration?.toLowerCase())
+      if (byName) return { ...prev, duration: byName.id }
+      const asMonths = parseInt(prev.duration, 10)
+      if (!Number.isNaN(asMonths)) {
+        const byMonths = masterDurations.find((d) => d.duration_months === asMonths)
+        if (byMonths) return { ...prev, duration: byMonths.id }
+      }
+      return prev
+    })
+    setFeeByDurationId((prev) => {
+      const legacyKeys = Object.keys(prev).filter(isLegacyKey)
+      if (legacyKeys.length === 0) return prev
+      const next = { ...prev }
+      legacyKeys.forEach((k) => {
+        const id = legacyToId(k)
+        if (id) { next[id] = next[k]; delete next[k] }
+      })
+      return next
+    })
+    setAddedTenures((prev) => {
+      const migrated = prev.map((k) => (isLegacyKey(k) ? legacyToId(k) ?? k : k))
+      return migrated.some((v, i) => v !== prev[i]) ? migrated : prev
+    })
+    setAddedBranchTenures((prev) => {
+      let changed = false
+      const next = { ...prev }
+      Object.keys(next).forEach((idx) => {
+        const i = parseInt(idx, 10)
+        const migrated = next[i].map((k) => (isLegacyKey(k) ? legacyToId(k) ?? k : k))
+        if (migrated.some((v, j) => v !== next[i][j])) { next[i] = migrated; changed = true }
+      })
+      return changed ? next : prev
+    })
+    setBranchPrices((prev) =>
+      prev.map((bp) => {
+        const fd = (bp as any).fee_per_duration || {}
+        const legacyKeys = Object.keys(fd).filter(isLegacyKey)
+        if (legacyKeys.length === 0) return bp
+        const nextFd = { ...fd }
+        legacyKeys.forEach((k) => {
+          const id = legacyToId(k)
+          if (id) { nextFd[id] = nextFd[k]; delete nextFd[k] }
+        })
+        return { ...(bp as any), fee_per_duration: nextFd }
+      })
+    )
+  }, [masterDurations.length, formData.duration])
 
   // Fetch branches on mount
   useEffect(() => {
@@ -358,25 +508,40 @@ export default function EditCoursePage() {
         return
       }
 
-      if (!formData.price || parseFloat(formData.price) <= 0) {
+      const hasAnyFee = addedTenures.some((id) => {
+        const v = feeByDurationId[id]
+        return v !== "" && v !== undefined && parseFloat(String(v)) > 0
+      })
+      if (!hasAnyFee || addedTenures.length === 0) {
         toast({
-          title: "Validation Error", 
-          description: "Please enter a valid price.",
+          title: "Validation Error",
+          description: "Add at least one tenure and enter its fee (e.g. Monthly).",
           variant: "destructive"
         })
         setIsSubmitting(false)
         return
       }
 
+      const feePerDurationPayload: Record<string, number> = {}
+      addedTenures.forEach((id) => {
+        const v = feeByDurationId[id]
+        if (v !== "" && v !== undefined) {
+          const n = parseFloat(String(v))
+          if (!Number.isNaN(n)) feePerDurationPayload[id] = n
+        }
+      })
+      const firstAmount = addedTenures.length > 0 && feeByDurationId[addedTenures[0]] ? parseFloat(String(feeByDurationId[addedTenures[0]])) : 0
+
       const apiData = {
         title: formData.courseTitle,
         code: formData.courseCode,
         description: formData.description,
         difficulty_level: formData.difficultyLevel,
-        // Ensure category_id has the correct prefix
-        category_id: formData.subCategory || formData.category,
-        // Add required fields with default values
-        martial_art_style_id: 'style-default', // Will be configurable later
+        duration: formData.duration || undefined,
+        // Store parent category and sub-category separately so both persist
+        category_id: formData.category,
+        sub_category: formData.subCategory || undefined,
+        martial_art_style_id: 'style-default',
         instructor_id: user?.id && user.id.includes('instructor-') ? user.id : 'instructor-default',
         student_requirements: {
           max_students: parseInt(formData.maxStudents) || 20,
@@ -393,10 +558,28 @@ export default function EditCoursePage() {
           promo_video_url: (formData as any).promoVideoUrl || ""
         },
         pricing: {
-          currency: formData.currency,
-          amount: parseFloat(formData.price),
+          currency: "INR",
+          amount: firstAmount,
           branch_specific_pricing: formData.branchSpecificPricing,
-          branch_prices: branchPrices.map(bp => ({ branch_id: bp.branch_id, amount: parseFloat(bp.price) || 0, currency: bp.currency })),
+          fee_per_duration: Object.keys(feePerDurationPayload).length > 0 ? feePerDurationPayload : undefined,
+          branch_prices: branchPrices
+            .map((bp, idx) => ((bp as any).branch_id ? { bp, idx } : null))
+            .filter((x): x is { bp: any; idx: number } => x != null)
+            .map(({ bp, idx }) => {
+              const tenures = addedBranchTenures[idx] || []
+              const fd = (bp as any).fee_per_duration || {}
+              const entry: any = { branch_id: (bp as any).branch_id, currency: "INR" }
+              const feePerDur: Record<string, number> = {}
+              tenures.forEach((id) => {
+                const v = fd[id]
+                if (v !== "" && v !== undefined) {
+                  const n = parseFloat(String(v))
+                  if (!Number.isNaN(n)) feePerDur[id] = n
+                }
+              })
+              if (Object.keys(feePerDur).length > 0) entry.fee_per_duration = feePerDur
+              return entry
+            }),
         },
         settings: {
           offers_certification: (formData as any).offersCertification || true,
@@ -429,10 +612,8 @@ export default function EditCoursePage() {
         return
       }
 
-      console.log('Creating course with data:', apiData)
-      
-      const response = await fetch(getBackendApiUrl('courses'), {
-        method: 'POST',
+      const response = await fetch(getBackendApiUrl(`courses/${courseId}`), {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -464,10 +645,7 @@ export default function EditCoursePage() {
         throw new Error(errorMessage)
       }
 
-      toast({
-        title: "Success!",
-        description: `Course updated successfully with ID: ${result.course_id || 'Generated'}`,
-      })
+      toast({ title: "Success!", description: "Course updated successfully." })
 
       setShowSuccessPopup(true)
 
@@ -475,7 +653,7 @@ export default function EditCoursePage() {
       console.error('Error updating course:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create course. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update course. Please try again.",
         variant: "destructive"
       })
     } finally {
@@ -592,7 +770,8 @@ export default function EditCoursePage() {
                           id="courseTitle"
                           value={formData.courseTitle}
                           onChange={(e) => setFormData({ ...formData, courseTitle: e.target.value })}
-                          placeholder="e.g., Advanced Kung Fu Training"
+                          placeholder="Enter course title"
+                          className="placeholder:text-muted-foreground"
                           required
                         />
                       </div>
@@ -603,7 +782,7 @@ export default function EditCoursePage() {
                           value={formData.courseCode}
                           readOnly
                           className="bg-gray-100"
-                          placeholder="Auto-generated from title"
+                          placeholder="Enter course code"
                           required
                         />
                       </div>
@@ -615,7 +794,8 @@ export default function EditCoursePage() {
                         id="description"
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        placeholder="Provide a detailed description of the course, what students will learn, and benefits..."
+                        placeholder="Enter course description"
+                        className="placeholder:text-muted-foreground"
                         rows={4}
                         required
                       />
@@ -632,7 +812,7 @@ export default function EditCoursePage() {
                           }}
                         >
                           <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder="Select category" />
+                            <SelectValue placeholder="Enter category" />
                           </SelectTrigger>
                           <SelectContent>
                             {categories.map((cat) => (
@@ -650,7 +830,7 @@ export default function EditCoursePage() {
                           disabled={!formData.category || subCategories.length === 0}
                         >
                           <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder={subCategories.length === 0 ? "No subcategories" : "Select subcategory"} />
+                            <SelectValue placeholder="Enter subcategory" />
                           </SelectTrigger>
                           <SelectContent>
                             {subCategories.map((subCat) => (
@@ -669,7 +849,7 @@ export default function EditCoursePage() {
                           onValueChange={(value) => setFormData({ ...formData, difficultyLevel: value })}
                         >
                           <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder="Select difficulty level" />
+                            <SelectValue placeholder="Enter difficulty level" />
                           </SelectTrigger>
                           <SelectContent>
                             {difficultyLevels.length > 0 ? (
@@ -697,7 +877,7 @@ export default function EditCoursePage() {
                           onValueChange={(value) => setFormData({ ...formData, duration: value })}
                         >
                           <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder="Select course duration" />
+                            <SelectValue placeholder="Enter course duration" />
                           </SelectTrigger>
                           <SelectContent>
                             {courseDurations.length > 0 ? (
@@ -735,7 +915,8 @@ export default function EditCoursePage() {
                           type="number"
                           value={formData.maxStudents}
                           onChange={(e) => setFormData({ ...formData, maxStudents: e.target.value })}
-                          placeholder="20"
+                          placeholder="Enter maximum students"
+                          className="placeholder:text-muted-foreground"
                           min="1"
                           max="100"
                         />
@@ -748,7 +929,8 @@ export default function EditCoursePage() {
                           type="number"
                           value={formData.minAge}
                           onChange={(e) => setFormData({ ...formData, minAge: e.target.value })}
-                          placeholder="6"
+                          placeholder="Enter minimum age"
+                          className="placeholder:text-muted-foreground"
                           min="3"
                           max="100"
                         />
@@ -761,7 +943,8 @@ export default function EditCoursePage() {
                           type="number"
                           value={formData.maxAge}
                           onChange={(e) => setFormData({ ...formData, maxAge: e.target.value })}
-                          placeholder="65"
+                          placeholder="Enter maximum age"
+                          className="placeholder:text-muted-foreground"
                           min="3"
                           max="100"
                         />
@@ -774,7 +957,8 @@ export default function EditCoursePage() {
                         <Input
                           value={newPrerequisite}
                           onChange={(e) => setNewPrerequisite(e.target.value)}
-                          placeholder="Add a prerequisite (e.g., Basic fitness level)"
+                          placeholder="Enter prerequisite"
+                          className="placeholder:text-muted-foreground"
                           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPrerequisite())}
                         />
                         <Button type="button" onClick={addPrerequisite} size="sm">
@@ -808,7 +992,8 @@ export default function EditCoursePage() {
                           id="syllabus"
                           value={formData.syllabus}
                           onChange={(e) => setFormData({ ...formData, syllabus: e.target.value })}
-                          placeholder="Outline the course curriculum, modules, techniques to be taught..."
+                          placeholder="Enter syllabus"
+                        className="placeholder:text-muted-foreground"
                           rows={4}
                         />
                       </div>
@@ -819,7 +1004,8 @@ export default function EditCoursePage() {
                           id="equipmentRequired"
                           value={formData.equipmentRequired}
                           onChange={(e) => setFormData({ ...formData, equipmentRequired: e.target.value })}
-                          placeholder="List any equipment students need to bring or purchase..."
+                          placeholder="Enter equipment required"
+                        className="placeholder:text-muted-foreground"
                           rows={3}
                         />
                       </div>
@@ -837,7 +1023,8 @@ export default function EditCoursePage() {
                             id="imageUrl"
                             value={formData.imageUrl}
                             onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                            placeholder="https://example.com/course-image.jpg"
+                            placeholder="Enter course image URL"
+                            className="placeholder:text-muted-foreground"
                           />
                           <Button type="button" variant="outline" size="sm">
                             <Upload className="w-4 h-4" />
@@ -851,7 +1038,8 @@ export default function EditCoursePage() {
                           id="videoUrl"
                           value={formData.videoUrl}
                           onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                          placeholder="https://youtube.com/watch?v=..."
+                          placeholder="Enter video URL"
+                          className="placeholder:text-muted-foreground"
                         />
                       </div>
                     </div>
@@ -892,6 +1080,7 @@ export default function EditCoursePage() {
                                 setModules(newModules)
                               }}
                               placeholder="Enter module title"
+                              className="placeholder:text-muted-foreground"
                               className="h-10 px-3"
                             />
                           </div>
@@ -906,7 +1095,8 @@ export default function EditCoursePage() {
                                 newModules[index].description = e.target.value
                                 setModules(newModules)
                               }}
-                              placeholder="Describe what students will learn in this module"
+                              placeholder="Enter module description"
+                              className="placeholder:text-muted-foreground"
                               className="min-h-[80px] resize-none"
                             />
                           </div>
@@ -923,7 +1113,8 @@ export default function EditCoursePage() {
                                   newModules[index].duration = e.target.value
                                   setModules(newModules)
                                 }}
-                                placeholder="e.g., 2"
+                                placeholder="Enter duration"
+                                className="placeholder:text-muted-foreground"
                                 className="h-10 px-3"
                                 min="0"
                                 step="0.5"
@@ -941,7 +1132,7 @@ export default function EditCoursePage() {
                                 }}
                               >
                                 <SelectTrigger className="h-10 px-3">
-                                  <SelectValue placeholder="Select status" />
+                                  <SelectValue placeholder="Enter status" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="in_progress">In Progress</SelectItem>
@@ -962,7 +1153,8 @@ export default function EditCoursePage() {
                                   newModules[index].resourceUrl = e.target.value
                                   setModules(newModules)
                                 }}
-                                placeholder="Resource URL (image, PDF, or video)"
+                                placeholder="Enter resource URL"
+                                className="placeholder:text-muted-foreground"
                                 className="h-10 px-3 flex-1"
                               />
                               <input
@@ -1054,10 +1246,10 @@ export default function EditCoursePage() {
                         {isSubmitting ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Creating Course...
+                            Saving...
                           </>
                         ) : (
-                          'Edit Course'
+                          'Save'
                         )}
                       </Button>
                       <Button 
@@ -1081,32 +1273,77 @@ export default function EditCoursePage() {
                 <CardTitle className="text-[#4F5077]">Pricing & Availability</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-[#7D8592]">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Course Price *</Label>
-                  <div className="flex space-x-2">
-                    <Select
-                      value={formData.currency}
-                      onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                    >
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="INR">INR</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      id="price"
-                      type="number"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder="8500"
-                      className="flex-1"
-                      required
-                    />
-                  </div>
+                <div className="space-y-3">
+                  <Label className="font-medium">Course fees by tenure (India – INR)</Label>
+                  <p className="text-xs text-muted-foreground">Tenure options are based on the course duration selected above. Add fees for the tenures you offer.</p>
+                  {!formData.duration ? (
+                    <p className="text-sm text-muted-foreground py-2">Select course duration above to set fees.</p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Label className="sr-only">Add tenure</Label>
+                        <Select
+                          value=""
+                          onValueChange={(value) => {
+                            if (value && !addedTenures.includes(value) && allowedTenureIds.has(value))
+                              setAddedTenures([...addedTenures, value])
+                          }}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Add tenure" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allowedTenureOptions.filter((d) => !addedTenures.includes(d.id)).map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                            {allowedTenureOptions.length > 0 && allowedTenureOptions.every((d) => addedTenures.includes(d.id)) && (
+                              <SelectItem value="_none" disabled>
+                                All tenures added
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        {addedTenures.filter((id) => allowedTenureIds.has(id)).map((id) => {
+                          const d = masterDurations.find((x) => x.id === id) || allowedTenureOptions.find((x) => x.id === id)
+                          const value = feeByDurationId[id] ?? ""
+                          return (
+                            <div key={id} className="flex items-center gap-2">
+                              <Label className="w-24 shrink-0">{d?.name ?? id}</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Enter amount"
+                                className="max-w-[160px] placeholder:text-muted-foreground"
+                                value={value}
+                                onChange={(e) => setFeeByDurationId((prev) => ({ ...prev, [id]: e.target.value }))}
+                              />
+                              <span className="text-muted-foreground text-sm">INR</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700"
+                                onClick={() => {
+                                  setAddedTenures(addedTenures.filter((k) => k !== id))
+                                  setFeeByDurationId((prev) => { const next = { ...prev }; delete next[id]; return next })
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )
+                        })}
+                        {addedTenures.filter((id) => allowedTenureIds.has(id)).length === 0 && (
+                          <p className="text-sm text-muted-foreground">Add at least one tenure using the dropdown above.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -1122,95 +1359,166 @@ export default function EditCoursePage() {
                 {formData.branchSpecificPricing && (
                   <div className="space-y-4 border-t pt-4">
                     <div className="flex justify-between items-center">
-                      <Label className="text-md font-semibold">Branch-Specific Prices</Label>
+                      <Label className="text-md font-semibold">Branch-specific fees (add tenures per branch)</Label>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          setBranchPrices([...branchPrices, { branch_id: '', price: '', currency: 'INR' }])
+                          const newIndex = branchPrices.length
+                          setBranchPrices([
+                            ...branchPrices,
+                            { branch_id: "", fee_per_duration: {} }
+                          ])
+                          setAddedBranchTenures((prev) => ({ ...prev, [newIndex]: [] }))
                         }}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Branch Price
+                        Add Branch
                       </Button>
                     </div>
 
-                    {branchPrices.map((branchPrice, index) => (
-                      <Card key={index} className="p-4 space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Branch Price #{index + 1}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const newPrices = branchPrices.filter((_, i) => i !== index)
-                              setBranchPrices(newPrices)
-                            }}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div className="md:col-span-2">
-                            <Label>Branch</Label>
-                            <Select
-                              value={branchPrice.branch_id ? String(branchPrice.branch_id) : ''}
-                              onValueChange={(value) => {
-                                const newPrices = [...branchPrices]
-                                newPrices[index].branch_id = value
-                                setBranchPrices(newPrices)
+                    {branchPrices.map((branchPrice, index) => {
+                      const branchTenures = addedBranchTenures[index] || []
+                      return (
+                        <Card key={index} className="p-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Branch #{index + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setBranchPrices(branchPrices.filter((_, i) => i !== index))
+                                setAddedBranchTenures((prev) => {
+                                  const next: Record<number, string[]> = {}
+                                  Object.keys(prev).forEach((k) => {
+                                    const i = parseInt(k, 10)
+                                    if (i < index) next[i] = prev[i]
+                                    if (i > index) next[i - 1] = prev[i]
+                                  })
+                                  return next
+                                })
                               }}
+                              className="text-red-500 hover:text-red-700"
                             >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select branch" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {loadingBranches ? (
-                                  <SelectItem value="loading" disabled>
-                                    Loading branches...
-                                  </SelectItem>
-                                ) : branches.length > 0 ? (
-                                  branches.map((branch) => (
-                                    <SelectItem key={branch.id} value={String(branch.id)}>
-                                      {branch.branch?.name || branch.name || `Branch ${branch.id}`}
-                                    </SelectItem>
-                                  ))
-                                ) : (
-                                  <SelectItem value="none" disabled>
-                                    No branches available
-                                  </SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
-
-                          <div>
-                            <Label>Price</Label>
-                            <Input
-                              type="number"
-                              value={branchPrice.price}
-                              onChange={(e) => {
-                                const newPrices = [...branchPrices]
-                                newPrices[index].price = e.target.value
-                                setBranchPrices(newPrices)
-                              }}
-                              placeholder="0.00"
-                              min="0"
-                              step="0.01"
-                            />
+                          <div className="space-y-3">
+                            <div>
+                              <Label>Branch</Label>
+                              <Select
+                                value={(branchPrice as any).branch_id ? String((branchPrice as any).branch_id) : ""}
+                                onValueChange={(value) => {
+                                  const newPrices = [...branchPrices]
+                                  ;(newPrices[index] as any).branch_id = value
+                                  setBranchPrices(newPrices)
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Enter branch" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {loadingBranches ? (
+                                    <SelectItem value="loading" disabled>Loading branches...</SelectItem>
+                                  ) : branches.length > 0 ? (
+                                    branches.map((branch) => (
+                                      <SelectItem key={branch.id} value={String(branch.id)}>
+                                        {branch.branch?.name || branch.name || `Branch ${branch.id}`}
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="none" disabled>No branches available</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Tenures for this branch</Label>
+                              {!formData.duration ? (
+                                <p className="text-xs text-muted-foreground mt-1">Select course duration first.</p>
+                              ) : (
+                                <>
+                                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                                    <Select
+                                      value=""
+                                      onValueChange={(value) => {
+                                        if (value && !branchTenures.includes(value) && allowedTenureIds.has(value)) {
+                                          setAddedBranchTenures((prev) => ({ ...prev, [index]: [...(prev[index] || []), value] }))
+                                        }
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-[140px]">
+                                        <SelectValue placeholder="Add tenure" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {allowedTenureOptions.filter((d) => !branchTenures.includes(d.id)).map((d) => (
+                                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                                        ))}
+                                        {allowedTenureOptions.length > 0 && allowedTenureOptions.every((d) => branchTenures.includes(d.id)) && (
+                                          <SelectItem value="_none" disabled>All added</SelectItem>
+                                        )}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2 mt-2">
+                                    {branchTenures.filter((id) => allowedTenureIds.has(id)).map((id) => {
+                                      const d = masterDurations.find((x) => x.id === id) || allowedTenureOptions.find((x) => x.id === id)
+                                      const fd = (branchPrice as any).fee_per_duration || {}
+                                      const value = fd[id] ?? ""
+                                      return (
+                                        <div key={id} className="flex items-center gap-2">
+                                          <Label className="w-20 shrink-0 text-xs">{d?.name ?? id}</Label>
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="Enter amount"
+                                            className="max-w-[120px] h-8 placeholder:text-muted-foreground"
+                                            value={value}
+                                            onChange={(e) => {
+                                              const newPrices = [...branchPrices]
+                                              const bp = newPrices[index] as any
+                                              bp.fee_per_duration = { ...(bp.fee_per_duration || {}), [id]: e.target.value }
+                                              setBranchPrices(newPrices)
+                                            }}
+                                          />
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 text-red-500"
+                                            onClick={() => {
+                                              setAddedBranchTenures((prev) => ({
+                                                ...prev,
+                                                [index]: (prev[index] || []).filter((k) => k !== id)
+                                              }))
+                                              const newPrices = [...branchPrices]
+                                              const bp = newPrices[index] as any
+                                              bp.fee_per_duration = { ...(bp.fee_per_duration || {}) }
+                                              delete bp.fee_per_duration[id]
+                                              setBranchPrices(newPrices)
+                                            }}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      )
+                    })}
 
                     {branchPrices.length === 0 && (
                       <div className="text-center py-6 text-gray-500 border-2 border-dashed rounded-lg">
                         <p className="text-sm">No branch-specific prices added yet.</p>
-                        <p className="text-xs">Click "Add Branch Price" to set prices for specific branches.</p>
+                        <p className="text-xs">Click &quot;Add Branch&quot; and add tenures per branch.</p>
                       </div>
                     )}
                   </div>
@@ -1266,9 +1574,18 @@ export default function EditCoursePage() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Price:</span>
-                    <span className="font-medium">
-                      {formData.currency} {formData.price || '—'}
+                    <span className="text-gray-600">Fees (tenure):</span>
+                    <span className="font-medium text-right">
+                      {addedTenures.length > 0
+                        ? addedTenures
+                            .map((id) => {
+                              const d = masterDurations.find((x) => x.id === id) || allowedTenureOptions.find((x) => x.id === id)
+                              const v = feeByDurationId[id]
+                              return v ? `${d?.name ?? id} ₹${v}` : null
+                            })
+                            .filter(Boolean)
+                            .join(", ") || "—"
+                        : "—"}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">

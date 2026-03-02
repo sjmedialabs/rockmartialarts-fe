@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
 
@@ -39,6 +40,7 @@ interface PaymentStats {
 
 export default function PaymentTrackingPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const [payments, setPayments] = useState<Payment[]>([])
   const [stats, setStats] = useState<PaymentStats>({
@@ -345,7 +347,7 @@ export default function PaymentTrackingPage() {
                           variant="ghost"
                           size="sm"
                           className="p-1"
-                          onClick={() => router.push(`/dashboard/payments/${payment.id}`)}
+                          onClick={() => router.push(`${basePath}/payments/${payment.id}`)}
                           title="Explore Payment Details"
                         >
                           <Eye className="w-4 h-4 text-blue-600" />

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -37,6 +38,7 @@ interface FormErrors {
 
 export default function SuperAdminSettingsPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -559,7 +561,7 @@ export default function SuperAdminSettingsPage() {
           {/* Backup Settings */}
 
           {/* Master Data */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push("/dashboard/settings/dropdown-settings")}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push(`${basePath}/settings/dropdown-settings`)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="w-5 h-5" />

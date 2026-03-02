@@ -880,7 +880,7 @@ export default function StudentDetailPage() {
                           variant="outline"
                           size="sm"
                           className="mt-2"
-                          onClick={() => router.push(`/dashboard/payments?student_id=${studentId}`)}
+                          onClick={() => router.push(`${basePath}/payments?student_id=${studentId}`)}
                         >
                           View All Payments
                         </Button>
@@ -952,7 +952,7 @@ export default function StudentDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/payments?student_id=${studentId}`)}
+                  onClick={() => router.push(`${basePath}/payments?student_id=${studentId}`)}
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
                   View Payment History
@@ -961,7 +961,7 @@ export default function StudentDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/attendance?student_id=${studentId}`)}
+                  onClick={() => router.push(`${basePath}/attendance?student_id=${studentId}`)}
                 >
                   <Clock className="w-4 h-4 mr-2" />
                   View Attendance Records

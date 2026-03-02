@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, User, MapPin, Phone, Building, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import DashboardHeader from "@/components/dashboard-header"
+import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI } from "@/lib/dropdownAPI"
@@ -61,6 +62,7 @@ interface Branch {
 
 export default function CreateBranchManagerPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
 
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
@@ -466,7 +468,7 @@ export default function CreateBranchManagerPage() {
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
-              onClick={() => router.push("/dashboard/branch-managers")}
+              onClick={() => router.push(`${basePath}/branch-managers`)}
               className="flex items-center space-x-2 hover:bg-gray-100"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -879,7 +881,7 @@ export default function CreateBranchManagerPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push("/dashboard/branch-managers")}
+              onClick={() => router.push(`${basePath}/branch-managers`)}
               disabled={isSubmitting}
             >
               Cancel
@@ -934,7 +936,7 @@ export default function CreateBranchManagerPage() {
               <Button
                 onClick={() => {
                   setShowSuccessPopup(false)
-                  router.push("/dashboard/branch-managers")
+                  router.push(`${basePath}/branch-managers`)
                 }}
                 variant="outline"
                 className="w-full"

@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,8 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import StudentDashboardHeader from "@/components/student-dashboard-header"
-import { Bell, Shield, User, Palette, Globe } from "lucide-react"
+import StudentDashboardLayout from "@/components/student-dashboard-layout"
+import { CardSkeleton } from "@/components/ui/loading-skeleton"
+import { Bell, Shield, User, Palette, Globe, Settings, AlertCircle } from "lucide-react"
+import { studentProfileAPI } from "@/lib/studentProfileAPI"
 
 export default function StudentSettingsPage() {
   const router = useRouter()
@@ -34,21 +35,17 @@ export default function StudentSettingsPage() {
   })
 
   useEffect(() => {
-    // Check if user is logged in
     const token = localStorage.getItem("token")
     const user = localStorage.getItem("user")
-    
+
     if (!token) {
       router.push("/login")
       return
     }
 
-    // Try to get user data from localStorage
     if (user) {
       try {
         const userData = JSON.parse(user)
-        
-        // Check if user is actually a student
         if (userData.role !== "student") {
           if (userData.role === "coach") {
             router.push("/coach-dashboard")
@@ -57,26 +54,42 @@ export default function StudentSettingsPage() {
           }
           return
         }
-        
-        setStudentData({
-          name: userData.full_name || `${userData.first_name} ${userData.last_name}` || userData.name || "Student",
-          email: userData.email || "student@example.com",
-        })
       } catch (error) {
         console.error("Error parsing user data:", error)
-        setStudentData({
-          name: "Student",
-          email: "student@example.com",
-        })
       }
-    } else {
-      setStudentData({
-        name: "Student",
-        email: "student@example.com",
-      })
     }
-    
-    setLoading(false)
+
+    const loadProfile = async () => {
+      try {
+        const profileResponse = await studentProfileAPI.getProfile(token)
+        const profile = profileResponse.profile
+        setStudentData({
+          name: profile.full_name || "Student",
+          email: profile.email || "",
+          phone: profile.phone || "",
+          emergencyContact: profile.emergency_contact?.phone || "",
+        })
+      } catch (err) {
+        console.error("Error loading profile:", err)
+        if (user) {
+          try {
+            const userData = JSON.parse(user)
+            setStudentData({
+              name: userData.full_name || userData.name || "Student",
+              email: userData.email || "",
+              phone: "",
+              emergencyContact: "",
+            })
+          } catch (parseErr) {
+            console.error("Error parsing user:", parseErr)
+          }
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadProfile()
   }, [router])
 
   const handleLogout = () => {
@@ -93,31 +106,38 @@ export default function StudentSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400"></div>
-      </div>
+      <StudentDashboardLayout
+        studentName={studentData?.name}
+        onLogout={handleLogout}
+        isLoading={true}
+      >
+        <div className="space-y-6">
+          <CardSkeleton lines={4} />
+          <CardSkeleton lines={6} />
+        </div>
+      </StudentDashboardLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <StudentDashboardHeader 
-        studentName={studentData?.name || "Student"}
-        onLogout={handleLogout}
-      />
+    <StudentDashboardLayout
+      studentName={studentData?.name || "Student"}
+      onLogout={handleLogout}
+      maxWidth="lg"
+    >
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+            <Settings className="h-8 w-8" />
+            Settings
+          </h1>
+          <p className="text-gray-600">Manage your account preferences and notifications</p>
+        </div>
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-            <p className="text-gray-600">Manage your account preferences and notifications</p>
-          </div>
-
-          <div className="space-y-6">
-            {/* Account Settings */}
-            <Card>
+        <div className="space-y-6">
+          {/* Account Settings */}
+          <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <User className="w-5 h-5 text-blue-600" />
@@ -149,7 +169,8 @@ export default function StudentSettingsPage() {
                     <Input 
                       id="phone" 
                       type="tel"
-                      placeholder="+91 98765 43210"
+                      defaultValue={studentData?.phone}
+                      placeholder="Enter phone number"
                       className="mt-1"
                     />
                   </div>
@@ -158,7 +179,8 @@ export default function StudentSettingsPage() {
                     <Input 
                       id="emergencyContact" 
                       type="tel"
-                      placeholder="+91 98765 43210"
+                      defaultValue={studentData?.emergencyContact}
+                      placeholder="Enter emergency contact"
                       className="mt-1"
                     />
                   </div>
@@ -167,7 +189,7 @@ export default function StudentSettingsPage() {
             </Card>
 
             {/* Notification Settings */}
-            <Card>
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Bell className="w-5 h-5 text-green-600" />
@@ -271,7 +293,7 @@ export default function StudentSettingsPage() {
             </Card>
 
             {/* Preferences */}
-            <Card>
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Globe className="w-5 h-5 text-purple-600" />
@@ -323,7 +345,7 @@ export default function StudentSettingsPage() {
             </Card>
 
             {/* Security Settings */}
-            <Card>
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader>
                 <div className="flex items-center space-x-2">
                   <Shield className="w-5 h-5 text-red-600" />
@@ -355,7 +377,6 @@ export default function StudentSettingsPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </StudentDashboardLayout>
   )
 }

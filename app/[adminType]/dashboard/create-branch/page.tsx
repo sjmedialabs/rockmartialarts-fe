@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Header from "@/components/layout/Header"
-import { useDashboardRole } from "@/lib/useDashboardBasePath"
+import { useDashboardRole, useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
@@ -116,6 +116,7 @@ interface FormData {
 
 export default function CreateBranchPage() {
   const router = useRouter()
+  const basePath = useDashboardBasePath()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
@@ -655,7 +656,7 @@ export default function CreateBranchPage() {
       if (response.ok) {
         setShowSuccessPopup(true)
         setTimeout(() => {
-          router.push("/dashboard/branches")
+          router.push(`${basePath}/branches`)
         }, 2000)
       } else {
         const errorData = await response.json()
@@ -699,7 +700,7 @@ export default function CreateBranchPage() {
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
-              onClick={() => router.push("/dashboard/branches")}
+              onClick={() => router.push(`${basePath}/branches`)}
               className="flex items-center"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1276,7 +1277,7 @@ export default function CreateBranchPage() {
         <div className="mt-6 flex justify-end space-x-4">
           <Button
             variant="outline"
-            onClick={() => router.push("/dashboard/branches")}
+            onClick={() => router.push(`${basePath}/branches`)}
           >
             Cancel
           </Button>

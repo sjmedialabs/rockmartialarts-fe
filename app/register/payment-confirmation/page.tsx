@@ -124,7 +124,7 @@ export default function PaymentConfirmationPage() {
         course_id: registrationData.course_id,
         branch_id: registrationData.branch_id,
         category_id: registrationData.category_id,
-        duration: registrationData.duration,
+        duration: registrationData.duration || '1-month',
         payment_method: 'digital_wallet',
         payment_id: registrationData.paymentId,
         order_id: registrationData.orderId,

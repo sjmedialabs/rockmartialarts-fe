@@ -152,6 +152,9 @@ export default function SelectCoursePage() {
     if (!formData.course_id) {
       newErrors.course_id = "Please select a course"
     }
+    if (!formData.duration) {
+      newErrors.duration = "Please select a tenure"
+    }
     if (Object.keys(newErrors).length > 0) {
       setFieldErrors(newErrors)
       return
@@ -299,17 +302,16 @@ export default function SelectCoursePage() {
               {fieldErrors.course_id && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.course_id}</p>}
             </div>
 
-            {/* Select Duration */}
-            {/* TEMPORARILY HIDDEN - Duration will be pre-filled from course data
-            <div className="relative">
+            {/* Select Tenure */}
+            <div>
               <Select
                 value={formData.duration}
                 onValueChange={(value) => handleSelectChange("duration", value)}
                 disabled={!formData.course_id || durationOptions.length === 0}
               >
-                <SelectTrigger className="w-full !h-[60px] pl-6 pr-10 bg-[#F9F8FF] rounded-xl border-0 py-6 text-[16px] data-[placeholder]:text-black">
+                <SelectTrigger className={`w-full !h-[60px] pl-6 pr-10 bg-[#F9F8FF] rounded-xl border-0 py-6 text-[16px] data-[placeholder]:text-black ${fieldErrors.duration ? '!border !border-red-500' : ''}`}>
                   <SelectValue 
-                    placeholder={!formData.course_id ? "Select a course first" : durationOptions.length === 0 ? "No duration options available" : "Select duration"} 
+                    placeholder={!formData.course_id ? "Select a course first" : durationOptions.length === 0 ? "No tenure options available" : "Select tenure"} 
                   />
                 </SelectTrigger>
                 <SelectContent>
@@ -325,14 +327,14 @@ export default function SelectCoursePage() {
                   ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.duration && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.duration}</p>}
             </div>
-            */}
 
             {/* Next Step Button */}
             <Button 
               type="submit" 
              className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-4 px-6 rounded-xl text-[12px] h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-8"
-              disabled={!formData.category_id || !formData.course_id }
+              disabled={!formData.category_id || !formData.course_id || !formData.duration}
             >
               NEXT STEP
             </Button>

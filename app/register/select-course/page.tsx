@@ -61,6 +61,7 @@ export default function SelectCoursePage() {
 
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoadingCourses, setIsLoadingCourses] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   // Fetch categories
   useEffect(() => {
@@ -144,27 +145,37 @@ export default function SelectCoursePage() {
 
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.category_id || !formData.course_id ) {
-      toast({
-        title: "Incomplete Selection",
-        description: "Please select a category, course, and duration",
-        variant: "destructive",
-      })
+    const newErrors: Record<string, string> = {}
+    if (!formData.category_id) {
+      newErrors.category_id = "Please select a category"
+    }
+    if (!formData.course_id) {
+      newErrors.course_id = "Please select a course"
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors)
       return
     }
+    setFieldErrors({})
     
-    // Update registration context with course data
+    // Update registration context with course data including pricing
     updateRegistrationData({
       category_id: formData.category_id,
       course_id: formData.course_id,
       duration: formData.duration,
       course_name: selectedCourse?.title || "",
       category_name: selectedCategory?.name || "",
+      course_price: selectedCourse?.pricing?.amount || 0,
+      course_currency: selectedCourse?.pricing?.currency || "INR",
     })
     router.push("/register/select-branch")
   }
 
   const handleSelectChange = (field: string, value: string) => {
+    // Clear error for this field
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => ({ ...prev, [field]: '' }))
+    }
     if (field === 'category_id') {
       // Reset course and duration when category changes
       setFormData(prev => ({
@@ -224,13 +235,13 @@ export default function SelectCoursePage() {
           ) : (
           <form onSubmit={handleNextStep} className="space-y-4">
             {/* Select Category */}
-            <div className="relative">
+            <div>
               <Select
                 value={formData.category_id}
                 onValueChange={(value) => handleSelectChange("category_id", value)}
                 disabled={isLoading || categories.length === 0}
               >
-                <SelectTrigger className="w-full !h-[60px] pl-6 pr-10 bg-[#F9F8FF] rounded-xl border-0 py-6 text-[16px] data-[placeholder]:text-black">
+                <SelectTrigger className={`w-full !h-[60px] pl-6 pr-10 bg-[#F9F8FF] rounded-xl border-0 py-6 text-[16px] data-[placeholder]:text-black ${fieldErrors.category_id ? '!border !border-red-500' : ''}`}>
                   <SelectValue placeholder={isLoading ? "Loading categories..." : "Select a category"} className="!placeholder:text-[#000]"  />
                 </SelectTrigger>
                 <SelectContent>
@@ -241,16 +252,17 @@ export default function SelectCoursePage() {
                   ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.category_id && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.category_id}</p>}
             </div>
 
             {/* Choose Course */}
-            <div className="relative">
+            <div>
               <Select
                 value={formData.course_id}
                 onValueChange={(value) => handleSelectChange("course_id", value)}
                 disabled={!formData.category_id || isLoadingCourses}
               >
-                <SelectTrigger className="w-full !h-[60px] pl-6 pr-10 bg-[#F9F8FF] rounded-xl border-0 py-6 text-[10px] data-[placeholder]:text-black data-[placeholder]:text-[16px]">
+                <SelectTrigger className={`w-full !h-[60px] pl-6 pr-10 bg-[#F9F8FF] rounded-xl border-0 py-6 text-[10px] data-[placeholder]:text-black data-[placeholder]:text-[16px] ${fieldErrors.course_id ? '!border !border-red-500' : ''}`}>
                   <SelectValue 
                     placeholder={
                     isLoadingCourses 
@@ -284,6 +296,7 @@ export default function SelectCoursePage() {
                   )}
                 </SelectContent>
               </Select>
+              {fieldErrors.course_id && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.course_id}</p>}
             </div>
 
             {/* Select Duration */}

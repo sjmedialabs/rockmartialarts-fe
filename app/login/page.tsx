@@ -17,9 +17,14 @@ function LoginFormContent() {
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const router = useRouter();
   const { getToken, resetRecaptcha, isEnabled } = useReCaptcha()
+
+  const validateEmail = (email: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -42,6 +47,20 @@ function LoginFormContent() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {}
+    if (!email.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!validateEmail(email)) {
+      newErrors.email = "Please enter a valid email address"
+    }
+    if (!password) {
+      newErrors.password = "Password is required"
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors)
+      return
+    }
+    setFieldErrors({})
     setError("");
     setLoading(true);
     
@@ -175,6 +194,14 @@ function LoginFormContent() {
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
+          {/* Back to Website */}
+          <Link href="/landing.html" className="text-sm text-[#000] hover:text-gray-600 flex items-center space-x-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span>Back to website</span>
+          </Link>
+
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-bold text-black">STUDENT LOGIN</h1>
@@ -195,17 +222,20 @@ function LoginFormContent() {
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                     />
                   </svg>
-                </div>
                 <Input
                   type="email"
                   placeholder="Email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000]"
-                  required
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }))
+                  }}
+                  className={`pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000] ${fieldErrors.email ? '!border !border-red-500' : ''}`}
                 />
               </div>
+              {fieldErrors.email && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.email}</p>}
             </div>
+          </div>
 
             {/* Password Field */}
             <div className="space-y-4">
@@ -223,11 +253,14 @@ function LoginFormContent() {
                 <PasswordInput
                   placeholder="Password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000]"
-                  required
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: '' }))
+                  }}
+                  className={`pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000] ${fieldErrors.password ? '!border !border-red-500' : ''}`}
                 />
               </div>
+              {fieldErrors.password && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.password}</p>}
             </div>
 
             {/* Error Message */}
@@ -275,6 +308,16 @@ function LoginFormContent() {
               )}
             </Button>
           </form>
+
+          {/* Register Link */}
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Don&apos;t have an account?{" "}
+              <Link href="/register" className="font-semibold text-yellow-500 hover:text-yellow-600">
+                Register Now
+              </Link>
+            </p>
+          </div>
 
         </div>
       </div>

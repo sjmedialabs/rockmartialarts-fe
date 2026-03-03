@@ -34,6 +34,7 @@ export default function SelectBranchPage() {
   const [isLoadingBranches, setIsLoadingBranches] = useState(false)
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   // Fetch locations from dropdown settings master data
   useEffect(() => {
@@ -148,19 +149,24 @@ export default function SelectBranchPage() {
   }
 
   const handleContinue = () => {
+    const newErrors: Record<string, string> = {}
+    if (!selectedLocation) {
+      newErrors.location = "Please select a location"
+    }
     if (!branch_id) {
-      toast({
-        title: "Branch Required",
-        description: "Please select a branch to continue.",
-        variant: "destructive",
-      })
+      newErrors.branch = "Please select a branch to continue"
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors)
       return
     }
+    setFieldErrors({})
 
     const selectedBranch = filteredBranches.find(branch => branch.id === branch_id)
 
     updateRegistrationData({
       branch_id,
+      branch_name: selectedBranch?.name || "",
       selected_location: selectedLocation,
       branch_details: selectedBranch ? {
         name: selectedBranch.name,
@@ -196,13 +202,16 @@ export default function SelectBranchPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
+            <div>
               <Select
                 value={selectedLocation}
-                onValueChange={(value) => setSelectedLocation(value)}
+                onValueChange={(value) => {
+                  setSelectedLocation(value)
+                  if (fieldErrors.location) setFieldErrors(prev => ({ ...prev, location: '' }))
+                }}
                 disabled={isLoadingLocations}
               >
-                <SelectTrigger className="!w-full !h-14 !pl-6 !pr-10 !py-4 !text-[14px] bg-[#F9F8FF] !border-0 !rounded-xl data-[placeholder]:text-black focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14">
+                <SelectTrigger className={`!w-full !h-14 !pl-6 !pr-10 !py-4 !text-[14px] bg-[#F9F8FF] !border-0 !rounded-xl data-[placeholder]:text-black focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14 ${fieldErrors.location ? '!border !border-red-500' : ''}`}>
                   <SelectValue placeholder={isLoadingLocations ? "Loading locations..." : "Select Location"} className="text-gray-500" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
@@ -216,15 +225,19 @@ export default function SelectBranchPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.location && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.location}</p>}
             </div>
 
-            <div className="relative">
+            <div>
               <Select
                 value={branch_id}
-                onValueChange={(value) => setBranchId(value)}
+                onValueChange={(value) => {
+                  setBranchId(value)
+                  if (fieldErrors.branch) setFieldErrors(prev => ({ ...prev, branch: '' }))
+                }}
                 disabled={isLoadingBranches}
               >
-                <SelectTrigger className="!w-full !h-14 !pl-6 !pr-10 !py-4 !text-[14px] bg-[#F9F8FF] !border-0 !rounded-xl data-[placeholder]:text-black focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14">
+                <SelectTrigger className={`!w-full !h-14 !pl-6 !pr-10 !py-4 !text-[14px] bg-[#F9F8FF] !border-0 !rounded-xl data-[placeholder]:text-black focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14 ${fieldErrors.branch ? '!border !border-red-500' : ''}`}>
                   <SelectValue placeholder={
                     isLoadingBranches
                       ? "Loading branches..."
@@ -259,6 +272,7 @@ export default function SelectBranchPage() {
                   )}
                 </SelectContent>
               </Select>
+              {fieldErrors.branch && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.branch}</p>}
             </div>
 
             <Button

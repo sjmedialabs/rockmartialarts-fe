@@ -35,47 +35,38 @@ export default function PaymentPage() {
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState("")
 
+  // Build fallback payment info from registration context data
+  const buildContextPaymentInfo = (): CoursePaymentInfo => {
+    const courseFee = registrationData.course_price || 0
+    const admissionFee = 500
+    return {
+      course_id: registrationData.course_id || "",
+      course_name: registrationData.course_name || "Selected Course",
+      category_name: registrationData.category_name || "Martial Arts",
+      branch_name: registrationData.branch_name || "Selected Branch",
+      duration: "1 month",
+      pricing: {
+        course_fee: courseFee,
+        admission_fee: admissionFee,
+        total_amount: courseFee + admissionFee,
+        currency: registrationData.course_currency || "INR",
+        duration_multiplier: 1.0
+      }
+    }
+  }
+
   // Fetch payment information when component mounts
   useEffect(() => {
     const fetchPaymentInfo = async () => {
-      console.log('=== PAYMENT PAGE DEBUG ===')
-      console.log('Course ID:', registrationData.course_id)
-      console.log('Branch ID:', registrationData.branch_id)
-      console.log('Registration data:', registrationData)
-      
+      if (!registrationData.course_id || !registrationData.branch_id) {
+        // No course/branch selected — use context data
+        setPaymentInfo(buildContextPaymentInfo())
+        setLoading(false)
+        return
+      }
+
       try {
-        // Fetch course details to get actual price
-        const courseResponse = await fetch(
-          getBackendApiUrl(`courses/${registrationData.course_id}`),
-          {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          }
-        )
-
-        let coursePrice = 1000
-        let courseName = "Selected Course"
-        
-        if (courseResponse.ok) {
-          const courseData = await courseResponse.json()
-          courseName = courseData.name || courseName
-          
-          if (courseData.pricing) {
-            if (typeof courseData.pricing === 'object' && courseData.pricing.amount) {
-              coursePrice = courseData.pricing.amount
-            } else if (typeof courseData.pricing === 'number') {
-              coursePrice = courseData.pricing
-            }
-          } else if (courseData.price) {
-            coursePrice = courseData.price
-          } else if (courseData.fee) {
-            coursePrice = courseData.fee
-          }
-        }
-
-        // Always use 1 month duration
         const oneMonthDuration = "1-month"
-        
         const response = await fetch(
           getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?branch_id=${registrationData.branch_id}&duration=${oneMonthDuration}`),
           {
@@ -89,40 +80,14 @@ export default function PaymentPage() {
           data.duration = "1 month"
           setPaymentInfo(data)
         } else {
-          const courseFeeOneMonth = coursePrice
-          const admissionFee = 500
-          
-          setPaymentInfo({
-            course_id: registrationData.course_id || "unknown",
-            course_name: courseName,
-            category_name: "Martial Arts",
-            branch_name: "Selected Branch",
-            duration: "1 month",
-            pricing: {
-              course_fee: courseFeeOneMonth,
-              admission_fee: admissionFee,
-              total_amount: courseFeeOneMonth + admissionFee,
-              currency: "INR",
-              duration_multiplier: 1.0
-            }
-          })
+          // API failed — fall back to context data from course selection step
+          console.warn('payment-info API failed, using context data')
+          setPaymentInfo(buildContextPaymentInfo())
         }
       } catch (error) {
         console.error('Error fetching payment info:', error)
-        setPaymentInfo({
-          course_id: registrationData.course_id || "unknown",
-          course_name: "Selected Course",
-          category_name: "Martial Arts",
-          branch_name: "Selected Branch",
-          duration: "1 month",
-          pricing: {
-            course_fee: 1000,
-            admission_fee: 500,
-            total_amount: 1500,
-            currency: "INR",
-            duration_multiplier: 1.0
-          }
-        })
+        // Network error — fall back to context data
+        setPaymentInfo(buildContextPaymentInfo())
       } finally {
         setLoading(false)
       }

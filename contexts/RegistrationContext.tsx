@@ -16,12 +16,26 @@ interface RegistrationData {
   course_id: string
   duration: string
   
+  // Course Display Info
+  course_name: string
+  category_name: string
+  course_price: number
+  course_currency: string
+  
   // Branch Information (IDs)
   location_id: string
   branch_id: string
   
+  // Branch Display Info
+  branch_name: string
+  selected_location: string
+  
   // Payment Information
   paymentMethod: string
+  paymentId: string
+  paymentStatus: string
+  orderId: string
+  amount: number
   cardNumber: string
   expiryDate: string
   cvv: string
@@ -30,6 +44,7 @@ interface RegistrationData {
   // Additional fields
   password?: string
   biometric_id?: string
+  branch_details?: { name: string; address: { city: string; state: string } } | null
 }
 
 interface RegistrationContextType {
@@ -49,9 +64,19 @@ const defaultRegistrationData: RegistrationData = {
   category_id: '',
   course_id: '',
   duration: '',
+  course_name: '',
+  category_name: '',
+  course_price: 0,
+  course_currency: 'INR',
   location_id: '',
   branch_id: '',
+  branch_name: '',
+  selected_location: '',
   paymentMethod: '',
+  paymentId: '',
+  paymentStatus: '',
+  orderId: '',
+  amount: 0,
   cardNumber: '',
   expiryDate: '',
   cvv: '',

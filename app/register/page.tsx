@@ -9,6 +9,7 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRegistration } from "@/contexts/RegistrationContext"
 import { Calendar } from "lucide-react"
+import Link from "next/link"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -24,8 +25,56 @@ export default function RegisterPage() {
     password: registrationData.password || "",
   })
 
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const validateEmail = (email: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
+  const validateMobile = (mobile: string): boolean => {
+    // Accept 10-digit numbers, optionally prefixed with +91 or 0
+    return /^(\+91[\-\s]?)?[0]?[6-9]\d{9}$/.test(mobile.replace(/[\s\-]/g, ''))
+  }
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required"
+    }
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required"
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = "Please enter a valid email address"
+    }
+    if (!formData.mobile.trim()) {
+      newErrors.mobile = "Mobile number is required"
+    } else if (!validateMobile(formData.mobile)) {
+      newErrors.mobile = "Please enter a valid 10-digit mobile number"
+    }
+    if (!formData.password) {
+      newErrors.password = "Password is required"
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters"
+    }
+    if (!formData.gender) {
+      newErrors.gender = "Please select a gender"
+    }
+    if (!formData.dob) {
+      newErrors.dob = "Date of birth is required"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validateForm()) return
+
     // Update registration context with form data
     updateRegistrationData({
       firstName: formData.firstName,
@@ -41,6 +90,10 @@ export default function RegisterPage() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }))
+    }
   }
 
   return (
@@ -68,73 +121,68 @@ export default function RegisterPage() {
           <form onSubmit={handleNextStep} className="space-y-3">
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="relative">
-                
+              <div>
                 <Input
                   type="text"
                   placeholder="First Name"
                   value={formData.firstName}
                   onChange={(e) => handleInputChange("firstName", e.target.value)}
-                  className="pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] "
-                  required
+                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.firstName ? '!border !border-red-500' : ''}`}
                 />
+                {errors.firstName && <p className="text-red-500 text-xs mt-1 ml-1">{errors.firstName}</p>}
               </div>
-              <div className="relative">
-               
+              <div>
                 <Input
                   type="text"
                   placeholder="Last Name"
                   value={formData.lastName}
                   onChange={(e) => handleInputChange("lastName", e.target.value)}
-                  className="pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000]"
-                  required
+                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.lastName ? '!border !border-red-500' : ''}`}
                 />
+                {errors.lastName && <p className="text-red-500 text-xs mt-1 ml-1">{errors.lastName}</p>}
               </div>
             </div>
 
             {/* Email and Mobile Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="relative">
-                
+              <div>
                 <Input
                   type="email"
                   placeholder="Email Address"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
-                  className="pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000]"
-                  required
+                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.email ? '!border !border-red-500' : ''}`}
                 />
+                {errors.email && <p className="text-red-500 text-xs mt-1 ml-1">{errors.email}</p>}
               </div>
-              <div className="relative">
-                
+              <div>
                 <Input
                   type="tel"
                   placeholder="Mobile Number"
                   value={formData.mobile}
                   onChange={(e) => handleInputChange("mobile", e.target.value)}
-                  className="pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000]"
-                  required
+                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.mobile ? '!border !border-red-500' : ''}`}
                 />
+                {errors.mobile && <p className="text-red-500 text-xs mt-1 ml-1">{errors.mobile}</p>}
               </div>
             </div>
 
             {/* Password Field */}
-            <div className="relative">
+            <div>
               <PasswordInput
                 placeholder="Password"
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
-                className="pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000]"
-                required
+                className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.password ? '!border !border-red-500' : ''}`}
               />
+              {errors.password && <p className="text-red-500 text-xs mt-1 ml-1">{errors.password}</p>}
             </div>
 
             {/* Gender and DOB Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="relative">
-              
+              <div>
                 <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)} >
-                  <SelectTrigger className="!w-full !h-14 !pl-5 !pr-4 !py-4 !text-base !bg-[#F9F8FF] !border-0 !rounded-xl focus:outline-none focus:ring-2  !min-h-14 ">
+                  <SelectTrigger className={`!w-full !h-14 !pl-5 !pr-4 !py-4 !text-base !bg-[#F9F8FF] !border-0 !rounded-xl focus:outline-none focus:ring-2 !min-h-14 ${errors.gender ? '!border !border-red-500' : ''}`}>
                     <SelectValue placeholder="Select Gender" className="text-gray-500 placeholder:text-[#000]" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
@@ -143,18 +191,18 @@ export default function RegisterPage() {
                     <SelectItem value="other" className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">Other</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.gender && <p className="text-red-500 text-xs mt-1 ml-1">{errors.gender}</p>}
               </div>
 
-              <div className="relative">
-                
+              <div>
                 <Input
                   type="date"
                   placeholder="Date of Birth"
                   value={formData.dob}
                   onChange={(e) => handleInputChange("dob", e.target.value)}
-                  className="pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000]"
-                  required
+                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.dob ? '!border !border-red-500' : ''}`}
                 />
+                {errors.dob && <p className="text-red-500 text-xs mt-1 ml-1">{errors.dob}</p>}
               </div>
             </div>
 
@@ -166,6 +214,16 @@ export default function RegisterPage() {
               NEXT STEP
             </Button>
           </form>
+
+          {/* Login Link */}
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Already have an account?{" "}
+              <Link href="/login" className="font-semibold text-yellow-500 hover:text-yellow-600">
+                Login
+              </Link>
+            </p>
+          </div>
 
           {/* Step Indicator */}
           <div className="text-center py-4">

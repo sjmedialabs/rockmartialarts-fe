@@ -48,23 +48,43 @@ export default function PaymentConfirmationPage() {
     setTransactionId(txnId)
   }, [])
 
+  // Build payment info from registration context
+  const buildContextPaymentInfo = (): CoursePaymentInfo => {
+    const courseFee = registrationData.course_price || registrationData.amount || 0
+    const admissionFee = 500
+    return {
+      course_id: registrationData.course_id || "",
+      course_name: registrationData.course_name || "Selected Course",
+      category_name: registrationData.category_name || "Martial Arts",
+      branch_name: registrationData.branch_name || "Selected Branch",
+      duration: "1 month",
+      pricing: {
+        course_fee: courseFee,
+        admission_fee: admissionFee,
+        total_amount: courseFee + admissionFee,
+        currency: registrationData.course_currency || "INR",
+        duration_multiplier: 1.0
+      }
+    }
+  }
+
   // Fetch payment info on component mount
   useEffect(() => {
     const fetchPaymentInfo = async () => {
-      if (!registrationData.course_id || !registrationData.branch_id || !registrationData.duration) {
+      if (!registrationData.course_id || !registrationData.branch_id) {
+        // Use context data if IDs are missing
+        setPaymentInfo(buildContextPaymentInfo())
         setLoadingPaymentInfo(false)
         return
       }
 
       try {
+        const duration = registrationData.duration || "1-month"
         const response = await fetch(
-          getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?`) +
-          `branch_id=${registrationData.branch_id}&duration=${registrationData.duration}`,
+          getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?branch_id=${registrationData.branch_id}&duration=${duration}`),
           {
             method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
           }
         )
 
@@ -72,10 +92,12 @@ export default function PaymentConfirmationPage() {
           const data = await response.json()
           setPaymentInfo(data)
         } else {
-          console.error('Failed to fetch payment info')
+          console.warn('Failed to fetch payment info, using context data')
+          setPaymentInfo(buildContextPaymentInfo())
         }
       } catch (error) {
         console.error('Error fetching payment info:', error)
+        setPaymentInfo(buildContextPaymentInfo())
       } finally {
         setLoadingPaymentInfo(false)
       }

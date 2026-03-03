@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock martial Arts</title>
+    <link rel="icon" href="assets/img/favicon.png" sizes="36x36" type="image/png">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/css/font-clamp.css">
+    <link rel="stylesheet" href="assets/css/normal.css">
+    <link rel="stylesheet" href="assets/css/jquery.fancybox.min.css">
+    <link rel="stylesheet" href="assets/css/aos.min.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap">
+
+
+
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <div class="row align-content-center">
+                <div class="col-xl-6 col-lg-4  col-8 d-flex align-items-center">
+                    <a href="index.html"><img src="assets/img/logo.png" class="img-fluid" alt=""></a>
+                </div>
+                <div class="col-xl-6 col-lg-8 col-4">
+                    <ul class="topbar">
+                        <li class="mx-3 d-none d-lg-block"><a href="index.html#courses"
+                                class="text-white text-uppercase">Courses</a></li>
+                        <li class="mx-3 d-none d-lg-block"><a href="store.html"
+                                class="text-white text-uppercase">Store</a></li>
+                        <li class="ms-3 d-none d-lg-block me-2">
+                            <a href="" class="button">Enquiry now</a>
+                        </li>
+                        <li class="mx-2 d-none d-lg-block">
+                            <a href="" class="button2">
+                                <img src="assets/img/login-icon.png" class="img-fluid" alt="">
+                                Login
+                            </a>
+                        </li>
+                        <li class="ms-3 me-2 toggleImg">
+                            <a href="" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight"
+                                aria-controls="offcanvasRight">
+                                <img src="assets/img/menu_toggle.png" class="img-fluid" alt="">
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- offcanvas  -->
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
+            <div class="offcanvas-header">
+                <!-- <h5 id="offcanvasRightLabel">Offcanvas right</h5> -->
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"
+                    aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                <ul class="topbar">
+                    <li class="d-block d-lg-none"><a href="index.html#courses"
+                            class="text-white text-uppercase">Courses</a>
+                    </li>
+                    <li class="d-block d-lg-none"><a href="store.html" class="text-white text-uppercase">Store</a></li>
+                    <li class="d-block d-lg-none">
+                        <a href="" class="button">Enquiry now</a>
+                    </li>
+                    <li class="d-block d-lg-none">
+                        <a href="" class="button2">
+                            <img src="assets/img/login-icon.png" class="img-fluid" alt="">
+                            Login
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <!-- End -->
+    </header>
+
+    <section class="store_slider_img">
+        <img src="assets/img/store/slider_img.png" class="img-fluid" alt="courses">
+        <div class="store_slider_txt">
+            <div class="container">
+                <div class="col-md-6 col-lg-5 col-xl-5 col-xxl-5">
+                    <h1 data-aos="fade-up" data-aos-once='true'>Store</h1>
+                    <h2 class="title_color" data-aos="fade-up" data-aos-duration="600" data-aos-once='true'>Gear for the
+                        Way.</h2>
+                    <h6 data-aos="fade-up" data-aos-duration="700" data-aos-once='true'>Quality training gear and
+                        equipment hand-picked by Rock Martial Arts</h6>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="store_products">
+        <div class="container">
+            <div class="toolbar mb2 mt2">
+                <button class="btn filtro" data-rel="all" data-aos="fade-left" data-aos-once='true'>All</button>
+                <button class="btn filtro" data-rel="uniforms" data-aos="fade-left" data-aos-duration="600"
+                    data-aos-once='true'>Uniforms</button>
+                <button class="btn filtro" data-rel="sparring-gear" data-aos="fade-left" data-aos-duration="700"
+                    data-aos-once='true'>Sparring Gear</button>
+                <button class="btn filtro" data-rel="boxing" data-aos="fade-left" data-aos-duration="800"
+                    data-aos-once='true'>Boxing</button>
+                <button class="btn filtro" data-rel="belts" data-aos="fade-left" data-aos-duration="900"
+                    data-aos-once='true'>Belts</button>
+                <button class="btn filtro" data-rel="weapons" data-aos="fade-left" data-aos-duration="1000"
+                    data-aos-once='true'>Training Weapons</button>
+                <button class="btn filtro" data-rel="accessories" data-aos="fade-left" data-aos-duration="1100"
+                    data-aos-once='true'>Accessories</button>
+            </div>
+
+            <div id="portfolio">
+                <div class="tile scale-anm uniforms all">
+                    <img src="assets/img/store/img1.png" class="img-fluid mb-3" alt="" />
+                    <h4>karate uniform</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm weapons all">
+                    <img src="assets/img/store/img7.png" class="img-fluid mb-3" alt="" />
+                    <h4>Square Blade Kama</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm accessories all">
+                    <img src="assets/img/store/img10.png" class="img-fluid mb-3" alt="" />
+                    <h4>Power Tilt Free Standing Bag</h4>
+                    <p>₹ 2500</p>
+                </div>
+
+                <div class="tile scale-anm uniforms all">
+                    <img src="assets/img/store/img3.png" class="img-fluid mb-3" alt="" />
+                    <h4>tkd uniform</h4>
+                    <p>₹ 2500</p>
+                </div>
+
+
+                <div class="tile scale-anm uniforms all">
+                    <img src="assets/img/store/img4.png" class="img-fluid mb-3" alt="" />
+                    <h4>kung fu uniform</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm weapons all">
+                    <img src="assets/img/store/img5.png" class="img-fluid mb-3" alt="" />
+                    <h4>rattan_bo_ii_tiger</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm accessories all">
+                    <img src="assets/img/store/img13.png" class="img-fluid mb-3" alt="" />
+                    <h4>Ultra Lite Chest Guard</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm weapons all">
+                    <img src="assets/img/store/img6.png" class="img-fluid mb-3" alt="" />
+                    <h4>Determination Kickboxing Punches</h4>
+                    <p>₹ 2500</p>
+                </div>
+
+
+                <div class="tile scale-anm uniforms all">
+                    <img src="assets/img/store/img2.png" class="img-fluid mb-3" alt="" />
+                    <h4>Course Available Locations</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm accessories all">
+                    <img src="assets/img/store/img11.png" class="img-fluid mb-3" alt="" />
+                    <h4>Square Blade Kama</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm boxing all">
+                    <img src="assets/img/store/img14.png" class="img-fluid mb-3" alt="" />
+                    <h4>Determination Kickboxing Punches</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm accessories all">
+                    <img src="assets/img/store/img15.png" class="img-fluid mb-3" alt="" />
+                    <h4>Double Wrap Solid Karate Belt</h4>
+                    <p>₹ 2500</p>
+                </div>
+
+
+
+                <div class="tile scale-anm weapons all">
+                    <img src="assets/img/store/img8.png" class="img-fluid mb-3" alt="" />
+                    <h4>practice_speedchuck</h4>
+                    <p>₹ 2500</p>
+                </div>
+                <div class="tile scale-anm weapons all">
+                    <img src="assets/img/store/img9.png" class="img-fluid mb-3" alt="" />
+                    <h4>dragon samurai sword</h4>
+                    <p>₹ 2500</p>
+                </div>
+
+
+                <div class="tile scale-anm accessories all">
+                    <img src="assets/img/store/img12.png" class="img-fluid mb-3" alt="" />
+                    <h4>Uppercut Heavy Bag</h4>
+                    <p>₹ 2500</p>
+                </div>
+
+
+
+                <div class="tile scale-anm sparring-gear all">
+                    <img src="assets/img/store/img16.png" class="img-fluid mb-3" alt="" />
+                    <h4>kick-short</h4>
+                    <p>₹ 2500</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+
+
+
+
+    <footer class="bg-black text-light pt-5">
+        <div class="container pt-5">
+            <div class="row text-md-start">
+                <!-- Logo and Description -->
+                <div
+                    class="col-lg-3 mb-4 mb-md-0 d-lg-block d-flex justify-content-between text-start align-items-center">
+                    <img src="assets/img/footer_logo.png" alt="Rock Martial Arts Academy Logo" class="mb-3"
+                        style="width: 150px;">
+                    <p>
+                        Kungfu @ ROCK has improved my physical and mental strength, stamina, and focus. Self-defense
+                        skills
+                        have given me confidence to travel alone fearlessly. It’s a life skill that I highly recommend
+                        for
+                        discipline, self-esteem, and fitness. Thank you ROCK team for the support.
+                    </p>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="col-lg-3 col-md-3 col-6  mb-4 mb-md-0">
+                    <h6 class="title_color">QUICK LINKS</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="#">About Us</a></li>
+                        <li><a href="index.html#courses">Courses</a></li>
+                        <li><a href="#">Testimonials</a></li>
+                        <li><a href="#">Gallery</a></li>
+                        <li><a href="#">Media</a></li>
+                        <li><a href="#">Contact Us</a></li>
+                    </ul>
+                </div>
+
+                <!-- Our Services -->
+                <div class="col-lg-3 col-md-4 col-6  mb-4 mb-md-0">
+                    <h6 class="title_color">OUR SERVICE</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="#">Shaolin Kung Fu</a></li>
+                        <li><a href="#">Silambam (Karra Samu)</a></li>
+                        <li><a href="#">Taekwondo</a></li>
+                        <li><a href="#">Western Dance</a></li>
+                        <li><a href="#">Kick Boxing</a></li>
+                        <li><a href="#">Weapons Training</a></li>
+                        <li><a href="#">Kuchipudi Dance</a></li>
+                        <li><a href="#">Gymnastics</a></li>
+                        <li><a href="#">Zumba</a></li>
+                        <li><a href="#">MMA</a></li>
+                        <li><a href="#">Self Defense</a></li>
+                        <li><a href="#">Boxing</a></li>
+                    </ul>
+                </div>
+
+                <!-- Contact and Social -->
+                <div class="col-lg-3 col-md-5 col-sm-12">
+                    <h6 class="title_color">CONTACT</h6>
+                    <p>
+                        KJS Plaza, 4-39, Balaji Nagar Main Rd, Santoshi Nagar, <br>
+                        Secunderabad, Telangana 500087
+                    </p>
+                    <p class="mb-1 contact_txt">
+                        <img src="assets/img/phone_icon.png" alt="" class="me-2"> +91 8179041226, +91 8977933876
+                    </p>
+                    <p class="mb-3 contact_txt">
+                        <img src="assets/img/mail-icon.png" alt="" class="me-2"> info@rockmartialarts.com
+                    </p>
+                    <h6 class="title_color">CONNECT US ON</h6>
+                    <div class="d-flex gap-3">
+                        <a href="#">
+                            <img src="assets/img/fb.png" class="img-fluid" alt="facebook">
+                        </a>
+                        <a href="#">
+                            <img src="assets/img/x.png" class="img-fluid" alt="twitter">
+                        </a>
+                        <a href="#">
+                            <img src="assets/img/ln.png" class="img-fluid" alt="linkedin">
+                        </a>
+                        <a href="#">
+                            <img src="assets/img/insta.png" class="img-fluid" alt="instagram">
+                        </a>
+                        <a href="#">
+                            <img src="assets/img/yt.png" class="img-fluid" alt="youtube">
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+        <div class="text-center text-muted mt-5 py-3 copyRight_bg">
+            © Copyright 2025 | ROCK | All Rights Reserved.
+        </div>
+    </footer>
+
+
+
+
+
+    <!-- Bootstrap 5 JS Bundle with Popper -->
+    <script src="assets/js/jquery.min.js"></script>
+    <script src="assets/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/jquery.fancybox.min.js"></script>
+    <script src="assets/js/aos.min.js"></script>
+    <script src="assets/js/custom.js"></script>
+</body>
+</body>
+
+</html>

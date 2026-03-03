@@ -19,9 +19,14 @@ function BranchManagerLoginFormContent() {
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const router = useRouter();
   const { getToken, resetRecaptcha, isEnabled } = useReCaptcha()
+
+  const validateEmail = (email: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
 
   // Redirect to dashboard if already logged in as branch manager (same screens as super admin)
   useEffect(() => {
@@ -32,6 +37,20 @@ function BranchManagerLoginFormContent() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {}
+    if (!email.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!validateEmail(email)) {
+      newErrors.email = "Please enter a valid email address"
+    }
+    if (!password) {
+      newErrors.password = "Password is required"
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors)
+      return
+    }
+    setFieldErrors({})
     setError("");
     setLoading(true);
     
@@ -209,13 +228,16 @@ function BranchManagerLoginFormContent() {
                   name="email"
                   type="email"
                   autoComplete="email"
-                  className="pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500"
+                  className={`pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500 ${fieldErrors.email ? '!border !border-red-500' : ''}`}
                   placeholder="Enter your email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }))
+                  }}
                 />
               </div>
+              {fieldErrors.email && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.email}</p>}
             </div>
 
             {/* Password Field */}
@@ -231,13 +253,16 @@ function BranchManagerLoginFormContent() {
                   id="password"
                   name="password"
                   autoComplete="current-password"
-                  className="pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500"
+                  className={`pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500 ${fieldErrors.password ? '!border !border-red-500' : ''}`}
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: '' }))
+                  }}
                 />
               </div>
+              {fieldErrors.password && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.password}</p>}
             </div>
 
             {/* Error Message */}

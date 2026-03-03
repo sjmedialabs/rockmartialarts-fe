@@ -54,10 +54,19 @@ class PaymentAPI extends BaseAPI {
   /**
    * Get payment statistics for dashboard
    */
-  async getPaymentStats(token?: string): Promise<PaymentStats> {
+  async getPaymentStats(token?: string, params?: { start_date?: string; end_date?: string; period?: string }): Promise<PaymentStats> {
     const authToken = token || TokenManager.getToken()
-    
-    return await this.makeRequest('/api/payments/stats', {
+
+    const searchParams = new URLSearchParams()
+    if (params?.start_date) searchParams.append('start_date', params.start_date)
+    if (params?.end_date) searchParams.append('end_date', params.end_date)
+    if (params?.period) searchParams.append('period', params.period)
+
+    let endpoint = '/api/payments/stats'
+    const qs = searchParams.toString()
+    if (qs) endpoint += `?${qs}`
+
+    return await this.makeRequest(endpoint, {
       method: 'GET',
       token: authToken
     })

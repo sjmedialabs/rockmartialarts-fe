@@ -139,14 +139,6 @@ export default function StudentDashboardHeader({
       description: "View payment history",
       permissionId: "payments"
     },
-    {
-      name: "Messages",
-      path: "/student-dashboard/messages",
-      icon: MessageSquare,
-      exact: false,
-      description: "Communication hub",
-      permissionId: "messages"
-    }
   ]
 
   // Filter navigation items based on permissions
@@ -154,7 +146,7 @@ export default function StudentDashboardHeader({
 
 
   return (
-    <header className="bg-white shadow-sm border border-gray-200/80 backdrop-blur-sm mx-4 xl:mx-12 mt-6 rounded-lg">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
       <div className="w-full px-4 lg:px-6 py-2">
         <div className="flex justify-between items-center h-auto roboto">
           {/* Logo and Navigation */}

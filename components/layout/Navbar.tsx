@@ -185,7 +185,7 @@ export default function Navbar({ role }: NavbarProps) {
                     <User className="w-4 h-4" />
                     Profile
                   </DropdownMenuItem>
-                  {(role === "super_admin" || role === "branch_admin") && (
+                  {role === "super_admin" && (
                     <DropdownMenuItem onClick={() => router.push(settingsPath)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
                       <Settings className="w-4 h-4" />
                       Settings

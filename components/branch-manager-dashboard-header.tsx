@@ -221,17 +221,6 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
                       </button>
 
                       <button
-                        onClick={() => handleMobileNavigation("/branch-manager-dashboard/messages")}
-                        className={`w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100/80 text-sm font-medium transition-all duration-200 ${
-                          isActivePath("/branch-manager-dashboard/messages")
-                            ? "bg-gradient-to-r from-blue-50 to-blue-100/50 text-blue-800 border-l-3 border-blue-400 shadow-sm"
-                            : "text-gray-700 hover:text-gray-900"
-                        }`}
-                      >
-                        Messages
-                      </button>
-
-                      <button
                         onClick={() => handleMobileNavigation("/branch-manager-dashboard/courses")}
                         className={`w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100/80 text-sm font-medium transition-all duration-200 ${
                           isActivePath("/branch-manager-dashboard/courses")
@@ -327,16 +316,6 @@ export default function BranchManagerDashboardHeader({ currentPage = "Dashboard"
                 }`}
               >
                 Students
-              </button>
-              <button
-                onClick={() => router.push("/branch-manager-dashboard/messages")}
-                className={`pb-2 px-1 text-sm font-semibold whitespace-nowrap cursor-pointer border-b-2 transition-all duration-300 hover:scale-105 ${
-                  isActivePath("/branch-manager-dashboard/messages")
-                    ? "text-gray-900 border-blue-400 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900 border-transparent hover:border-gray-300"
-                }`}
-              >
-                Messages
               </button>
               <button
                 onClick={() => router.push("/branch-manager-dashboard/courses")}

@@ -339,7 +339,7 @@ const paginatedCoaches = filteredCoaches.slice(
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader currentPage="Coaches" />
 
-      <main className="w-full mt-20 p-4 lg:px-8 lg:py-6">
+      <main className="w-full mt-5 p-4 lg:px-8 lg:py-6">
         {/* Page Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Coach list</h1>

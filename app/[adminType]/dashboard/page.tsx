@@ -3,15 +3,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star, Users, BookOpen, Loader2, AlertCircle } from "lucide-react"
+import { Star, Users, BookOpen, Loader2, AlertCircle, CreditCard } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { dashboardAPI, DashboardStats, Coach } from "@/lib/api"
 import { paymentAPI, PaymentStats, Payment } from "@/lib/paymentAPI"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 
 export default function SuperAdminDashboard() {
@@ -31,20 +32,60 @@ export default function SuperAdminDashboard() {
   const [paymentsLoading, setPaymentsLoading] = useState(true)
   const [paymentsError, setPaymentsError] = useState<string | null>(null)
 
-  // Fetch dashboard statistics
+  // Time period filter
+  const [timePeriod, setTimePeriod] = useState<string>("this-month")
+  const role = useDashboardRole()
+
+  // Get token from either TokenManager (superadmin) or BranchManagerAuth (branch admin)
+  const getAuthToken = useCallback(() => {
+    return TokenManager.getToken() || BranchManagerAuth.getToken() || null
+  }, [])
+
+  // Compute date range from time period
+  const dateRange = useMemo(() => {
+    const now = new Date()
+    const end_date = now.toISOString().split('T')[0]
+    let start: Date
+
+    switch (timePeriod) {
+      case 'today':
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        break
+      case 'this-week': {
+        const day = now.getDay()
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day)
+        break
+      }
+      case 'this-year':
+        start = new Date(now.getFullYear(), 0, 1)
+        break
+      case 'this-month':
+      default:
+        start = new Date(now.getFullYear(), now.getMonth(), 1)
+        break
+    }
+
+    return {
+      start_date: start.toISOString().split('T')[0],
+      end_date,
+      period: timePeriod
+    }
+  }, [timePeriod])
+
+  // Fetch dashboard statistics — re-runs when timePeriod changes
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
         setLoading(true)
         setError(null)
 
-        const token = TokenManager.getToken()
+        const token = getAuthToken()
         if (!token) {
           setError("Authentication required. Please login again.")
           return
         }
 
-        const response = await dashboardAPI.getDashboardStats(token)
+        const response = await dashboardAPI.getDashboardStats(token, undefined, dateRange)
         setDashboardStats(response.dashboard_stats)
       } catch (err: any) {
         console.error("Error fetching dashboard stats:", err)
@@ -55,16 +96,16 @@ export default function SuperAdminDashboard() {
     }
 
     fetchDashboardStats()
-  }, [])
+  }, [dateRange, getAuthToken])
 
-  // Fetch coaches list
+  // Fetch coaches list (only on mount, not affected by time filter)
   useEffect(() => {
     const fetchCoaches = async () => {
       try {
         setCoachesLoading(true)
         setCoachesError(null)
 
-        const token = TokenManager.getToken()
+        const token = getAuthToken()
         if (!token) {
           setCoachesError("Authentication required. Please login again.")
           return
@@ -84,36 +125,42 @@ export default function SuperAdminDashboard() {
     }
 
     fetchCoaches()
-    fetchPaymentData()
-  }, [])
+  }, [getAuthToken])
 
-  // Fetch payment data
-  const fetchPaymentData = async () => {
-    try {
-      setPaymentsLoading(true)
-      setPaymentsError(null)
+  // Fetch payment data — re-runs when timePeriod changes
+  useEffect(() => {
+    const fetchPaymentData = async () => {
+      try {
+        setPaymentsLoading(true)
+        setPaymentsError(null)
 
-      const token = TokenManager.getToken()
-      if (!token) {
-        setPaymentsError("Authentication required. Please login again.")
-        return
+        const token = getAuthToken()
+        if (!token) {
+          setPaymentsError("Authentication required. Please login again.")
+          return
+        }
+
+        // Fetch payment stats and recent payments filtered by the selected date range
+        const [statsResponse, paymentsResponse] = await Promise.all([
+          paymentAPI.getPaymentStats(token, dateRange),
+          paymentAPI.getPayments(
+            { limit: 5, skip: 0, start_date: dateRange.start_date, end_date: dateRange.end_date },
+            token
+          )
+        ])
+
+        setPaymentStats(statsResponse)
+        setRecentPayments(paymentsResponse.payments || [])
+      } catch (err: any) {
+        console.error("Error fetching payment data:", err)
+        setPaymentsError(err.message || "Failed to fetch payment data")
+      } finally {
+        setPaymentsLoading(false)
       }
-
-      // Fetch payment stats and recent payments in parallel
-      const [statsResponse, paymentsResponse] = await Promise.all([
-        paymentAPI.getPaymentStats(token),
-        paymentAPI.getRecentPayments(5, token)
-      ])
-
-      setPaymentStats(statsResponse)
-      setRecentPayments(paymentsResponse)
-    } catch (err: any) {
-      console.error("Error fetching payment data:", err)
-      setPaymentsError(err.message || "Failed to fetch payment data")
-    } finally {
-      setPaymentsLoading(false)
     }
-  }
+
+    fetchPaymentData()
+  }, [dateRange, getAuthToken])
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -126,23 +173,44 @@ export default function SuperAdminDashboard() {
   }
 
   // Format large numbers
-  const formatNumber = (num: number) => {
-    if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'k'
+  const formatNumber = (num: number | undefined | null) => {
+    const n = num ?? 0
+    if (n >= 1000) {
+      return (n / 1000).toFixed(1) + 'k'
     }
-    return num.toString()
+    return n.toString()
   }
+
+  const timePeriodLabel = {
+    "today": "Today",
+    "this-week": "This Week",
+    "this-month": "This Month",
+    "this-year": "This Year"
+  }[timePeriod] || "This Month"
 
   return (
     <>
-      <Header title="Dashboard" role={useDashboardRole()} />
+      <Header title="Dashboard" role={role}>
+        {/* Time Period Filter — inline beside header action buttons */}
+        <Select value={timePeriod} onValueChange={setTimePeriod}>
+          <SelectTrigger className="w-36 bg-white border border-gray-200 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="this-week">This Week</SelectItem>
+            <SelectItem value="this-month">This Month</SelectItem>
+            <SelectItem value="this-year">This Year</SelectItem>
+          </SelectContent>
+        </Select>
+      </Header>
 
         {/* Revenue Chart and Coaches List */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="flex flex-col lg:col-span-2">
 
              {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 xl:gap-6 gap-2 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 xl:gap-6 gap-2 mb-6">
           {loading ? (
             Array.from({ length: 4 }).map((_, index) => (
               <Card key={index}>
@@ -173,88 +241,76 @@ export default function SuperAdminDashboard() {
             <>
               <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="px-4">
-                  <div className="">
-                    <div className="flex justify-between flex-col gap-10">
-                      <div className="flex flex-col xl:flex-row justify-between mt-4">
-                      <p className="text-xs font-base text-[#9593A8]">Total Revenue</p>
-                       <Badge variant="secondary" className="bg-gray-100">
-                      Monthly
-                    </Badge>
+                  <div className="flex justify-between flex-col gap-10">
+                    <div className="flex flex-col xl:flex-row justify-between mt-4">
+                      <p className="text-xs font-base text-[var(--brand-muted)]">Total Revenue</p>
+                      <Badge variant="secondary" className="bg-gray-100 text-xs">
+                        {timePeriodLabel}
+                      </Badge>
                     </div>
-                    <div className="">
-                      <p className="text-2xl font-bold text-[#403C6B]">
+                    <div>
+                      <p className="text-2xl font-bold text-[var(--brand-dark)]">
                         {paymentStats ? paymentAPI.formatCurrency(paymentStats.this_month_collection || 0) : '₹0'}
                       </p>
-                      <p className="text-xs text-[#9593A8]">Earning this month</p>
-                      </div>
+                      <p className="text-xs text-[var(--brand-muted)]">Earning {timePeriodLabel.toLowerCase()}</p>
                     </div>
-                   
-                  </div>
-                </CardContent>
-              </Card>
-
-               <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
-                <CardContent className="px-4">
-                  <div className="">
-                    <div className="flex justify-between flex-col gap-10">
-                      <div className="flex flex-col xl:flex-row justify-between mt-4">
-                      <p className="text-xs font-base text-[#9593A8]">Active Students</p>
-                       <Badge variant="secondary" className="bg-gray-100">
-                      Monthly
-                    </Badge>
-                    </div>
-                    <div className="">
-                      <p className="text-2xl font-bold text-[#403C6B]">
-                         {dashboardStats ? dashboardStats.active_students : 0}
-                      </p>
-                      <p className="text-xs text-[#9593A8]">Active users this month</p>
-                      </div>
-                    </div>
-                   
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="px-4">
-                  <div className="">
-                    <div className="flex justify-between flex-col gap-10">
-                      <div className="flex flex-col xl:flex-row justify-between mt-4">
-                      <p className="text-xs font-base text-[#9593A8]">Active Courses</p>
-                       <Badge variant="secondary" className="bg-gray-100">
-                      Monthly
-                    </Badge>
+                  <div className="flex justify-between flex-col gap-10">
+                    <div className="flex flex-col xl:flex-row justify-between mt-4">
+                      <p className="text-xs font-base text-[var(--brand-muted)]">Active Students</p>
+                      <Badge variant="secondary" className="bg-gray-100 text-xs">
+                        {timePeriodLabel}
+                      </Badge>
                     </div>
-                    <div className="">
-                      <p className="text-2xl font-bold text-[#403C6B]">
-                        {dashboardStats ? dashboardStats.active_courses : 0}
+                    <div>
+                      <p className="text-2xl font-bold text-[var(--brand-dark)]">
+                        {dashboardStats ? dashboardStats.active_students : 0}
                       </p>
-                      <p className="text-xs text-[#9593A8]">Active courses in all branches</p>
-                      </div>
+                      <p className="text-xs text-[var(--brand-muted)]">Active students {timePeriodLabel.toLowerCase()}</p>
                     </div>
-                   
                   </div>
                 </CardContent>
               </Card>
 
-                <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
+              <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardContent className="px-4">
-                  <div className="">
-                    <div className="flex justify-between flex-col gap-10">
-                      <div className="flex flex-col xl:flex-row justify-between mt-4">
-                      <p className="text-xs font-base text-[#9593A8]">Total Number of users</p>
-                       <Badge variant="secondary" className="bg-gray-100">
-                      Active
-                    </Badge>
+                  <div className="flex justify-between flex-col gap-10">
+                    <div className="flex flex-col xl:flex-row justify-between mt-4">
+                      <p className="text-xs font-base text-[var(--brand-muted)]">Active Courses</p>
+                      <Badge variant="secondary" className="bg-gray-100 text-xs">
+                        {timePeriodLabel}
+                      </Badge>
                     </div>
-                    <div className="">
-                      <p className="text-2xl font-bold text-[#403C6B]">
-                       {dashboardStats ? formatNumber(dashboardStats.total_users) : 0}
+                    <div>
+                      <p className="text-2xl font-bold text-[var(--brand-dark)]">
+                        {dashboardStats ? dashboardStats.active_courses : 0}
                       </p>
-                      <p className="text-xs text-[#9593A8]">All active users</p>
-                      </div>
+                      <p className="text-xs text-[var(--brand-muted)]">Active courses {timePeriodLabel.toLowerCase()}</p>
                     </div>
-                   
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="h-48 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
+                <CardContent className="px-4">
+                  <div className="flex justify-between flex-col gap-10">
+                    <div className="flex flex-col xl:flex-row justify-between mt-4">
+                      <p className="text-xs font-base text-[var(--brand-muted)]">Total Students</p>
+                      <Badge variant="secondary" className="bg-gray-100 text-xs">
+                        {timePeriodLabel}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-[var(--brand-dark)]">
+                        {dashboardStats ? formatNumber(dashboardStats.total_students ?? dashboardStats.active_students) : 0}
+                      </p>
+                      <p className="text-xs text-[var(--brand-muted)]">All active students</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -264,16 +320,13 @@ export default function SuperAdminDashboard() {
         </div>
           {/* Revenue Chart */}
           <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
-            <CardHeader>
+            <CardHeader className="pb-2">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-[#4F5077]">Revenue</CardTitle>
-                <div className="flex items-center space-x-4">
-                  <Button variant="link" className="text-[#5A6ACF] text-xs border border-gray-200 rounded-lg">
-                    View Report
-                  </Button>
+                <CardTitle className="text-[var(--brand-dark)]">Revenue</CardTitle>
+                {role === "super_admin" && (
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-600">Sort by:</span>
-                    <Select defaultValue="all-branches" >
+                    <Select defaultValue="all-branches">
                       <SelectTrigger className="bg-[#F1F1F1] text-[#9593A8]">
                         <SelectValue />
                       </SelectTrigger>
@@ -294,56 +347,46 @@ export default function SuperAdminDashboard() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
-                {paymentsLoading ? (
-                  <div className="h-full flex items-center justify-center bg-gray-50 rounded">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-                      <p className="text-gray-500 text-sm">Loading revenue data...</p>
+              {paymentsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+                    <p className="text-gray-500 text-sm">Loading revenue data...</p>
+                  </div>
+                </div>
+              ) : paymentsError ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center text-red-600">
+                    <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                    <p className="text-sm">Failed to load revenue data</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-green-50 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-green-600">
+                        {paymentStats ? paymentAPI.formatCurrency(paymentStats.this_month_collection || 0) : '₹0'}
+                      </p>
+                      <p className="text-xs text-[var(--brand-muted)] mt-1">{timePeriodLabel} Collection</p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-blue-600">
+                        {paymentStats ? paymentAPI.formatCurrency(paymentStats.total_collected || 0) : '₹0'}
+                      </p>
+                      <p className="text-xs text-[var(--brand-muted)] mt-1">Total Revenue</p>
                     </div>
                   </div>
-                ) : paymentsError ? (
-                  <div className="h-full flex items-center justify-center bg-gray-50 rounded">
-                    <div className="text-center text-red-600">
-                      <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-                      <p className="text-sm">Failed to load revenue data</p>
-                    </div>
+                  <div className="grid grid-cols-2 gap-4 text-center text-sm text-[var(--brand-muted)]">
+                    <p>Payments: {recentPayments?.length || 0} transactions</p>
+                    <p>Students: {paymentStats?.total_students || 0} enrolled</p>
                   </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center bg-gray-50 rounded">
-                    <div className="text-center">
-                      <div className="mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Revenue Overview</h3>
-                        <p className="text-sm text-gray-600">Monthly Performance</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-center">
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <p className="text-2xl font-bold text-green-600">
-                            {paymentStats ? paymentAPI.formatCurrency(paymentStats.this_month_collection || 0) : '₹0'}
-                          </p>
-                          <p className="text-xs text-gray-500">This Month</p>
-                        </div>
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <p className="text-2xl font-bold text-blue-600">
-                            {paymentStats ? paymentAPI.formatCurrency(paymentStats.total_collected || 0) : '₹0'}
-                          </p>
-                          <p className="text-xs text-gray-500">Total Revenue</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 text-sm text-gray-500">
-                        <p>Payments: {recentPayments?.length || 0} transactions</p>
-                        <p>Students: {paymentStats?.total_students || 0} enrolled</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-  
- 
+                </div>
+              )}
             </CardContent>
           </Card>
           </div>
@@ -351,7 +394,7 @@ export default function SuperAdminDashboard() {
           <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle className="text-[#4F5077]">List of coaches</CardTitle>
+                <CardTitle className="text-[var(--brand-dark)]">List of coaches</CardTitle>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-black">Filter by:</span>
                   <Select defaultValue="branch">
@@ -453,12 +496,12 @@ export default function SuperAdminDashboard() {
         </div>
 
         {/* Attendance Summary and Recent Payments */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Attendance Summary */}
           <Card className="lg:col-span-2 rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle className="text-[#4F5077] flex items-center">
+                <CardTitle className="text-[var(--brand-dark)] flex items-center">
                   <Users className="w-5 h-5 mr-2" />
                   Attendance Overview
                 </CardTitle>
@@ -467,7 +510,7 @@ export default function SuperAdminDashboard() {
                   size="sm"
                   onClick={() => router.push(`${basePath}/attendance`)}
                 >
-                  View Details
+                  Go to Attendance
                 </Button>
               </div>
             </CardHeader>
@@ -486,19 +529,16 @@ export default function SuperAdminDashboard() {
           <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle className="text-[#4F5077]">Recent payments</CardTitle>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-black">Select:</span>
-                  <Select defaultValue="branch">
-                    <SelectTrigger className="w-20 bg-[#f1f1f1] text-[#9593A8]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="">
-                      <SelectItem value="branch">Branch</SelectItem>
-                      <SelectItem value="amount">Amount</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <CardTitle className="text-[var(--brand-dark)]">Recent payments</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`${basePath}/payment-tracking`)}
+                  className="text-xs"
+                >
+                  <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                  View Payments
+                </Button>
               </div>
             </CardHeader>
             <CardContent>

@@ -52,6 +52,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface AttendanceOverviewStats {
   total_students: number
@@ -108,49 +110,51 @@ export default function AttendanceOverviewPage() {
     }
   }, [error])
 
+  // Get auth token from either TokenManager or BranchManagerAuth
+  const getAuthToken = () => {
+    return TokenManager.getToken() || BranchManagerAuth.getToken() || null
+  }
+
   // Fetch attendance overview data
   const fetchAttendanceOverview = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      if (!TokenManager.isAuthenticated()) {
+      const token = getAuthToken()
+      if (!token) {
         setError("Authentication required")
         return
       }
 
-      // Check if user is superadmin
-      const user = TokenManager.getUser()
-      if (!user || user.role !== "superadmin") {
-        setError("Superadmin access required")
-        return
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
-
-      const headers = TokenManager.getAuthHeaders()
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
 
       console.log(`🔄 Fetching attendance overview for date: ${dateStr}`)
 
       // Fetch attendance statistics from the dedicated endpoint with date filtering
-      const statsResponse = await fetch(`http://31.97.224.169:8003/api/attendance/stats?date=${dateStr}`, {
+      const statsResponse = await fetch(`${getBackendApiUrl('attendance/stats')}?date=${dateStr}`, {
         method: 'GET',
         headers
       })
 
       // Fetch students attendance data
-      const studentsResponse = await fetch(`http://31.97.224.169:8003/api/attendance/students?date=${dateStr}`, {
+      const studentsResponse = await fetch(`${getBackendApiUrl('attendance/students')}?date=${dateStr}`, {
         method: 'GET',
         headers
       })
 
       // Fetch coaches attendance data
-      const coachesResponse = await fetch(`http://31.97.224.169:8003/api/attendance/coaches?date=${dateStr}`, {
+      const coachesResponse = await fetch(`${getBackendApiUrl('attendance/coaches')}?date=${dateStr}`, {
         method: 'GET',
         headers
       })
 
       // Fetch branches data for branch-wise statistics
-      const branchesResponse = await fetch('http://31.97.224.169:8003/api/branches', {
+      const branchesResponse = await fetch(getBackendApiUrl('branches'), {
         method: 'GET',
         headers
       })

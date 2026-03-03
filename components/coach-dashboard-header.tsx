@@ -112,13 +112,6 @@ export default function CoachDashboardHeader({
       description: "Monitor student payments"
     },
     {
-      name: "Messages",
-      path: "/coach-dashboard/messages",
-      icon: MessageSquare,
-      exact: false,
-      description: "Communication"
-    },
-    {
       name: "Profile",
       path: "/coach-dashboard/profile",
       icon: User,

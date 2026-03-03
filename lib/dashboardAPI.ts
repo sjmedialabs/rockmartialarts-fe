@@ -81,11 +81,16 @@ class DashboardAPI extends BaseAPI {
   /**
    * Get comprehensive dashboard statistics
    */
-  async getDashboardStats(token: string, branchId?: string): Promise<DashboardStatsResponse> {
+  async getDashboardStats(token: string, branchId?: string, params?: { start_date?: string; end_date?: string; period?: string }): Promise<DashboardStatsResponse> {
+    const searchParams = new URLSearchParams()
+    if (branchId) searchParams.append('branch_id', branchId)
+    if (params?.start_date) searchParams.append('start_date', params.start_date)
+    if (params?.end_date) searchParams.append('end_date', params.end_date)
+    if (params?.period) searchParams.append('period', params.period)
+
     let endpoint = '/api/dashboard/stats'
-    if (branchId) {
-      endpoint += `?branch_id=${branchId}`
-    }
+    const qs = searchParams.toString()
+    if (qs) endpoint += `?${qs}`
 
     return await this.makeRequest(endpoint, {
       method: 'GET',

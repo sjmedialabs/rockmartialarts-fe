@@ -1,93 +1,80 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import DashboardHeader from "@/components/dashboard-header"
-import { Send, Search, MessageCircle, Plus, Reply, Archive, Trash2, Loader2, Mail, MailOpen, Clock, User } from "lucide-react"
+import { Send, Search, MessageCircle, Plus, Loader2, User, ArrowLeft } from "lucide-react"
 import { format } from "date-fns"
 import messageAPI, { Conversation, Message, MessageRecipient, MessageStats } from "@/lib/messageAPI"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
-export default function SuperAdminMessagesPage() {
+export default function AdminMessagesPage() {
   const router = useRouter()
-  const [superAdminData, setSuperAdminData] = useState<any>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [adminData, setAdminData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Message state
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [threadMessages, setThreadMessages] = useState<Message[]>([])
   const [messageStats, setMessageStats] = useState<MessageStats | null>(null)
   const [recipients, setRecipients] = useState<MessageRecipient[]>([])
-  
+
   // UI state
-  const [activeTab, setActiveTab] = useState("inbox")
   const [searchTerm, setSearchTerm] = useState("")
-  const [isComposeDialogOpen, setIsComposeDialogOpen] = useState(false)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isLoadingThread, setIsLoadingThread] = useState(false)
-  
-  // Compose message state
-  const [composeRecipient, setComposeRecipient] = useState("")
-  const [composeSubject, setComposeSubject] = useState("")
-  const [composeContent, setComposeContent] = useState("")
-  const [composePriority, setComposePriority] = useState<"low" | "normal" | "high" | "urgent">("normal")
+  const [showNewChat, setShowNewChat] = useState(false)
+  const [newChatSearch, setNewChatSearch] = useState("")
+
+  // Inline message input
+  const [messageInput, setMessageInput] = useState("")
   const [isSending, setIsSending] = useState(false)
-  
-  // Reply state
-  const [replyContent, setReplyContent] = useState("")
-  const [isReplying, setIsReplying] = useState(false)
+
+  // New chat state
+  const [selectedRecipient, setSelectedRecipient] = useState<MessageRecipient | null>(null)
+  const [newChatSubject, setNewChatSubject] = useState("")
 
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // Check superadmin authentication
-        if (!TokenManager.isAuthenticated()) {
+        const isSuperAdmin = TokenManager.isAuthenticated()
+        const isBranchAdmin = BranchManagerAuth.isAuthenticated()
+
+        if (!isSuperAdmin && !isBranchAdmin) {
           router.push("/login")
           return
         }
 
-        const user = TokenManager.getUser()
+        let user = null
+        if (isSuperAdmin) {
+          user = TokenManager.getUser()
+        }
+        if (!user && isBranchAdmin) {
+          user = BranchManagerAuth.getCurrentUser()
+        }
+
         if (!user) {
           router.push("/login")
           return
         }
 
-        // Check if user is actually a superadmin
-        if (user.role !== "superadmin") {
-          if (user.role === "student") {
-            router.push("/student-dashboard")
-          } else if (user.role === "coach") {
-            router.push("/coach-dashboard")
-          } else if (user.role === "branch_manager") {
-            router.push("/branch-manager-dashboard")
-          } else {
-            router.push("/login")
-          }
-          return
-        }
+        setAdminData(user)
 
-        setSuperAdminData(user)
-
-        // Load initial data
         await Promise.all([
           loadConversations(),
           loadMessageStats(),
           loadRecipients()
         ])
-
       } catch (error) {
-        console.error("Error initializing superadmin messages:", error)
+        console.error("Error initializing messages:", error)
         setError("Failed to load messages. Please try again.")
       } finally {
         setLoading(false)
@@ -97,7 +84,11 @@ export default function SuperAdminMessagesPage() {
     initializeData()
   }, [router])
 
-  // Data loading functions
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [threadMessages])
+
   const loadConversations = async () => {
     try {
       setIsLoadingMessages(true)
@@ -105,7 +96,6 @@ export default function SuperAdminMessagesPage() {
       setConversations(response.conversations)
     } catch (error) {
       console.error("Error loading conversations:", error)
-      setError("Failed to load conversations")
     } finally {
       setIsLoadingMessages(false)
     }
@@ -122,28 +112,7 @@ export default function SuperAdminMessagesPage() {
 
   const loadRecipients = async () => {
     try {
-      console.log("🔍 DEBUG: Loading recipients for superadmin...")
       const response = await messageAPI.getAvailableRecipients()
-      console.log("🔍 DEBUG: Recipients response:", response)
-      console.log("🔍 DEBUG: Total recipients:", response.recipients?.length || 0)
-
-      // Log recipients by type
-      const byType: Record<string, any[]> = {}
-      response.recipients?.forEach(recipient => {
-        const type = recipient.type
-        if (!byType[type]) byType[type] = []
-        byType[type].push(recipient)
-      })
-
-      console.log("🔍 DEBUG: Recipients by type:", byType)
-
-      // Specifically check for branch managers
-      const branchManagers = response.recipients?.filter(r => r.type === "branch_manager") || []
-      console.log("🔍 DEBUG: Branch managers found:", branchManagers.length)
-      branchManagers.forEach(bm => {
-        console.log(`🔍 DEBUG: Branch Manager: ${bm.name} (ID: ${bm.id}, Branch: ${bm.branch_id || 'None'})`)
-      })
-
       setRecipients(response.recipients)
     } catch (error) {
       console.error("Error loading recipients:", error)
@@ -157,61 +126,104 @@ export default function SuperAdminMessagesPage() {
       setThreadMessages(response.messages)
     } catch (error) {
       console.error("Error loading thread messages:", error)
-      setError("Failed to load messages")
     } finally {
       setIsLoadingThread(false)
     }
   }
 
-  // Event handlers
   const handleConversationSelect = async (conversation: Conversation) => {
     setSelectedConversation(conversation)
+    setShowNewChat(false)
+    setSelectedRecipient(null)
     await loadThreadMessages(conversation.thread_id)
   }
 
-  const handleSendMessage = async () => {
-    if (!composeRecipient || !composeSubject || !composeContent) {
-      setError("Please fill in all required fields")
+  const handleStartNewChat = (recipient: MessageRecipient) => {
+    // Check if there's an existing conversation with this recipient
+    const existingConv = conversations.find(conv =>
+      conv.participants.some(p => p.user_id === recipient.id) && !conv.is_archived
+    )
+
+    if (existingConv) {
+      handleConversationSelect(existingConv)
+      setShowNewChat(false)
       return
     }
+
+    setSelectedRecipient(recipient)
+    setSelectedConversation(null)
+    setThreadMessages([])
+    setShowNewChat(false)
+    setNewChatSubject("")
+  }
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim()) return
 
     try {
       setIsSending(true)
       setError(null)
 
-      const recipient = recipients.find(r => r.id === composeRecipient)
-      if (!recipient) {
-        setError("Invalid recipient selected")
-        return
+      if (selectedConversation) {
+        // Reply to existing conversation
+        const lastMessage = threadMessages[threadMessages.length - 1]
+        const otherParticipant = selectedConversation.participants.find(
+          p => p.user_id !== adminData?.id
+        )
+
+        if (!otherParticipant) return
+
+        const recipient = recipients.find(r => r.id === otherParticipant.user_id)
+        if (!recipient) return
+
+        let replySubject = selectedConversation.subject
+        if (!replySubject.startsWith("Re: ")) {
+          replySubject = `Re: ${replySubject}`
+        }
+
+        await messageAPI.sendMessage({
+          recipient_id: recipient.id,
+          recipient_type: recipient.type,
+          subject: replySubject,
+          content: messageInput,
+          priority: "normal",
+          reply_to_message_id: lastMessage?.id,
+          thread_id: selectedConversation.thread_id
+        })
+
+        setMessageInput("")
+        await loadThreadMessages(selectedConversation.thread_id)
+        await loadConversations()
+        await loadMessageStats()
+      } else if (selectedRecipient) {
+        // New conversation
+        const subject = newChatSubject || "New Message"
+
+        await messageAPI.sendMessage({
+          recipient_id: selectedRecipient.id,
+          recipient_type: selectedRecipient.type,
+          subject: subject,
+          content: messageInput,
+          priority: "normal"
+        })
+
+        setMessageInput("")
+        setSelectedRecipient(null)
+        setNewChatSubject("")
+        await loadConversations()
+        await loadMessageStats()
+
+        // Select the new conversation
+        const updatedConvs = await messageAPI.getConversations(0, 50)
+        setConversations(updatedConvs.conversations)
+        const newConv = updatedConvs.conversations.find(c =>
+          c.participants.some(p => p.user_id === selectedRecipient.id)
+        )
+        if (newConv) {
+          setSelectedConversation(newConv)
+          await loadThreadMessages(newConv.thread_id)
+        }
       }
-
-      // Check if there's an existing conversation with this recipient and subject
-      const existingConversation = conversations.find(conv => {
-        const hasRecipient = conv.participants.some(p => p.user_id === composeRecipient)
-        const sameSubject = conv.subject === composeSubject || conv.subject === `Re: ${composeSubject}`
-        return hasRecipient && sameSubject && !conv.is_archived
-      })
-
-      await messageAPI.sendMessage({
-        recipient_id: composeRecipient,
-        recipient_type: recipient.type,
-        subject: composeSubject,
-        content: composeContent,
-        priority: composePriority,
-        thread_id: existingConversation?.thread_id  // Use existing thread if found
-      })
-
-      // Reset form
-      setComposeRecipient("")
-      setComposeSubject("")
-      setComposeContent("")
-      setComposePriority("normal")
-      setIsComposeDialogOpen(false)
-
-      // Reload conversations
-      await loadConversations()
-      await loadMessageStats()
-
     } catch (error) {
       console.error("Error sending message:", error)
       setError("Failed to send message. Please try again.")
@@ -220,82 +232,26 @@ export default function SuperAdminMessagesPage() {
     }
   }
 
-  const handleSendReply = async () => {
-    if (!replyContent || !selectedConversation) return
-
-    try {
-      setIsReplying(true)
-      setError(null)
-
-      // Find the last message to reply to
-      const lastMessage = threadMessages[threadMessages.length - 1]
-      if (!lastMessage) return
-
-      // Determine recipient - find the other participant in the conversation
-      const currentUserId = superAdminData?.id
-      const currentUserName = superAdminData?.full_name
-
-      // Find the other participant in the conversation
-      const otherParticipant = selectedConversation.participants.find(
-        p => p.user_id !== currentUserId
-      )
-
-      if (!otherParticipant) {
-        setError("Cannot determine message recipient")
-        return
-      }
-
-      // Find the recipient in the recipients list
-      const recipient = recipients.find(r => r.id === otherParticipant.user_id)
-      if (!recipient) {
-        setError("Recipient not found in available recipients")
-        return
-      }
-
-      // Normalize subject - remove "Re:" prefix if it exists to avoid "Re: Re:" chains
-      let replySubject = selectedConversation.subject
-      if (!replySubject.startsWith("Re: ")) {
-        replySubject = `Re: ${replySubject}`
-      }
-
-      await messageAPI.sendMessage({
-        recipient_id: recipient.id,
-        recipient_type: recipient.type,
-        subject: replySubject,
-        content: replyContent,
-        priority: "normal",
-        reply_to_message_id: lastMessage.id,
-        thread_id: selectedConversation.thread_id  // Pass the existing thread_id
-      })
-
-      setReplyContent("")
-      
-      // Reload thread messages
-      await loadThreadMessages(selectedConversation.thread_id)
-      await loadConversations()
-      await loadMessageStats()
-
-    } catch (error) {
-      console.error("Error sending reply:", error)
-      setError("Failed to send reply. Please try again.")
-    } finally {
-      setIsReplying(false)
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
     }
   }
 
   const handleLogout = () => {
-    TokenManager.clearAuthData()
-    router.push("/login")
+    if (BranchManagerAuth.isAuthenticated()) {
+      BranchManagerAuth.clearAuthData()
+      router.push("/branch-manager/login")
+    } else {
+      TokenManager.clearAuthData()
+      router.push("/login")
+    }
   }
 
-  // Filter conversations based on active tab and search
+  // Filter conversations
   const filteredConversations = conversations.filter(conv => {
-    // Filter by tab
-    if (activeTab === "unread" && conv.unread_count === 0) return false
-    if (activeTab === "archived" && !conv.is_archived) return false
-    if (activeTab === "inbox" && conv.is_archived) return false
-
-    // Filter by search term
+    if (conv.is_archived) return false
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
       return (
@@ -304,551 +260,284 @@ export default function SuperAdminMessagesPage() {
         conv.last_message?.content.toLowerCase().includes(searchLower)
       )
     }
-
     return true
   })
 
-  const getUserTypeColor = (userType: string) => {
+  // Build a merged contact list: coaches & branch admins with conversation info
+  const contactList = recipients
+    .filter(r => r.type === "coach" || r.type === "branch_manager")
+    .filter(r => {
+      if (!searchTerm) return true
+      return r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.type.toLowerCase().includes(searchTerm.toLowerCase())
+    })
+    .map(r => {
+      const conv = conversations.find(
+        c => c.participants.some(p => p.user_id === r.id) && !c.is_archived
+      )
+      return { recipient: r, conversation: conv || null }
+    })
+    .sort((a, b) => {
+      // Conversations with messages first, sorted by most recent
+      if (a.conversation && b.conversation) {
+        return new Date(b.conversation.last_message_at || b.conversation.created_at).getTime() -
+          new Date(a.conversation.last_message_at || a.conversation.created_at).getTime()
+      }
+      if (a.conversation) return -1
+      if (b.conversation) return 1
+      return a.recipient.name.localeCompare(b.recipient.name)
+    })
+
+  const getInitials = (name: string) => {
+    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+  }
+
+  const getAvatarColor = (userType: string) => {
     switch (userType) {
-      case "student":
-        return "bg-blue-100 text-blue-800"
-      case "coach":
-        return "bg-green-100 text-green-800"
-      case "branch_manager":
-        return "bg-yellow-100 text-yellow-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+      case "coach": return "bg-yellow-500"
+      case "student": return "bg-blue-500"
+      case "branch_manager": return "bg-green-500"
+      case "superadmin": return "bg-purple-500"
+      default: return "bg-gray-500"
     }
   }
 
   const getUserTypeLabel = (userType: string) => {
     switch (userType) {
-      case "student":
-        return "Student"
-      case "coach":
-        return "Coach"
-      case "branch_manager":
-        return "Branch Manager"
-      default:
-        return "User"
+      case "coach": return "Coach"
+      case "student": return "Student"
+      case "branch_manager": return "Branch Manager"
+      case "superadmin": return "Admin"
+      default: return "User"
     }
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader 
-          userName={superAdminData?.full_name || "Admin"}
+        <DashboardHeader
+          userName={adminData?.full_name || "Admin"}
           onLogout={handleLogout}
         />
         <main className="w-full mx-auto mt-20 py-6 px-4 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-            </div>
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
           </div>
         </main>
       </div>
     )
   }
 
-  if (error && !conversations.length) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <DashboardHeader 
-          userName={superAdminData?.full_name || "Admin"}
-          onLogout={handleLogout}
-        />
-        <main className="w-full mx-auto mt-20 py-6 px-4 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <Card>
-              <CardContent className="flex items-center justify-center h-96">
-                <div className="text-center">
-                  <div className="text-red-500 mb-4">⚠️</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Messages</h3>
-                  <p className="text-gray-500 mb-4">{error}</p>
-                  <Button onClick={() => window.location.reload()}>
-                    Try Again
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
-      </div>
-    )
-  }
+  const currentOtherParticipant = selectedConversation?.participants.find(
+    p => p.user_id !== adminData?.id
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader
-        userName={superAdminData?.full_name || "Admin"}
+        userName={adminData?.full_name || "Admin"}
         onLogout={handleLogout}
       />
 
-      {/* Main Content */}
       <main className="w-full mx-auto mt-20 py-6 px-4 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Page Header */}
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Messages</h1>
-              <p className="text-gray-600">System-wide communication management</p>
-            </div>
-            <Dialog open={isComposeDialogOpen} onOpenChange={setIsComposeDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-purple-600 hover:bg-purple-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Compose Message
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Compose New Message</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <label htmlFor="recipient" className="text-sm font-medium">
-                      To
-                    </label>
-                    <Select value={composeRecipient} onValueChange={setComposeRecipient}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select recipient" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {recipients.map((recipient) => (
-                          <SelectItem key={recipient.id} value={recipient.id}>
-                            <div className="flex items-center space-x-2">
-                              <span>{recipient.name}</span>
-                              <Badge variant="outline" className={`text-xs ${getUserTypeColor(recipient.type)}`}>
-                                {getUserTypeLabel(recipient.type)}
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="subject" className="text-sm font-medium">
-                      Subject
-                    </label>
-                    <Input
-                      id="subject"
-                      value={composeSubject}
-                      onChange={(e) => setComposeSubject(e.target.value)}
-                      placeholder="Enter message subject"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="priority" className="text-sm font-medium">
-                      Priority
-                    </label>
-                    <Select value={composePriority} onValueChange={(value: any) => setComposePriority(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <label htmlFor="content" className="text-sm font-medium">
-                      Message
-                    </label>
-                    <Textarea
-                      id="content"
-                      value={composeContent}
-                      onChange={(e) => setComposeContent(e.target.value)}
-                      placeholder="Type your message here..."
-                      className="min-h-[120px]"
-                    />
-                  </div>
-                  {error && (
-                    <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                      {error}
-                    </div>
-                  )}
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setIsComposeDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSendMessage} disabled={isSending}>
-                      {isSending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4 mr-2" />
-                          Send Message
-                        </>
-                      )}
-                    </Button>
-                  </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" style={{ height: "calc(100vh - 140px)" }}>
+          <div className="flex h-full">
+            {/* Left Panel - Contact List */}
+            <div className="w-80 border-r border-gray-200 flex flex-col h-full">
+              {/* Header */}
+              <div className="p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">Messages</h2>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search coaches, managers..."
+                    className="pl-9 h-9 text-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+              </div>
 
-          {/* Message Stats */}
-          {messageStats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <Mail className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Messages</p>
-                      <p className="text-2xl font-bold text-gray-900">{messageStats.total_messages}</p>
-                    </div>
+              {/* Contact List */}
+              <div className="flex-1 overflow-y-auto">
+                {isLoadingMessages ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                   </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <MailOpen className="w-5 h-5 text-green-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Unread</p>
-                      <p className="text-2xl font-bold text-gray-900">{messageStats.unread_messages}</p>
-                    </div>
+                ) : contactList.length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <MessageCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500">No contacts found</p>
                   </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <Send className="w-5 h-5 text-purple-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Sent</p>
-                      <p className="text-2xl font-bold text-gray-900">{messageStats.sent_messages}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <MessageCircle className="w-5 h-5 text-orange-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Conversations</p>
-                      <p className="text-2xl font-bold text-gray-900">{messageStats.active_conversations}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                ) : (
+                  contactList.map(({ recipient, conversation }) => {
+                    const isSelected = conversation
+                      ? selectedConversation?.thread_id === conversation.thread_id
+                      : selectedRecipient?.id === recipient.id
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Conversations List */}
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="inbox">Inbox</TabsTrigger>
-                      <TabsTrigger value="unread">
-                        Unread
-                        {messageStats && messageStats.unread_messages > 0 && (
-                          <Badge variant="secondary" className="ml-1 text-xs">
-                            {messageStats.unread_messages}
-                          </Badge>
-                        )}
-                      </TabsTrigger>
-                      <TabsTrigger value="archived">Archived</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  <div className="relative mt-4">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Search conversations..."
-                      className="pl-10"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {isLoadingMessages ? (
-                    <div className="flex items-center justify-center p-8">
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                    </div>
-                  ) : filteredConversations.length === 0 ? (
-                    <div className="text-center p-8">
-                      <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No conversations found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-0">
-                      {filteredConversations.map((conversation) => {
-                        const otherParticipant = conversation.participants.find(p => p.user_id !== superAdminData?.id)
-                        return (
-                          <div
-                            key={conversation.thread_id}
-                            onClick={() => handleConversationSelect(conversation)}
-                            className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
-                              conversation.unread_count > 0 ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
-                            } ${selectedConversation?.thread_id === conversation.thread_id ? "bg-purple-50" : ""}`}
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex items-center space-x-2">
-                                <User className="w-4 h-4 text-gray-400" />
-                                <p className="font-semibold text-sm text-gray-900">
-                                  {otherParticipant?.user_name || "Unknown"}
-                                </p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {conversation.unread_count > 0 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {conversation.unread_count}
-                                  </Badge>
-                                )}
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs ${getUserTypeColor(otherParticipant?.user_type || "")}`}
-                                >
-                                  {getUserTypeLabel(otherParticipant?.user_type || "")}
-                                </Badge>
-                              </div>
-                            </div>
-                            <p className="font-medium text-sm text-gray-800 mb-1 truncate">{conversation.subject}</p>
-                            {conversation.last_message && (
-                              <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                                {conversation.last_message.content}
-                              </p>
+                    return (
+                      <button
+                        key={recipient.id}
+                        onClick={() => conversation ? handleConversationSelect(conversation) : handleStartNewChat(recipient)}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors text-left ${
+                          isSelected ? "bg-purple-50 border-l-3 border-l-purple-500" : ""
+                        } ${conversation && conversation.unread_count > 0 ? "bg-blue-50/50" : ""}`}
+                      >
+                        <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-semibold ${getAvatarColor(recipient.type)}`}>
+                          {getInitials(recipient.name)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className={`text-sm truncate ${conversation && conversation.unread_count > 0 ? "font-bold text-gray-900" : "font-medium text-gray-800"}`}>
+                              {recipient.name}
+                            </p>
+                            {conversation?.last_message_at && (
+                              <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
+                                {format(new Date(conversation.last_message_at), "h:mm a")}
+                              </span>
                             )}
-                            <div className="flex justify-between items-center">
-                              <p className="text-xs text-gray-500">
-                                {conversation.last_message_at ?
-                                  format(new Date(conversation.last_message_at), "MMM d, yyyy") :
-                                  format(new Date(conversation.created_at), "MMM d, yyyy")
-                                }
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {conversation.message_count} message{conversation.message_count !== 1 ? 's' : ''}
-                              </p>
-                            </div>
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                          <p className="text-xs text-gray-500 truncate mt-0.5">
+                            {conversation?.last_message?.content || getUserTypeLabel(recipient.type)}
+                          </p>
+                        </div>
+                        {conversation && conversation.unread_count > 0 && (
+                          <span className="flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                            {conversation.unread_count}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
             </div>
 
-            {/* Message Thread Detail */}
-            <div className="lg:col-span-2">
-              {selectedConversation ? (
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{selectedConversation.subject}</CardTitle>
-                        <CardDescription>
-                          Conversation with {selectedConversation.participants.find(p => p.user_id !== superAdminData?.id)?.user_name}
-                        </CardDescription>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline">
-                          {selectedConversation.message_count} message{selectedConversation.message_count !== 1 ? 's' : ''}
-                        </Badge>
-                        {selectedConversation.unread_count > 0 && (
-                          <Badge variant="secondary">
-                            {selectedConversation.unread_count} unread
-                          </Badge>
-                        )}
-                      </div>
+            {/* Right Panel - Chat Area */}
+            <div className="flex-1 flex flex-col h-full">
+              {selectedConversation || selectedRecipient ? (
+                <>
+                  {/* Chat Header */}
+                  <div className="px-6 py-4 border-b border-gray-200 flex items-center space-x-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
+                      selectedConversation
+                        ? getAvatarColor(currentOtherParticipant?.user_type || "")
+                        : getAvatarColor(selectedRecipient?.type || "")
+                    }`}>
+                      {selectedConversation
+                        ? getInitials(currentOtherParticipant?.user_name || "?")
+                        : getInitials(selectedRecipient?.name || "?")}
                     </div>
-                  </CardHeader>
-                  <CardContent>
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {selectedConversation
+                          ? currentOtherParticipant?.user_name
+                          : selectedRecipient?.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {selectedConversation
+                          ? getUserTypeLabel(currentOtherParticipant?.user_type || "")
+                          : getUserTypeLabel(selectedRecipient?.type || "")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Messages Area */}
+                  <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50/50">
                     {isLoadingThread ? (
-                      <div className="flex items-center justify-center p-8">
-                        <Loader2 className="w-6 h-6 animate-spin" />
+                      <div className="flex items-center justify-center h-full">
+                        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                      </div>
+                    ) : threadMessages.length === 0 && selectedRecipient ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500 text-sm">Start a conversation with {selectedRecipient.name}</p>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {/* Messages Thread */}
-                        <div className="max-h-96 overflow-y-auto space-y-4 border rounded-lg p-4">
-                          {threadMessages.map((message, index) => {
-                            const isFromCurrentUser = message.sender_name === superAdminData?.full_name
-                            return (
-                              <div
-                                key={message.id}
-                                className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
-                              >
-                                <div className={`max-w-[70%] rounded-lg p-3 ${
+                        {threadMessages.map((message) => {
+                          const isFromCurrentUser = message.sender_name === adminData?.full_name
+                          return (
+                            <div
+                              key={message.id}
+                              className={`flex ${isFromCurrentUser ? "justify-end" : "justify-start"}`}
+                            >
+                              <div className={`max-w-[65%] ${isFromCurrentUser ? "order-2" : ""}`}>
+                                <div className={`rounded-2xl px-4 py-2.5 ${
                                   isFromCurrentUser
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-gray-100 text-gray-900'
+                                    ? "bg-blue-500 text-white rounded-br-md"
+                                    : "bg-white border border-gray-200 text-gray-900 rounded-bl-md shadow-sm"
                                 }`}>
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className={`text-xs font-medium ${
-                                      isFromCurrentUser ? 'text-purple-100' : 'text-gray-600'
-                                    }`}>
-                                      {message.sender_name}
-                                    </p>
-                                    <p className={`text-xs ${
-                                      isFromCurrentUser ? 'text-purple-100' : 'text-gray-500'
-                                    }`}>
-                                      {format(new Date(message.created_at), "MMM d, h:mm a")}
-                                    </p>
-                                  </div>
                                   <p className="text-sm leading-relaxed">{message.content}</p>
-                                  {message.priority !== 'normal' && (
-                                    <Badge
-                                      variant="outline"
-                                      className={`mt-2 text-xs ${
-                                        message.priority === 'high' || message.priority === 'urgent'
-                                          ? 'border-red-300 text-red-600'
-                                          : 'border-gray-300'
-                                      }`}
-                                    >
-                                      {message.priority}
-                                    </Badge>
-                                  )}
                                 </div>
+                                <p className={`text-xs mt-1 ${isFromCurrentUser ? "text-right" : "text-left"} text-gray-400`}>
+                                  {format(new Date(message.created_at), "h:mm a")}
+                                </p>
                               </div>
-                            )
-                          })}
-                        </div>
-
-                        {/* Reply Section */}
-                        <div className="border-t pt-4 mt-6">
-                          <h4 className="font-semibold text-gray-900 mb-3">Reply</h4>
-                          <div className="space-y-3">
-                            <Textarea
-                              placeholder="Type your reply here..."
-                              className="min-h-[100px]"
-                              value={replyContent}
-                              onChange={(e) => setReplyContent(e.target.value)}
-                            />
-                            {error && (
-                              <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                                {error}
-                              </div>
-                            )}
-                            <div className="flex justify-end">
-                              <Button
-                                onClick={handleSendReply}
-                                disabled={isReplying || !replyContent.trim()}
-                                className="bg-purple-600 hover:bg-purple-700"
-                              >
-                                {isReplying ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Sending...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Reply className="w-4 h-4 mr-2" />
-                                    Send Reply
-                                  </>
-                                )}
-                              </Button>
                             </div>
-                          </div>
-                        </div>
+                          )
+                        })}
+                        <div ref={messagesEndRef} />
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="flex items-center justify-center h-96">
-                    <div className="text-center">
-                      <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Select a conversation</h3>
-                      <p className="text-gray-500">Choose a conversation from the list to view messages</p>
+                  </div>
+
+                  {/* New chat subject input */}
+                  {selectedRecipient && !selectedConversation && (
+                    <div className="px-6 py-2 border-t border-gray-100 bg-white">
+                      <Input
+                        placeholder="Subject (optional)"
+                        value={newChatSubject}
+                        onChange={(e) => setNewChatSubject(e.target.value)}
+                        className="h-8 text-sm border-gray-200"
+                      />
                     </div>
-                  </CardContent>
-                </Card>
+                  )}
+
+                  {/* Message Input */}
+                  <div className="px-6 py-4 border-t border-gray-200 bg-white">
+                    {error && (
+                      <div className="text-xs text-red-600 bg-red-50 px-3 py-1.5 rounded mb-2">
+                        {error}
+                      </div>
+                    )}
+                    <div className="flex items-end space-x-3">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Type your message here ..."
+                          value={messageInput}
+                          onChange={(e) => setMessageInput(e.target.value)}
+                          onKeyDown={handleKeyPress}
+                          className="h-10 border-gray-300 focus:border-blue-400"
+                          disabled={isSending}
+                        />
+                      </div>
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={isSending || !messageInput.trim()}
+                        className="bg-blue-500 hover:bg-blue-600 h-10 px-4"
+                      >
+                        {isSending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-1">Select a conversation</h3>
+                    <p className="text-sm text-gray-500">Choose from the list or start a new chat</p>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="mt-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>System-wide communication tools</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {recipients.filter(r => r.type === 'student').length > 0 && (
-                    <Button
-                      variant="outline"
-                      className="flex items-center space-x-2"
-                      onClick={() => {
-                        const student = recipients.find(r => r.type === 'student')
-                        if (student) {
-                          setComposeRecipient(student.id)
-                          setComposeSubject("System Announcement")
-                          setIsComposeDialogOpen(true)
-                        }
-                      }}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Message Students</span>
-                    </Button>
-                  )}
-                  {recipients.filter(r => r.type === 'coach').length > 0 && (
-                    <Button
-                      variant="outline"
-                      className="flex items-center space-x-2"
-                      onClick={() => {
-                        const coach = recipients.find(r => r.type === 'coach')
-                        if (coach) {
-                          setComposeRecipient(coach.id)
-                          setComposeSubject("Coach Communication")
-                          setIsComposeDialogOpen(true)
-                        }
-                      }}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Message Coaches</span>
-                    </Button>
-                  )}
-                  {recipients.filter(r => r.type === 'branch_manager').length > 0 && (
-                    <Button
-                      variant="outline"
-                      className="flex items-center space-x-2"
-                      onClick={() => {
-                        const manager = recipients.find(r => r.type === 'branch_manager')
-                        if (manager) {
-                          setComposeRecipient(manager.id)
-                          setComposeSubject("Branch Management")
-                          setIsComposeDialogOpen(true)
-                        }
-                      }}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Message Branch Managers</span>
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    className="flex items-center space-x-2"
-                    onClick={() => {
-                      setComposeSubject("System Broadcast")
-                      setComposePriority("high")
-                      setIsComposeDialogOpen(true)
-                    }}
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>System Broadcast</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </main>

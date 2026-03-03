@@ -16,7 +16,7 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar role={role} />
-      <main className="w-full mt-20 p-4 sm:p-6 lg:px-8">
+      <main className="w-full mt-5 p-4 sm:p-6 lg:px-8">
         {children}
       </main>
     </div>

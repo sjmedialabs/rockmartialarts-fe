@@ -1,5 +1,4 @@
 "use client"
-import DashboardHeader from "@/components/dashboard-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -68,7 +67,6 @@ export default function StudentAttendanceDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Header Navigation */}
-            <DashboardHeader currentPage="Student Attendance" />
       <main className="w-full p-4 lg:px-8 overflow-x-hidden">
         {/* Page Header */}
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">

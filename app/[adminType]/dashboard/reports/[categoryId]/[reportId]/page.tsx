@@ -22,7 +22,6 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import DashboardHeader from "@/components/dashboard-header"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
@@ -169,7 +168,6 @@ export default function IndividualReportPage() {
   if (!category || !report) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card>
             <CardContent className="p-6">
@@ -402,7 +400,6 @@ export default function IndividualReportPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
       
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}

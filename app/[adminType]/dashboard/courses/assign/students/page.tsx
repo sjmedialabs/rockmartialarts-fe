@@ -10,7 +10,6 @@ import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { ArrowLeft, Users, BookOpen, MapPin, Calendar } from "lucide-react"
 
@@ -222,7 +221,6 @@ export default function CourseAssignmentPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
         <main className="w-full p-4 lg:px-8">
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -234,7 +232,6 @@ export default function CourseAssignmentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
       
       <main className="w-full p-4 lg:px-8">
         {/* Header */}

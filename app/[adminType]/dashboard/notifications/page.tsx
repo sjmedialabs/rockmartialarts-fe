@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bell, DollarSign, User, Clock, Check, Search, Filter, AlertCircle, Loader2 } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { notificationAPI, PaymentNotification } from "@/lib/notificationAPI"
 
 export default function NotificationsPage() {
@@ -165,7 +164,6 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Notifications" />
 
       <main className="w-full p-4 lg:px-8">
         {/* Header */}

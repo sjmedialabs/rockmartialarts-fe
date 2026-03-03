@@ -11,7 +11,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useRouter, useParams, usePathname } from "next/navigation"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
@@ -549,10 +548,9 @@ const paginatedStudents = filteredStudents.slice(
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Students" />
 
       {/* Main Content */}
-      <main className="w-full mt-20 p-4 lg:px-8 lg:py-6">
+      <main className="w-full p-4 lg:px-8 lg:py-6">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-[#4F5077]">Student list</h1>

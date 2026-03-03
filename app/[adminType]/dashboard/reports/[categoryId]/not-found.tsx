@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AlertTriangle, ArrowLeft, Home, Search } from 'lucide-react'
-import DashboardHeader from '@/components/dashboard-header'
 import { ReportsBreadcrumb } from '@/components/breadcrumb'
 
 export default function CategoryNotFound() {
@@ -19,7 +18,6 @@ export default function CategoryNotFound() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Reports" />
       
       <main className="w-full p-4 lg:px-8 mx-auto">
         {/* Breadcrumb */}

@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import DashboardHeader from "@/components/dashboard-header"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
@@ -345,7 +344,6 @@ export default function EditBranchManagerPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Edit Branch Manager" />
         <main className="w-full p-4 lg:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="animate-pulse space-y-6">
@@ -369,7 +367,6 @@ export default function EditBranchManagerPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Edit Branch Manager" />
       
       <main className="w-full py-4 px-4 lg:px-8">
         {/* Header with Back Button */}

@@ -26,7 +26,6 @@ import {
   ChevronDown,
   ChevronRight
 } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
 
@@ -600,7 +599,6 @@ export default function CategoriesManagementPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Categories" />
         <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -615,7 +613,6 @@ export default function CategoriesManagementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Categories" />
 
       <main className="w-full p-4 lg:px-8">
         <div className="mx-auto space-y-6">

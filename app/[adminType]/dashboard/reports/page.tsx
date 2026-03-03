@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Download, Filter, FileText, TrendingUp, AlertCircle, Loader2, RefreshCw, Eye } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import DashboardHeader from "@/components/dashboard-header"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -300,7 +299,6 @@ function ReportsPageContent() {
   if (loading && !filterOptions) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Reports" />
         <main className="w-full p-4 lg:px-8 mx-auto">
           <PageHeaderSkeleton />
           <SearchBarSkeleton />
@@ -312,7 +310,6 @@ function ReportsPageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Reports" />
 
       <main className="w-full p-4 lg:px-8 mx-auto">
         {/* Page Header - Enhanced with loading states */}

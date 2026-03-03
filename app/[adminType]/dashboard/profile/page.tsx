@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { User, Mail, Phone, Calendar, Shield, Edit, Save, X, Loader2 } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { useToast } from "@/hooks/use-toast"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { SuperAdminAuth } from "@/lib/auth"
@@ -247,7 +246,6 @@ export default function BranchManagerProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Profile" />
         <main className="w-full p-4 lg:py-4 px-19">
           <div className="max-w-4xl mx-auto">
             <div className="animate-pulse space-y-6">
@@ -270,7 +268,6 @@ export default function BranchManagerProfilePage() {
   if (!profile) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Profile" />
         <main className="w-full p-4 lg:py-4 px-19">
           <div className="max-w-4xl mx-auto">
             <div className="text-center py-8">
@@ -284,7 +281,6 @@ export default function BranchManagerProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Profile" />
       
       <main className="w-full p-4 lg:py-4 px-19">
         <div className="max-w-4xl mx-auto">

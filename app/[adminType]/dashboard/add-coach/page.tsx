@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Award, MapPin, Phone, X, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
-import DashboardHeader from "@/components/dashboard-header"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
@@ -830,7 +829,6 @@ export default function AddCoachPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Add Coach" />
 
       <main className="w-full py-4 px-4 lg:px-8">
         {/* Header with Back Button */}

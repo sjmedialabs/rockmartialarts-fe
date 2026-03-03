@@ -16,7 +16,6 @@ import {
   AlertCircle,
   Loader2
 } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { reportsAPI, CourseReportsResponse, CourseReportFiltersResponse, CourseData } from "@/lib/reportsAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { toast } from "sonner"
@@ -254,7 +253,6 @@ export default function CourseReportPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Reports" />
 
       <main className="w-full p-4 lg:px-8 mx-auto">
         {/* Page Header - Same as main reports page */}

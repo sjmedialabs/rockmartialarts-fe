@@ -17,7 +17,6 @@ import {
   Loader2,
   RefreshCw
 } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { reportsAPI, ReportFilters, ReportFilterOptions } from "@/lib/reportsAPI"
 import { useAuth } from "@/contexts/AuthContext"
@@ -521,7 +520,6 @@ function CategoryReportsPageContent() {
   if (loading && !filterOptions) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Reports" />
         <main className="w-full p-4 lg:px-8 mx-auto">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
@@ -1173,7 +1171,6 @@ function CategoryReportsPageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Reports" />
 
       <main className="w-full p-4 lg:px-8 mx-auto">
 

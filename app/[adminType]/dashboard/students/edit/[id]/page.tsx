@@ -18,7 +18,6 @@ import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { branchAPI } from "@/lib/branchAPI"
 import { courseAPI } from "@/lib/courseAPI"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { dropdownAPI } from "@/lib/dropdownAPI"
 
@@ -482,7 +481,6 @@ export default function EditStudent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Edit Student" />
 
       <main className="w-full mx-auto p-4 sm:p-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 text-[#4F5077]">

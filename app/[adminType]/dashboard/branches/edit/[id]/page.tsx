@@ -12,7 +12,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building, MapPin, Clock, Users, CreditCard, X, Plus, Trash2 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import DashboardHeader from "@/components/dashboard-header"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
@@ -759,7 +758,6 @@ export default function EditBranch() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Edit Branch" />
         <main className="w-full p-4 lg:px-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
@@ -774,7 +772,6 @@ export default function EditBranch() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
       
       <div className="p-8 pt-[125px]">
         <div className="mb-6 flex items-center justify-between">

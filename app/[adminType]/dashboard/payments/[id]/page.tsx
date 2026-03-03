@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, CreditCard, User, Calendar, MapPin, BookOpen, DollarSign, Receipt, Download, Mail, MessageCircle } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 
@@ -130,7 +129,6 @@ export default function PaymentDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
@@ -151,7 +149,6 @@ export default function PaymentDetailPage() {
   if (error || !payment) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -169,7 +166,6 @@ export default function PaymentDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
       
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}

@@ -50,7 +50,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getBackendApiUrl } from "@/lib/config"
@@ -328,7 +327,6 @@ export default function AttendanceOverviewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
       <div className="pt-4">
         {/* Header */}
         <div className="mb-6">

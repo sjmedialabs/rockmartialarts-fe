@@ -19,7 +19,6 @@ import {
   Award,
   Briefcase
 } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { getBackendApiUrl } from "@/lib/config"
@@ -140,7 +139,6 @@ export default function BranchManagerDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Branch Manager Details" />
         <main className="w-full p-4 lg:px-8">
           <div className="mx-auto">
             <div className="animate-pulse space-y-6">
@@ -166,7 +164,6 @@ export default function BranchManagerDetailPage() {
   if (error || !manager) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Branch Manager Details" />
         <main className="w-full p-4 lg:px-8">
           <div className="mx-auto">
             <div className="text-center py-8">
@@ -186,7 +183,6 @@ export default function BranchManagerDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Branch Manager Details" />
       
       <main className="w-full p-4 lg:px-8">
         <div className="mx-auto">

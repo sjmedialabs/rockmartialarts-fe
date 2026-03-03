@@ -11,7 +11,6 @@ import { Bell, Search, ChevronDown, MoreHorizontal, Download, MessageCircle, Mai
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
-import DashboardHeader from "@/components/dashboard-header"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
@@ -187,7 +186,6 @@ export default function PaymentTrackingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Payment Tracking" />
 
       <main className="w-full p-4 lg:px-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Payment Tracking</h1>

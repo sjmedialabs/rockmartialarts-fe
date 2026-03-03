@@ -1,5 +1,4 @@
 "use client"
-import DashboardHeader from "@/components/dashboard-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -66,7 +65,6 @@ export default function CoachAttendanceDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-      <DashboardHeader currentPage="Coach Attendance" />
 
       <main className="w-full p-4 lg:px-8 overflow-x-hidden flex gap-4 flex-col">
         {/* Page Header */}

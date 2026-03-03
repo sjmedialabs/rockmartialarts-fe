@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import DashboardHeader from "@/components/dashboard-header"
 import { Send, Search, MessageCircle, Plus, Loader2, User, ArrowLeft } from "lucide-react"
 import { format } from "date-fns"
 import messageAPI, { Conversation, Message, MessageRecipient, MessageStats } from "@/lib/messageAPI"
@@ -315,11 +314,7 @@ export default function AdminMessagesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader
-          userName={adminData?.full_name || "Admin"}
-          onLogout={handleLogout}
-        />
-        <main className="w-full mx-auto mt-20 py-6 px-4 sm:px-6 lg:px-8">
+        <main className="w-full mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
           </div>
@@ -334,12 +329,7 @@ export default function AdminMessagesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader
-        userName={adminData?.full_name || "Admin"}
-        onLogout={handleLogout}
-      />
-
-      <main className="w-full mx-auto mt-20 py-6 px-4 sm:px-6 lg:px-8">
+      <main className="w-full mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" style={{ height: "calc(100vh - 140px)" }}>
           <div className="flex h-full">
             {/* Left Panel - Contact List */}

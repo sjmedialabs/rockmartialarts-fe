@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Edit, Trash2, ToggleLeft, ToggleRight, Eye, Mail, Loader2, Plus } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { SuperAdminAuth } from "@/lib/auth"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
@@ -405,7 +404,6 @@ const filteredManagers = branchManagers.filter((manager) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Branch Managers" />
         <main className="w-full p-4 lg:px-8">
           <div className="mx-auto">
             <div className="animate-pulse space-y-6">
@@ -434,7 +432,6 @@ const filteredManagers = branchManagers.filter((manager) => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Branch Managers" />
         <main className="w-full p-4 lg:px-8">
           <div className="mx-auto">
             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -473,7 +470,6 @@ const filteredManagers = branchManagers.filter((manager) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Branch Managers" />
       
       <main className="w-full p-4 lg:px-8">
         <div className=" mx-auto">

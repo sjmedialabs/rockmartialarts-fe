@@ -27,7 +27,6 @@ import {
   AlertCircle,
   DollarSign
 } from "lucide-react"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
@@ -371,7 +370,6 @@ export default function CourseDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-6">
             <Skeleton className="h-8 w-48 mb-2" />
@@ -411,7 +409,6 @@ export default function CourseDetailPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader />
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -438,7 +435,6 @@ export default function CourseDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
       
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}

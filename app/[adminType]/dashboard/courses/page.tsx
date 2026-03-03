@@ -11,7 +11,6 @@ import { Search, Edit, Trash2, ToggleLeft, ToggleRight, ChevronDown, Eye } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 
 interface Course {
@@ -209,9 +208,8 @@ export default function CourseListPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Courses" />
 
-      <main className="w-full mt-20 p-4 lg:px-8 lg:py-6">
+      <main className="w-full p-4 lg:px-8 lg:py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Course list</h1>
           <Button

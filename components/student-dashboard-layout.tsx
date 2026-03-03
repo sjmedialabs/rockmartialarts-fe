@@ -3,6 +3,7 @@
 import { ReactNode, Suspense } from "react"
 import { ErrorBoundary } from "@/components/error-boundary"
 import StudentDashboardHeader from "@/components/student-dashboard-header"
+import Footer from "@/components/layout/Footer"
 import { PageLoading } from "@/components/ui/loading-skeleton"
 import { cn } from "@/lib/utils"
 
@@ -173,37 +174,7 @@ export default function StudentDashboardLayout({
         </main>
 
         {/* Footer */}
-        <footer className="bg-white border-t border-gray-200 mt-auto">
-          <div className={cn("mx-auto py-6", maxWidthClasses[maxWidth], paddingClasses[padding])}>
-            <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-4">
-                <p className="text-sm text-gray-600">
-                  © 2024 Martial Arts Academy. All rights reserved.
-                </p>
-              </div>
-              <div className="flex items-center space-x-6">
-                <a
-                  href="/help"
-                  className="text-sm text-gray-600 hover:text-yellow-600 transition-colors duration-200"
-                >
-                  Help & Support
-                </a>
-                <a
-                  href="/privacy"
-                  className="text-sm text-gray-600 hover:text-yellow-600 transition-colors duration-200"
-                >
-                  Privacy Policy
-                </a>
-                <a
-                  href="/terms"
-                  className="text-sm text-gray-600 hover:text-yellow-600 transition-colors duration-200"
-                >
-                  Terms of Service
-                </a>
-              </div>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </ErrorBoundary>
   )

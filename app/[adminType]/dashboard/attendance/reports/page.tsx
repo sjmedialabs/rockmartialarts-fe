@@ -54,7 +54,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import DashboardHeader from "@/components/dashboard-header"
 import { SuperAdminAuth } from "@/lib/auth"
 
 interface ReportData {
@@ -308,7 +307,6 @@ export default function AttendanceReportsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
       
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}

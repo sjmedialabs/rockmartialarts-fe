@@ -11,6 +11,7 @@ import { useEffect, useState, useCallback, useMemo } from "react"
 import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { dashboardAPI, DashboardStats, Coach } from "@/lib/api"
 import { paymentAPI, PaymentStats, Payment } from "@/lib/paymentAPI"
+import { branchAPI } from "@/lib/branchAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
@@ -31,6 +32,10 @@ export default function SuperAdminDashboard() {
   const [recentPayments, setRecentPayments] = useState<Payment[]>([])
   const [paymentsLoading, setPaymentsLoading] = useState(true)
   const [paymentsError, setPaymentsError] = useState<string | null>(null)
+
+  // Branch filter state
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([])
+  const [selectedBranch, setSelectedBranch] = useState<string>("all-branches")
 
   // Time period filter
   const [timePeriod, setTimePeriod] = useState<string>("this-month")
@@ -97,6 +102,27 @@ export default function SuperAdminDashboard() {
 
     fetchDashboardStats()
   }, [dateRange, getAuthToken])
+
+  // Fetch branches (only on mount)
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const token = getAuthToken()
+        if (!token) return
+
+        const response = await branchAPI.getBranches(token)
+        const allBranches = (response.branches || []).map((b: any) => ({
+          id: b.id,
+          name: b.branch?.name || b.name || 'Unknown Branch',
+        }))
+        setBranches(allBranches)
+      } catch (err) {
+        console.error("Error fetching branches:", err)
+      }
+    }
+
+    fetchBranches()
+  }, [getAuthToken])
 
   // Fetch coaches list (only on mount, not affected by time filter)
   useEffect(() => {
@@ -326,14 +352,17 @@ export default function SuperAdminDashboard() {
                 {role === "super_admin" && (
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-600">Sort by:</span>
-                    <Select defaultValue="all-branches">
+                    <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                       <SelectTrigger className="bg-[#F1F1F1] text-[#9593A8]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all-branches">All Branches</SelectItem>
-                        <SelectItem value="branch-1">Branch 1</SelectItem>
-                        <SelectItem value="branch-2">Branch 2</SelectItem>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <Select defaultValue="monthly">

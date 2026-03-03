@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 
@@ -442,7 +441,6 @@ export default function CreateCoursePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Create Course" />
 
       <main className="w-full py-4 px-4 lg:px-8">
         <div className="flex justify-between items-center mb-8">

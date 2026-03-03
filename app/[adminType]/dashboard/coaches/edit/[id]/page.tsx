@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Award, MapPin, Phone, X, Plus } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import DashboardHeader from "@/components/dashboard-header"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
@@ -908,7 +907,6 @@ export default function EditCoachPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <DashboardHeader currentPage="Edit Coach" />
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
@@ -921,7 +919,6 @@ export default function EditCoachPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Edit Coach" />
 
       <main className="w-full py-4 px-4 lg:px-8">
         {/* Header with Back Button */}

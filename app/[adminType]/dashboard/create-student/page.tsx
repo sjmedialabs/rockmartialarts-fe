@@ -21,7 +21,6 @@ import { useAuth } from "@/contexts/AuthContext"
 import { branchAPI } from "@/lib/branchAPI"
 import { courseAPI } from "@/lib/courseAPI"
 import { useToast } from "@/hooks/use-toast"
-import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { dropdownAPI } from "@/lib/dropdownAPI"
 
@@ -608,7 +607,6 @@ export default function CreateStudent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader currentPage="Create Student" />
 
       {/* Main Content */}
       <main className="w-full mx-auto py-4 sm:py-6 px-4 lg:px-8">

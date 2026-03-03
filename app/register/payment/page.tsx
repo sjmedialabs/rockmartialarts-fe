@@ -36,6 +36,8 @@ export default function PaymentPage() {
   const [error, setError] = useState("")
 
   // Build fallback payment info from registration context data
+  const durationLabel = registrationData.duration_name || `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? 's' : ''}`
+
   const buildContextPaymentInfo = (): CoursePaymentInfo => {
     const courseFee = registrationData.course_price || 0
     const admissionFee = 500
@@ -44,7 +46,7 @@ export default function PaymentPage() {
       course_name: registrationData.course_name || "Selected Course",
       category_name: registrationData.category_name || "Martial Arts",
       branch_name: registrationData.branch_name || "Selected Branch",
-      duration: "1 month",
+      duration: durationLabel,
       pricing: {
         course_fee: courseFee,
         admission_fee: admissionFee,
@@ -66,9 +68,9 @@ export default function PaymentPage() {
       }
 
       try {
-        const oneMonthDuration = "1-month"
+        const selectedDuration = registrationData.duration || "1-month"
         const response = await fetch(
-          getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?branch_id=${registrationData.branch_id}&duration=${oneMonthDuration}`),
+          getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?branch_id=${registrationData.branch_id}&duration=${selectedDuration}`),
           {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
@@ -77,7 +79,10 @@ export default function PaymentPage() {
 
         if (response.ok) {
           const data = await response.json()
-          data.duration = "1 month"
+          // Use the duration label from context if API doesn't return a readable one
+          if (!data.duration || data.duration === selectedDuration) {
+            data.duration = durationLabel
+          }
           setPaymentInfo(data)
         } else {
           // API failed — fall back to context data from course selection step
@@ -94,7 +99,7 @@ export default function PaymentPage() {
     }
 
     fetchPaymentInfo()
-  }, [registrationData.course_id, registrationData.branch_id])
+  }, [registrationData.course_id, registrationData.branch_id, registrationData.duration])
 
   const handlePayment = async () => {
     if (!paymentInfo) {
@@ -194,7 +199,7 @@ export default function PaymentPage() {
 
               {/* Total Amount */}
               <div className="text-center">
-                <p className="text-gray-600 text-sm mb-2">Total Payable Amount (1 Month)</p>
+                <p className="text-gray-600 text-sm mb-2">Total Payable Amount ({durationLabel})</p>
                 <p className="text-4xl font-bold text-black">₹{paymentInfo.pricing.total_amount.toLocaleString()}</p>
               </div>
 
@@ -221,7 +226,7 @@ export default function PaymentPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
                         </div>
-                        <span className="text-gray-700 font-medium">Course Fee (1 month)</span>
+                        <span className="text-gray-700 font-medium">Course Fee ({durationLabel})</span>
                       </div>
                       <span className="text-gray-900 font-semibold">₹{paymentInfo.pricing.course_fee.toLocaleString()}</span>
                     </div>

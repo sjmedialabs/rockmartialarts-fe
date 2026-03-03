@@ -21,6 +21,8 @@ interface RegistrationData {
   category_name: string
   course_price: number
   course_currency: string
+  duration_name: string
+  duration_months: number
   
   // Branch Information (IDs)
   location_id: string
@@ -68,6 +70,8 @@ const defaultRegistrationData: RegistrationData = {
   category_name: '',
   course_price: 0,
   course_currency: 'INR',
+  duration_name: '',
+  duration_months: 0,
   location_id: '',
   branch_id: '',
   branch_name: '',

@@ -49,6 +49,8 @@ export default function PaymentConfirmationPage() {
   }, [])
 
   // Build payment info from registration context
+  const durationLabel = registrationData.duration_name || `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? 's' : ''}`
+
   const buildContextPaymentInfo = (): CoursePaymentInfo => {
     const courseFee = registrationData.course_price || registrationData.amount || 0
     const admissionFee = 500
@@ -57,7 +59,7 @@ export default function PaymentConfirmationPage() {
       course_name: registrationData.course_name || "Selected Course",
       category_name: registrationData.category_name || "Martial Arts",
       branch_name: registrationData.branch_name || "Selected Branch",
-      duration: "1 month",
+      duration: durationLabel,
       pricing: {
         course_fee: courseFee,
         admission_fee: admissionFee,

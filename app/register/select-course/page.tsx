@@ -161,11 +161,16 @@ export default function SelectCoursePage() {
     }
     setFieldErrors({})
     
+    // Get selected duration details
+    const selectedDuration = durationOptions.find(d => d.id === formData.duration)
+
     // Update registration context with course data including pricing
     updateRegistrationData({
       category_id: formData.category_id,
       course_id: formData.course_id,
       duration: formData.duration,
+      duration_name: selectedDuration?.name || "",
+      duration_months: selectedDuration?.duration_months || 1,
       course_name: selectedCourse?.title || "",
       category_name: selectedCategory?.name || "",
       course_price: selectedCourse?.pricing?.amount || 0,

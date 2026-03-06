@@ -149,11 +149,11 @@ export default function StudentDashboardHeader({
     <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
       <div className="w-full px-4 lg:px-6 py-2">
         <div className="flex justify-between items-center h-auto roboto">
-          {/* Logo and Navigation */}
-          <div className="flex items-center space-x-2 min-w-0">
+          {/* Logo and Mobile Menu */}
+          <div className="flex items-center space-x-2 min-w-0 flex-shrink-0">
             <div className="flex-shrink-0">
               <img
-                src="/footer_logo.png"
+                src="/logo.png"
                 alt="Logo"
                 className="xl:w-[95px] w-[80px] h-auto"
               />
@@ -175,7 +175,7 @@ export default function StudentDashboardHeader({
                   <div className="p-4 border-b border-gray-200/60">
                     <div className="flex items-center space-x-3">
                       <img
-                        src="/footer_logo.png"
+                        src="/logo.png"
                         alt="Logo"
                         className="w-8 h-8"
                       />
@@ -208,7 +208,10 @@ export default function StudentDashboardHeader({
                 </div>
               </SheetContent>
             </Sheet>
+          </div>
 
+          {/* Right-aligned: Nav items + Notifications + User Profile */}
+          <div className="flex items-center justify-end space-x-4 lg:space-x-5 xl:space-x-6 min-w-0 flex-1">
             <nav className="hidden lg:flex items-center space-x-5 xl:space-x-4">
               {navigationItems.map((item) => {
                 const isActive = item.exact
@@ -235,10 +238,6 @@ export default function StudentDashboardHeader({
                 )
               })}
             </nav>
-          </div>
-
-          {/* Right side - User Profile */}
-          <div className="flex items-center space-x-4">
             <NotificationDropdown />
 
             <div className="relative z-[1000]">

@@ -362,6 +362,16 @@ export default function StudentPaymentsPage() {
     }
   }
 
+  // Resolve course name for a payment (from course_details or enrollments by enrollment_id)
+  const getCourseName = (p: PaymentRecord) => {
+    if (p.course_details?.course_name) return p.course_details.course_name
+    if (p.enrollment_id && enrollments.length) {
+      const en = enrollments.find(e => e.id === p.enrollment_id)
+      if (en?.course_name) return en.course_name
+    }
+    return "—"
+  }
+
   const handleExport = () => {
     // Simple CSV export
     const headers = ["Transaction ID", "Date", "Type", "Course", "Amount", "Method", "Status"]
@@ -369,7 +379,7 @@ export default function StudentPaymentsPage() {
       p.transaction_id || p.id,
       formatDate(p.payment_date || p.created_at),
       studentPaymentAPI.formatPaymentType(p.payment_type),
-      p.course_details?.course_name || "N/A",
+      getCourseName(p),
       formatCurrency(p.amount),
       p.payment_method.replace(/_/g, ' '),
       p.payment_status
@@ -780,7 +790,7 @@ export default function StudentPaymentsPage() {
                           {studentPaymentAPI.formatPaymentType(payment.payment_type)}
                         </td>
                         <td className="py-4 text-sm">
-                          {payment.course_details?.course_name || 'N/A'}
+                          {getCourseName(payment)}
                         </td>
                         <td className="py-4 text-sm text-right font-semibold">
                           {formatCurrency(payment.amount)}

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { loadRazorpayScript } from '@/lib/razorpay'
 
 interface RazorpayOptions {
   amount: number
@@ -17,18 +18,25 @@ declare global {
 
 export function useRazorpay() {
   const [loading, setLoading] = useState(false)
-  const { token } = useAuth()
+  const { access_token } = useAuth()
+  // Prefer context token; fallback to localStorage (e.g. student login stores "token")
+  const token = access_token ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null)
 
   const initiatePayment = useCallback(async (options: RazorpayOptions) => {
     setLoading(true)
     
     try {
+      const loaded = await loadRazorpayScript()
+      if (!loaded || typeof window === 'undefined' || !window.Razorpay) {
+        throw new Error('Failed to load Razorpay. Please refresh and try again.')
+      }
+
       // Create order on backend
       const orderResponse = await fetch('/api/payments/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           amount: options.amount,
@@ -38,7 +46,8 @@ export function useRazorpay() {
       })
 
       if (!orderResponse.ok) {
-        throw new Error('Failed to create order')
+        const err = await orderResponse.json().catch(() => ({}))
+        throw new Error(err?.error || err?.detail || 'Failed to create order')
       }
 
       const { order, key } = await orderResponse.json()
@@ -53,6 +62,7 @@ export function useRazorpay() {
         order_id: order.id,
         handler: async function (response: any) {
           try {
+            if (!token) throw new Error('Not logged in. Please log in and try again.')
             // Verify payment on backend
             const verifyResponse = await fetch('/api/payments/verify', {
               method: 'POST',

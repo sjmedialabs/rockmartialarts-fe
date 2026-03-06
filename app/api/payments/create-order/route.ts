@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Authorization header required' }, { status: 401 })
-    }
-
     const body = await req.json()
     const { amount, currency = 'INR', enrollmentData } = body
 

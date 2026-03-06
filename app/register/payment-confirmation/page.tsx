@@ -126,7 +126,11 @@ export default function PaymentConfirmationPage() {
         course_id: registrationData.course_id,
         branch_id: registrationData.branch_id,
         category_id: registrationData.category_id,
+        // Send both duration id (current UI selection) and duration_months to help backend calculate validity correctly.
         duration: registrationData.duration || '1-month',
+        duration_id: registrationData.duration || undefined,
+        duration_months: registrationData.duration_months || undefined,
+        duration_name: registrationData.duration_name || undefined,
         payment_method: 'digital_wallet',
         payment_id: registrationData.paymentId,
         order_id: registrationData.orderId,

@@ -10,11 +10,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { Edit, Mail, Phone, MapPin, Calendar, Award, Clock, User, Heart, AlertCircle } from "lucide-react"
 import { studentProfileAPI, type StudentProfile } from "@/lib/studentProfileAPI"
+import { getBackendApiUrl } from "@/lib/config"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function StudentProfilePage() {
   const router = useRouter()
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null)
+  const [attendanceRate, setAttendanceRate] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,8 +53,25 @@ export default function StudentProfilePage() {
 
         // Fetch profile data from API
         const response = await studentProfileAPI.getProfile(token)
-        setStudentProfile(response.profile)
+        const profile = response.profile
+        setStudentProfile(profile)
         setError(null)
+
+        // Fetch attendance so we show real rate (0 or actual); new users get no data → —
+        try {
+          const attRes = await fetch(getBackendApiUrl("attendance/student/my-attendance"), {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (attRes.ok) {
+            const att = await attRes.json()
+            const pct = att?.statistics?.percentage
+            setAttendanceRate(typeof pct === "number" ? pct : null)
+          } else {
+            setAttendanceRate(null)
+          }
+        } catch {
+          setAttendanceRate(null)
+        }
       } catch (error: any) {
         console.error("Error loading profile:", error)
         setError(error.message || "Failed to load profile data")
@@ -149,12 +168,12 @@ export default function StudentProfilePage() {
     )
   }
 
-  // Calculate profile stats from actual data
+  // Calculate profile stats from actual data (attendance from separate fetch or — for new users)
   const profileStats = {
     coursesEnrolled: studentProfile.enrollments?.length || 0,
     totalHours: studentProfile.enrollments?.length * 45 || 0, // Estimate based on enrollments
-    attendanceRate: 85, // This would come from attendance data
-    currentBelt: "Yellow Belt" // This would come from progress data
+    attendanceRate: attendanceRate ?? (studentProfile as any).attendance_rate ?? (studentProfile as any).attendance_percentage ?? null,
+    currentBelt: (studentProfile as any).current_belt || "Yellow Belt" // From progress data when available
   }
 
   return (
@@ -261,7 +280,9 @@ export default function StudentProfilePage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Attendance Rate</span>
-                    <span className="font-semibold">{profileStats.attendanceRate}%</span>
+                    <span className="font-semibold">
+                      {profileStats.attendanceRate != null ? `${profileStats.attendanceRate}%` : "—"}
+                    </span>
                   </div>
                 </CardContent>
               </Card>

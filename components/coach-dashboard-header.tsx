@@ -128,7 +128,7 @@ export default function CoachDashboardHeader({
           <div className="flex items-center space-x-2 min-w-0">
             <div className="flex-shrink-0">
               <img
-                src="/footer_logo.png"
+                src="/logo.png"
                 alt="Logo"
                 className="xl:w-[95px] w-[80px] h-auto"
               />
@@ -150,7 +150,7 @@ export default function CoachDashboardHeader({
                   <div className="p-4 border-b border-gray-200/60">
                     <div className="flex items-center space-x-3">
                       <img
-                        src="/footer_logo.png"
+                        src="/logo.png"
                         alt="Logo"
                         className="w-8 h-8"
                       />

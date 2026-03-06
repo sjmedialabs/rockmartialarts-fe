@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from "next/server"
+
+const BACKEND_URL =
+  process.env.API_BASE_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://127.0.0.1:8003"
+
+/** Normalize phone for comparison: digits only, strip +91/0 prefix for Indian numbers */
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "")
+  if (digits.length === 10 && /^[6-9]/.test(digits)) return digits
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2)
+  return digits
+}
+
+/**
+ * Check if a student with this phone number already exists (for registration validation).
+ * POST body: { phone: string }
+ * Returns: { exists: boolean }
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const raw = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phone = normalizePhone(raw)
+
+    if (!phone) {
+      return NextResponse.json({ exists: false })
+    }
+
+    const base = BACKEND_URL.replace(/\/$/, "")
+
+    const checkRes = await fetch(`${base}/api/students/check-phone`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: raw }),
+      cache: "no-store",
+    })
+
+    if (checkRes.ok) {
+      const data = await checkRes.json().catch(() => ({}))
+      return NextResponse.json({ exists: !!data.exists })
+    }
+
+    for (const param of ["phone", "mobile"]) {
+      const listRes = await fetch(
+        `${base}/api/students?${param}=${encodeURIComponent(phone)}&limit=1`,
+        { cache: "no-store" }
+      )
+      if (listRes.ok) {
+        const list = await listRes.json().catch(() => ({}))
+        const students = list.students ?? list.data ?? list ?? []
+        const exists = Array.isArray(students) && students.length > 0
+        return NextResponse.json({ exists })
+      }
+    }
+
+    return NextResponse.json({ exists: false })
+  } catch {
+    return NextResponse.json({ exists: false })
+  }
+}

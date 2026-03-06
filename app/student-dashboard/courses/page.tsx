@@ -44,6 +44,7 @@ import {
 import { studentProfileAPI } from "@/lib/studentProfileAPI"
 import { courseAPI } from "@/lib/courseAPI"
 import { branchAPI } from "@/lib/branchAPI"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface EnrolledCourse {
   enrollment_id: string
@@ -183,7 +184,8 @@ export default function StudentCoursesPage() {
         enrollment_date: e.enrollment_date || e.start_date,
         is_active: e.is_active,
         payment_status: e.payment_status,
-        progress: Math.floor(Math.random() * 100) // TODO: Replace with actual progress from API
+        // Progress should come from backend once available; keep stable (0) instead of random.
+        progress: typeof e.progress === "number" ? Math.round(e.progress) : 0
       }))
       
       console.log("✅ Loaded enrolled courses:", enrolledData.length)
@@ -203,7 +205,7 @@ export default function StudentCoursesPage() {
           for (const branchId of studentBranchIds) {
             try {
               const branchCoursesResponse = await fetch(
-                `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/branches/${branchId}/courses`,
+                getBackendApiUrl(`branches/${branchId}/courses`),
                 {
                   headers: {
                     'Authorization': `Bearer ${token}`,
@@ -382,9 +384,9 @@ export default function StudentCoursesPage() {
       const token = localStorage.getItem("token")
       if (!token) return
 
-      // Submit branch change request
+      // Submit branch transfer request (existing backend endpoint: /api/requests/transfer)
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/enrollments/${changingEnrollment.enrollment_id}/branch-change-request`,
+        getBackendApiUrl('requests/transfer'),
         {
           method: 'POST',
           headers: {
@@ -392,6 +394,8 @@ export default function StudentCoursesPage() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
+            enrollment_id: changingEnrollment.enrollment_id,
+            current_branch_id: changingEnrollment.branch_id,
             new_branch_id: newBranchId,
             reason: "Student requested branch change"
           })
@@ -399,15 +403,19 @@ export default function StudentCoursesPage() {
       )
 
       if (response.ok) {
-        alert("Branch change request submitted successfully! Waiting for admin approval.")
+        const data = await response.json().catch(() => ({}))
+        alert(data.message || "Branch change request submitted successfully! Your request will be sent to the branch admin for approval. You will be notified once the request is processed.")
         setShowBranchChangeDialog(false)
+        setChangingEnrollment(null)
+        setNewBranchId("")
         handleRefresh()
       } else {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Request failed")
+        const errorData = await response.json().catch(() => ({}))
+        const message = errorData.detail || errorData.error || errorData.message || "Request failed"
+        throw new Error(Array.isArray(message) ? message[0] : message)
       }
     } catch (error: any) {
-      alert(`Request failed: ${error.message}`)
+      alert(error?.message || "Request failed. Please try again.")
     } finally {
       setRequestingChange(false)
     }

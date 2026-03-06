@@ -28,7 +28,7 @@ export default function Sidebar({ role, onNavigate }: SidebarProps) {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-gray-200/60">
         <div className="flex items-center space-x-3">
-          <img src="/footer_logo.png" alt="Logo" className="w-8 h-8" />
+          <img src="/logo.png" alt="Logo" className="w-8 h-8" />
         </div>
       </div>
       <nav className="flex-1 p-6">

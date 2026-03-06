@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +26,16 @@ export default function RegisterPage() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [emailExists, setEmailExists] = useState(false)
+  const [checkingPhone, setCheckingPhone] = useState(false)
+  const [phoneExists, setPhoneExists] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const emailCheckSeq = useRef(0)
+  const phoneCheckSeq = useRef(0)
+
+  const normalizedEmail = useMemo(() => formData.email.trim().toLowerCase(), [formData.email])
+  const normalizedMobile = useMemo(() => formData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10) || "", [formData.mobile])
 
   const validateEmail = (email: string): boolean => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -71,21 +81,143 @@ export default function RegisterPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleNextStep = (e: React.FormEvent) => {
+  // Immediate (debounced) email existence validation
+  useEffect(() => {
+    if (!normalizedEmail) {
+      setEmailExists(false)
+      setCheckingEmail(false)
+      return
+    }
+    if (!validateEmail(normalizedEmail)) {
+      setEmailExists(false)
+      setCheckingEmail(false)
+      return
+    }
+
+    const seq = ++emailCheckSeq.current
+    setCheckingEmail(true)
+
+    const t = window.setTimeout(async () => {
+      try {
+        const checkRes = await fetch("/api/students/check-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalizedEmail }),
+        })
+        const checkData = await checkRes.json().catch(() => ({}))
+        if (emailCheckSeq.current !== seq) return
+        const exists = !!checkData.exists
+        setEmailExists(exists)
+        setErrors((prev) => ({
+          ...prev,
+          email: exists ? "Email already exists. Please login or use a different email." : (prev.email?.includes("Email already exists") ? "" : prev.email),
+        }))
+      } catch {
+        if (emailCheckSeq.current !== seq) return
+        setEmailExists(false)
+      } finally {
+        if (emailCheckSeq.current === seq) setCheckingEmail(false)
+      }
+    }, 350)
+
+    return () => window.clearTimeout(t)
+  }, [normalizedEmail])
+
+  // Immediate (debounced) phone existence validation
+  useEffect(() => {
+    if (!normalizedMobile || normalizedMobile.length !== 10) {
+      setPhoneExists(false)
+      setCheckingPhone(false)
+      return
+    }
+    if (!/^[6-9]/.test(normalizedMobile)) {
+      setPhoneExists(false)
+      setCheckingPhone(false)
+      return
+    }
+
+    const seq = ++phoneCheckSeq.current
+    setCheckingPhone(true)
+
+    const t = window.setTimeout(async () => {
+      try {
+        const checkRes = await fetch("/api/students/check-phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizedMobile }),
+        })
+        const checkData = await checkRes.json().catch(() => ({}))
+        if (phoneCheckSeq.current !== seq) return
+        const exists = !!checkData.exists
+        setPhoneExists(exists)
+        setErrors((prev) => ({
+          ...prev,
+          mobile: exists ? "Phone number already registered. Please login or use a different number." : (prev.mobile?.includes("already registered") ? "" : prev.mobile),
+        }))
+      } catch {
+        if (phoneCheckSeq.current !== seq) return
+        setPhoneExists(false)
+      } finally {
+        if (phoneCheckSeq.current === seq) setCheckingPhone(false)
+      }
+    }, 350)
+
+    return () => window.clearTimeout(t)
+  }, [normalizedMobile])
+
+  const handleNextStep = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validateForm()) return
+    if (submitting) return
 
-    // Update registration context with form data
-    updateRegistrationData({
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      mobile: formData.mobile,
-      gender: formData.gender,
-      dob: formData.dob,
-      password: formData.password,
-    })
-    router.push("/register/select-course")
+    // Always re-validate email and phone on submit so "already exists" shows before proceeding (not after payment)
+    setSubmitting(true)
+    setErrors((prev) => ({ ...prev, email: "", mobile: "" }))
+
+    try {
+      const [emailCheckRes, phoneCheckRes] = await Promise.all([
+        fetch("/api/students/check-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalizedEmail }),
+        }),
+        fetch("/api/students/check-phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizedMobile }),
+        }),
+      ])
+
+      const emailData = await emailCheckRes.json().catch(() => ({}))
+      const phoneData = await phoneCheckRes.json().catch(() => ({}))
+      const emailAlreadyExists = !!emailData.exists
+      const phoneAlreadyExists = !!phoneData.exists
+
+      setEmailExists(emailAlreadyExists)
+      setPhoneExists(phoneAlreadyExists)
+
+      if (emailAlreadyExists) {
+        setErrors((prev) => ({ ...prev, email: "Email already exists. Please login or use a different email." }))
+        return
+      }
+      if (phoneAlreadyExists) {
+        setErrors((prev) => ({ ...prev, mobile: "Phone number already registered. Please login or use a different number." }))
+        return
+      }
+
+      updateRegistrationData({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: normalizedEmail,
+        mobile: formData.mobile,
+        gender: formData.gender,
+        dob: formData.dob,
+        password: formData.password,
+      })
+      router.push("/register/select-course")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleInputChange = (field: string, value: string) => {
@@ -119,6 +251,11 @@ export default function RegisterPage() {
 
           {/* Registration Form */}
           <form onSubmit={handleNextStep} className="space-y-3">
+            {(checkingEmail || checkingPhone || submitting) && (
+              <p className="text-sm text-gray-500">
+                {submitting ? "Verifying email & phone..." : checkingEmail && checkingPhone ? "Checking email & phone..." : checkingEmail ? "Checking email..." : "Checking phone..."}
+              </p>
+            )}
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -154,6 +291,9 @@ export default function RegisterPage() {
                   className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.email ? '!border !border-red-500' : ''}`}
                 />
                 {errors.email && <p className="text-red-500 text-xs mt-1 ml-1">{errors.email}</p>}
+                {!errors.email && checkingEmail && (
+                  <p className="text-gray-500 text-xs mt-1 ml-1">Checking email...</p>
+                )}
               </div>
               <div>
                 <Input
@@ -164,6 +304,9 @@ export default function RegisterPage() {
                   className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.mobile ? '!border !border-red-500' : ''}`}
                 />
                 {errors.mobile && <p className="text-red-500 text-xs mt-1 ml-1">{errors.mobile}</p>}
+                {!errors.mobile && checkingPhone && (
+                  <p className="text-gray-500 text-xs mt-1 ml-1">Checking phone...</p>
+                )}
               </div>
             </div>
 
@@ -209,9 +352,10 @@ export default function RegisterPage() {
             {/* Next Step Button */}
             <Button
               type="submit"
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-4 px-6 rounded-xl text-[12px] h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-8"
+              disabled={checkingEmail || checkingPhone || submitting}
+              className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-4 px-6 rounded-xl text-[12px] h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-8 disabled:opacity-70"
             >
-              NEXT STEP
+              {submitting ? "Verifying email & phone..." : "NEXT STEP"}
             </Button>
           </form>
 

@@ -5,6 +5,8 @@ import { RegistrationProvider } from '@/contexts/RegistrationContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { Toaster } from '@/components/ui/toaster'
 import AccessibilityProvider from '@/components/accessibility-provider'
+import { FixedTopNavWrapper } from '@/components/FixedTopNavWrapper'
+import { TopNavSpacer } from '@/components/TopNavSpacer'
 import './globals.css'
 
 // Load Poppins for general text (only font preloaded to reduce console warnings)
@@ -60,7 +62,8 @@ export default function RootLayout({
         <AccessibilityProvider>
           <AuthProvider>
             <RegistrationProvider>
-              {children}
+              <FixedTopNavWrapper />
+              <TopNavSpacer>{children}</TopNavSpacer>
             </RegistrationProvider>
           </AuthProvider>
           <Toaster />

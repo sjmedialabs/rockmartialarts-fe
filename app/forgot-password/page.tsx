@@ -50,8 +50,8 @@ export default function ForgotPasswordPage() {
 
       setSuccess(true)
       toast({
-        title: "Reset Link Sent",
-        description: "If an account with that email exists, a password reset link has been sent.",
+        title: "Reset link sent",
+        description: "If an account with that email exists, a password reset email has been sent. Check your inbox and spam folder. Email delivery depends on server configuration.",
         variant: "default",
       })
     } catch (error) {
@@ -118,7 +118,7 @@ export default function ForgotPasswordPage() {
                   We've sent password reset instructions to <strong>{email}</strong>
                 </p>
                 <p className="text-gray-500 text-xs">
-                  Didn't receive the email? Check your spam folder or try again.
+                  Didn&apos;t receive the email? Check your spam folder, ensure the address is the one you registered with, and try again. If it still doesn&apos;t arrive, the server may need to have email (SMTP) configured.
                 </p>
               </div>
               <div className="space-y-3">

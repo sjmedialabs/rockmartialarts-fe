@@ -124,12 +124,14 @@ export default function StudentDashboard() {
           console.log("✅ Attendance data received:", attendanceResult)
 
           // Set dashboard statistics based on real data
+          const progressPct = attendanceResult.statistics?.percentage
+          const roundedProgress = typeof progressPct === "number" ? Math.round(progressPct) : 0
           setDashboardStats({
             enrolledCourses: profileData?.enrollments?.length || 0,
             completedClasses: attendanceResult.statistics?.attended || 0,
             upcomingClasses: 0,
-            overallProgress: attendanceResult.statistics?.percentage || 0,
-            attendanceRate: attendanceResult.statistics?.percentage || 0,
+            overallProgress: roundedProgress,
+            attendanceRate: roundedProgress,
             totalHours: Math.round((attendanceResult.statistics?.attended || 0) * 1.5),
             achievements: 0,
             rank: 0,

@@ -88,7 +88,7 @@ export default function Navbar({ role }: NavbarProps) {
         <div className="flex justify-between items-center h-auto gap-4">
           <div className="flex items-center space-x-2 flex-shrink-0">
             <div className="flex-shrink-0">
-              <img src="/footer_logo.png" alt="Logo" className="xl:w-[95px] w-[80px] h-auto" />
+              <img src="/logo.png" alt="Logo" className="xl:w-[95px] w-[80px] h-auto" />
             </div>
 
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>

@@ -1,15 +1,14 @@
 "use client"
 
 import { useCMS } from "@/contexts/CMSContext"
-
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu, LogIn } from "lucide-react"
+import { BranchesNavDropdown } from "@/components/BranchesNavDropdown"
 
 const navLinks = [
   { label: "Courses", href: "/courses" },
-  { label: "Branches", href: "/branches" },
   { label: "Store", href: "/store" },
 ]
 
@@ -39,6 +38,17 @@ export function FixedTopNav() {
               </Link>
             </li>
           ))}
+          <li>
+            <BranchesNavDropdown />
+          </li>
+          <li>
+            <Link
+              href="/contact"
+              className="text-sm font-medium uppercase tracking-wide text-white hover:text-[#FFB70F]"
+            >
+              Contact
+            </Link>
+          </li>
           <li>
             <Link
               href="/register"
@@ -81,6 +91,17 @@ export function FixedTopNav() {
                   </Link>
                 </li>
               ))}
+              <li className="[&_.relative]:static">
+                <BranchesNavDropdown />
+              </li>
+              <li>
+                <Link
+                  href="/contact"
+                  className="text-lg font-medium uppercase tracking-wide text-white hover:text-[#FFB70F]"
+                >
+                  Contact
+                </Link>
+              </li>
               <li>
                 <Link
                   href="/register"

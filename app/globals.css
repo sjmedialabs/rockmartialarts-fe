@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import 'aos/dist/aos.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -147,6 +148,13 @@ body {
   body {
     @apply bg-background text-foreground;
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  
+  /* Scroll zoom helper for AOS-powered sections/cards */
+  .scroll-zoom {
+    transform: scale(0.9);
+    opacity: 0.9;
+    transition: transform 0.8s ease, opacity 0.8s ease;
   }
   
   /* Global cursor pointer for interactive elements */

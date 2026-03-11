@@ -505,35 +505,37 @@ export default function EditCoachPage() {
 
         const coach = await response.json()
         
+        console.log("Fetched coach data:", JSON.stringify(coach, null, 2))
+        
         // Populate form with existing coach data
         setFormData(prev => ({
           ...prev,
           firstName: coach.personal_info?.first_name || '',
           lastName: coach.personal_info?.last_name || '',
-          email: coach.email || '',
-          phone: coach.personal_info?.phone || '',
+          email: coach.contact_info?.email || coach.email || '',
+          phone: coach.contact_info?.phone || '',
           password: '', // Keep empty - password is optional for edit
           gender: coach.personal_info?.gender || '',
           dateOfBirth: coach.personal_info?.date_of_birth || '',
-          address: coach.personal_info?.address || '',
-          area: coach.personal_info?.area || '',
-          city: coach.personal_info?.city || '',
-          state: coach.personal_info?.state || '',
-          zipCode: coach.personal_info?.zip_code || '',
-          country: coach.personal_info?.country || 'India',
-          designation: coach.professional_info?.designation || '',
-          experience: coach.professional_info?.experience || '',
+          address: coach.address_info?.address || '',
+          area: coach.address_info?.area || '',
+          city: coach.address_info?.city || '',
+          state: coach.address_info?.state || '',
+          zipCode: coach.address_info?.zip_code || '',
+          country: coach.address_info?.country || 'India',
+          designation: coach.professional_info?.designation_id || '',
+          experience: coach.professional_info?.professional_experience || '',
           qualifications: coach.professional_info?.qualifications || [],
-          certifications: coach.professional_info?.certifications || '',
-          category: coach.professional_info?.category || '',
-          subCategory: coach.professional_info?.sub_category || '',
-          branch: coach.branches?.[0]?.id || '',
-          courses: coach.courses?.map((c: any) => c.id) || [],
-          salary: coach.salary || '',
-          joinDate: coach.join_date || '',
+          certifications: Array.isArray(coach.professional_info?.certifications) ? coach.professional_info.certifications.join(', ') : (coach.professional_info?.certifications || ''),
+          category: coach.professional_info?.category_id || '',
+          subCategory: coach.professional_info?.sub_category_id || '',
+          branch: coach.branch_id || '',
+          courses: coach.assignment_details?.courses || [],
+          salary: coach.assignment_details?.salary ? String(coach.assignment_details.salary) : '',
+          joinDate: coach.assignment_details?.join_date || '',
           emergencyContactName: coach.emergency_contact?.name || '',
           emergencyContactPhone: coach.emergency_contact?.phone || '',
-          emergencyContactRelation: coach.emergency_contact?.relation || '',
+          emergencyContactRelation: coach.emergency_contact?.relationship || '',
           achievements: coach.achievements || '',
           notes: coach.notes || '',
         }))
@@ -729,7 +731,7 @@ export default function EditCoachPage() {
         throw new Error("Authentication token not found")
       }
 
-      const response = await fetch(getBackendApiUrl(`coaches/${coachId}/${createdCoachId}/send-credentials`), {
+      const response = await fetch(getBackendApiUrl(`coaches/${coachId}/send-credentials`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -803,7 +805,7 @@ export default function EditCoachPage() {
           email: formData.email,
           country_code: "+91", // Default for India
           phone: formData.phone,
-          password: formData.password
+          ...(formData.password ? { password: formData.password } : {})
         },
         address_info: {
           address: formData.address,
@@ -836,7 +838,7 @@ export default function EditCoachPage() {
         }
       }
 
-      console.log("Creating coach with data:", coachData)
+      console.log("Updating coach with data:", coachData)
 
       // Log branch and course assignments for debugging
       if (formData.branch || formData.courses.length > 0) {
@@ -878,10 +880,10 @@ export default function EditCoachPage() {
           const errorMessages = result.detail.map((err: any) => `${err.loc ? err.loc.join('.') + ': ' : ''}${err.msg}`).join('; ')
           throw new Error(errorMessages)
         }
-        throw new Error(result.detail || result.message || `Failed to create coach (${response.status})`)
+        throw new Error(result.detail || result.message || `Failed to update coach (${response.status})`)
       }
 
-      console.log("Coach created successfully:", result)
+      console.log("Coach updated successfully:", result)
 
       // Store the created coach ID for sending credentials
       if (result.coach && result.coach.id) {
@@ -898,7 +900,7 @@ export default function EditCoachPage() {
     } catch (error) {
       console.error("Error creating coach:", error)
       // You might want to show an error message to the user here
-      alert(`Error creating coach: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      alert(`Error updating coach: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -933,7 +935,7 @@ export default function EditCoachPage() {
               <span className="text-[#4F5077]">Back to Coaches</span>
             </Button>
             <div className="w-px h-6 bg-gray-300"></div>
-            <h1 className="text-2xl font-bold text-[#4F5077]">Add New Coach</h1>
+            <h1 className="text-2xl font-bold text-[#4F5077]">Edit Coach</h1>
           </div>
         </div>
 
@@ -1580,7 +1582,7 @@ export default function EditCoachPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Coach Created Successfully!</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Coach Updated Successfully!</h3>
             <p className="text-gray-600 mb-6">The new coach has been added to your academy.</p>
 
             <div className="space-y-3">

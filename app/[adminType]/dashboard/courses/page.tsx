@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Search, Edit, Trash2, ToggleLeft, ToggleRight, ChevronDown, Eye } from "lucide-react"
+import { Search, Edit, ToggleLeft, ToggleRight, ChevronDown, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
@@ -51,8 +50,6 @@ export default function CourseListPage() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
   const [searchTerm, setSearchTerm] = useState("")
-  const [showDeletePopup, setShowDeletePopup] = useState(false)
-  const [courseToDelete, setCourseToDelete] = useState<string | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -120,44 +117,6 @@ export default function CourseListPage() {
   const handleEditClick = (courseId: string) => {
     console.log("Editing course:", courseId)
     router.push(`${basePath}/courses/edit/${courseId}`)
-  }
-
-  const handleDeleteClick = (courseId: string) => {
-    setCourseToDelete(courseId)
-    setShowDeletePopup(true)
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (courseToDelete) {
-      try {
-        const token = TokenManager.getToken()
-        if (!token) {
-          throw new Error("Authentication token not found. Please login again.")
-        }
-
-        const response = await fetch(getBackendApiUrl(`courses/${courseToDelete}`), {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to delete course (${response.status})`)
-        }
-
-        // Remove course from local state
-        setCourses((prev) => prev.filter((course) => course.id !== courseToDelete))
-        setShowDeletePopup(false)
-        setCourseToDelete(null)
-
-      } catch (error) {
-        console.error("Error deleting course:", error)
-        alert(`Error deleting course: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
-    }
   }
 
   const handleToggleEnable = async (courseId: string) => {
@@ -310,15 +269,6 @@ export default function CourseListPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteClick(course.id)}
-                            className="p-1 h-8 w-8"
-                            title="Delete Course"
-                          >
-                            <Trash2 className="w-4 h-4 text-gray-600" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
                             onClick={() => handleToggleEnable(course.id)}
                             className="p-1 h-8 w-8"
                           >
@@ -341,24 +291,6 @@ export default function CourseListPage() {
 
 
 
-      <Dialog open={showDeletePopup} onOpenChange={setShowDeletePopup}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Course</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-gray-600">Are you sure you want to delete this course? This action cannot be undone.</p>
-          </div>
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowDeletePopup(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm} className="text-white">
-             yes Delete
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

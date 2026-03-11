@@ -7,33 +7,30 @@ import {
   ArrowLeft,
   Loader2,
   Play,
-  FileText,
-  Image as ImageIcon,
-  Video,
-  Users,
-  Target,
+  MapPin,
   Clock,
   IndianRupee,
-  BookOpen,
-  Shield,
+  Calendar,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Quote,
 } from "lucide-react"
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-function isUuid(s: string): boolean {
-  return UUID_REGEX.test(s)
-}
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
 
-type DurationOption = { id: string; name: string; duration_months?: number; display_order?: number }
-
-type CourseModule = {
-  id?: string
-  title?: string
-  description?: string
-  duration?: number
-  duration_minutes?: number
-  order?: number
-  status?: string
-  resourceUrl?: string
+type PageContent = {
+  hero_section?: { title?: string; subtitle?: string; description?: string; hero_image?: string; cta_text?: string; cta_link?: string }
+  course_info?: { location?: string; duration?: string; price?: string; training_time?: string }
+  about_section?: { title?: string; description?: string; secondary_description?: string; image1?: string; image2?: string }
+  benefits?: { title: string; description: string; icon?: string }[]
+  learning_section?: { title?: string; description?: string; video_url?: string; thumbnail?: string }
+  gallery_images?: string[]
+  instructors?: { name: string; designation: string; bio?: string; photo?: string }[]
+  testimonials?: { name: string; designation: string; text: string; photo?: string }[]
+  pdf_attachments?: { title: string; file_url: string }[]
 }
 
 type CourseData = {
@@ -42,444 +39,328 @@ type CourseData = {
   course_name?: string
   code?: string
   description?: string
-  category_id?: string
-  category?: string
-  category_name?: string
-  sub_category?: string
-  sub_category_name?: string
   difficulty_level?: string
-  duration?: string
-  duration_name?: string
-  max_students?: number
-  min_age?: number
-  max_age?: number
-  prerequisites?: string[]
-  syllabus?: string
-  equipment_required?: string
-  imageUrl?: string
+  page_content?: PageContent
   media_resources?: { course_image_url?: string; promo_video_url?: string }
-  videoUrl?: string
-  fee_per_duration?: Record<string, number | string>
-  pricing?: { currency?: string; branch_specific_pricing?: boolean }
-  branch_specific_pricing?: boolean
-  curriculum?: CourseModule[]
-  modules?: CourseModule[]
-  durations?: DurationOption[]
-  available_durations?: DurationOption[]
+  [key: string]: any
 }
 
-function getTitle(c: CourseData) {
-  return c.title || c.course_name || "Course"
-}
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
 
-function getImageUrl(c: CourseData) {
-  return c.imageUrl || c.media_resources?.course_image_url || ""
-}
-
-function getVideoUrl(c: CourseData) {
-  return c.videoUrl || c.media_resources?.promo_video_url || ""
-}
-
-function formatFees(feePerDuration: Record<string, number | string> | undefined, durations?: DurationOption[]): { label: string; value: string }[] {
-  if (!feePerDuration || Object.keys(feePerDuration).length === 0) return []
-  const entries = Object.entries(feePerDuration).filter(([, v]) => v != null && String(v).trim() !== "")
-  return entries.map(([key, value], index) => {
-    const duration = durations?.find((d) => d.id === key)
-    let label: string
-    if (duration) {
-      if (duration.duration_months != null) {
-        label = duration.duration_months === 1 ? "1 Month" : `${duration.duration_months} Months`
-      } else {
-        label = duration.name
-      }
-    } else {
-      label = isUuid(key) ? `Option ${index + 1}` : key
-    }
-    return { label, value: `₹${value}` }
-  })
-}
-
-/** Resolve duration for display: never show raw UUID. Prefer tenure (e.g. "3 Months"), then name, else "—". */
-function getDurationLabel(course: CourseData): string {
-  const raw = course.duration_name || course.duration
-  const opts = course.durations ?? course.available_durations ?? []
-  if (!raw) return "—"
-  if (isUuid(raw) && opts.length) {
-    const d = opts.find((x) => x.id === raw)
-    if (d) {
-      if (d.duration_months != null) return d.duration_months === 1 ? "1 Month" : `${d.duration_months} Months`
-      return d.name
-    }
-    return "—"
-  }
-  if (isUuid(raw)) return "—"
-  return raw
-}
-
-function SectionHeader({ subtitle, title }: { subtitle: string; title: string }) {
+function SectionLabel({ sub, title }: { sub: string; title: string }) {
   return (
     <div className="text-center mb-10">
       <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
-      <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">{subtitle}</p>
-      <h2 className="text-2xl md:text-3xl font-bold text-[#FFB70F]">{title}</h2>
+      <p className="text-[#F73322] uppercase tracking-[0.25em] text-sm font-semibold mb-2">{sub}</p>
+      <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{title}</h2>
     </div>
   )
 }
 
+function getYouTubeId(url: string): string | null {
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?#]+)/)
+  return m ? m[1] : null
+}
+
+/* ------------------------------------------------------------------ */
+/* Component                                                           */
+/* ------------------------------------------------------------------ */
+
 export default function CourseDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const id = params.id as string
+  const slug = params.id as string
   const [course, setCourse] = useState<CourseData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [testimonialIdx, setTestimonialIdx] = useState(0)
 
   useEffect(() => {
-    if (!id) return
+    if (!slug) return
     setLoading(true)
-    setError(null)
-    fetch(`/api/courses/public/${id}`, { headers: { "Content-Type": "application/json" } })
-      .then((res) => {
-        if (!res.ok) throw new Error(res.status === 404 ? "Course not found" : "Failed to load course")
-        return res.json()
-      })
-      .then((data) => {
-        setCourse(data)
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to load course")
-        setCourse(null)
-      })
+    fetch(`/api/courses/public/${slug}`, { headers: { "Content-Type": "application/json" } })
+      .then((res) => { if (!res.ok) throw new Error(res.status === 404 ? "Course not found" : "Failed to load"); return res.json() })
+      .then(setCourse)
+      .catch((e) => { setError(e.message); setCourse(null) })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [slug])
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-white">
-          <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
-          <p className="text-gray-400">Loading course...</p>
-        </div>
-      </main>
-    )
-  }
+  /* Loading / Error */
+  if (loading) return <main className="min-h-screen bg-[#171A26] flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" /></main>
+  if (error || !course) return (
+    <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4">
+      <div className="text-center text-white"><p className="text-red-300 mb-6 text-lg">{error || "Course not found."}</p>
+        <Link href="/courses" className="inline-flex items-center gap-2 rounded-lg bg-[#FFB70F] px-6 py-3 text-black font-semibold hover:bg-[#F73322] hover:text-white transition-colors"><ArrowLeft className="w-4 h-4" /> Back to Courses</Link>
+      </div>
+    </main>
+  )
 
-  if (error || !course) {
-    return (
-      <main className="min-h-screen bg-[#171A26] flex items-center justify-center px-4">
-        <div className="text-center text-white max-w-md">
-          <p className="text-red-300 mb-6 text-lg">{error || "Course not found."}</p>
-          <Link
-            href="/courses"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#FFB70F] px-6 py-3 text-black font-semibold hover:bg-[#F73322] hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Courses
-          </Link>
-        </div>
-      </main>
-    )
-  }
+  const pc = course.page_content || {}
+  const hero = pc.hero_section || {}
+  const info = pc.course_info || {}
+  const about = pc.about_section || {}
+  const benefits = pc.benefits || []
+  const learning = pc.learning_section || {}
+  const gallery = pc.gallery_images || []
+  const instructors = pc.instructors || []
+  const testimonials = pc.testimonials || []
+  const attachments = pc.pdf_attachments || []
 
-  const title = getTitle(course)
-  const imageUrl = getImageUrl(course)
-  const videoUrl = getVideoUrl(course)
-  const modules = course.curriculum ?? course.modules ?? []
-  const durationOptions = course.durations ?? course.available_durations ?? []
-  const feeEntries = formatFees(course.fee_per_duration, durationOptions)
-  const branchSpecific = course.pricing?.branch_specific_pricing ?? course.branch_specific_pricing ?? false
-  const durationLabel = getDurationLabel(course)
+  const courseTitle = hero.title || course.title || course.course_name || "Course"
+  const heroImg = hero.hero_image || course.media_resources?.course_image_url || "/assets/img/banner.jpg"
 
   return (
     <main className="min-h-screen bg-[#171A26] text-gray-300">
-      {/* Hero with back */}
-      <section className="relative pt-6 pb-4 border-b border-gray-800">
-        <div className="container mx-auto px-4 max-w-7xl">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{title}</h1>
-            <button
-              type="button"
-              onClick={() => router.push("/courses")}
-              className="inline-flex items-center gap-2 text-[#FFB70F] hover:text-white font-medium transition-colors shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back to Courses
-            </button>
-          </div>
+      {/* ============ 1. HERO ============ */}
+      <section className="relative min-h-[70vh] flex items-end overflow-hidden" style={{ backgroundImage: `url(${heroImg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
+        <div className="container relative z-10 mx-auto px-4 max-w-7xl pb-16 pt-32">
+          <h1 className="text-4xl md:text-6xl font-extrabold text-white uppercase leading-tight mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+            {courseTitle}
+          </h1>
+          {hero.subtitle && <p className="text-lg md:text-xl text-gray-200 max-w-2xl mb-3">{hero.subtitle}</p>}
+          {hero.description && <p className="text-gray-300 max-w-2xl mb-6">{hero.description}</p>}
+          {hero.cta_text && (
+            <Link href={hero.cta_link || "/register"} className="inline-block rounded-lg bg-[#F73322] px-8 py-3.5 text-base font-bold text-white hover:bg-[#FFB70F] hover:text-black transition-colors">
+              {hero.cta_text}
+            </Link>
+          )}
         </div>
       </section>
 
-      {/* Info strip - like home/courses page */}
-      <section className="bg-[#F73322] py-6 border-y border-[#F73322]">
-        <div className="container mx-auto px-4 max-w-7xl">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
-            <div className="flex items-center gap-3 text-white">
-              <Clock className="w-8 h-8 flex-shrink-0 opacity-90" />
-              <div>
-                <p className="text-white/90 text-xs uppercase">Course Duration</p>
-                <p className="font-semibold text-lg">{durationLabel}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 text-white">
-              <Target className="w-8 h-8 flex-shrink-0 opacity-90" />
-              <div>
-                <p className="text-white/90 text-xs uppercase">Difficulty</p>
-                <p className="font-semibold text-lg">{course.difficulty_level || "—"}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 text-white">
-              <Users className="w-8 h-8 flex-shrink-0 opacity-90" />
-              <div>
-                <p className="text-white/90 text-xs uppercase">Age Range</p>
-                <p className="font-semibold text-lg">
-                  {course.min_age != null || course.max_age != null
-                    ? `${course.min_age ?? "—"} – ${course.max_age ?? "—"} years`
-                    : "—"}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 text-white">
-              <IndianRupee className="w-8 h-8 flex-shrink-0 opacity-90" />
-              <div>
-                <p className="text-white/90 text-xs uppercase">Pricing</p>
-                <p className="font-semibold text-lg">
-                  {feeEntries.length > 0 ? feeEntries.map((f) => `${f.label} ${f.value}`).join(" · ") : "—"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="container mx-auto px-4 py-12 md:py-16 max-w-7xl space-y-16">
-        {/* Media & Resources */}
-        <section>
-          <SectionHeader subtitle="Media & Resources" title="Course visuals" />
-          <div className="rounded-xl overflow-hidden border border-gray-800 bg-gray-900/50">
-            {imageUrl ? (
-              <div className="relative aspect-video bg-gray-900 group">
-                <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
-                {videoUrl && (
-                  <a
-                    href={videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 group-hover:bg-black/40 transition-colors"
-                  >
-                    <span className="w-20 h-20 rounded-full bg-[#FFB70F] flex items-center justify-center text-black shadow-xl group-hover:scale-110 transition-transform">
-                      <Play className="w-10 h-10 ml-1" />
-                    </span>
-                  </a>
-                )}
-              </div>
-            ) : videoUrl ? (
-              <div className="aspect-video bg-gray-900 flex items-center justify-center p-8">
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 rounded-xl bg-[#FFB70F] px-8 py-4 text-black font-semibold hover:bg-[#F73322] hover:text-white transition-colors"
-                >
-                  <Video className="w-6 h-6" /> Watch promotional video
-                </a>
-              </div>
-            ) : (
-              <div className="aspect-video bg-gray-900 flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <ImageIcon className="w-16 h-16 mx-auto mb-2 opacity-50" />
-                  <p>No media added yet</p>
+      {/* ============ 2. INFO BAR ============ */}
+      {(info.location || info.duration || info.price || info.training_time) && (
+        <section className="bg-[#F73322]">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/20">
+              {info.location && (
+                <div className="flex items-center gap-3 py-5 px-4 text-white">
+                  <MapPin className="w-7 h-7 flex-shrink-0 opacity-90" />
+                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Select Location</p><p className="font-bold text-lg">{info.location}</p></div>
                 </div>
-              </div>
-            )}
-            <div className="p-4 md:p-6 flex flex-wrap gap-4 border-t border-gray-800">
-              {imageUrl && (
-                <span className="inline-flex items-center gap-2 text-sm text-gray-400">
-                  <ImageIcon className="w-4 h-4 text-[#FFB70F]" /> Course image
-                </span>
               )}
-              {videoUrl && (
-                <span className="inline-flex items-center gap-2 text-sm text-gray-400">
-                  <Video className="w-4 h-4 text-[#FFB70F]" /> Promo video available
-                </span>
+              {info.duration && (
+                <div className="flex items-center gap-3 py-5 px-4 text-white">
+                  <Calendar className="w-7 h-7 flex-shrink-0 opacity-90" />
+                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Course Duration</p><p className="font-bold text-lg">{info.duration}</p></div>
+                </div>
               )}
-            </div>
-          </div>
-        </section>
-
-        {/* At a glance: Difficulty, Duration, Student requirements, Pricing */}
-        <section>
-          <SectionHeader subtitle="At a glance" title="Key details" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800">
-              <div className="flex items-center gap-3 mb-3">
-                <Target className="w-6 h-6 text-[#FFB70F]" />
-                <h3 className="text-lg font-bold text-[#FFB70F]">Difficulty level</h3>
-              </div>
-              <p className="text-white font-medium">{course.difficulty_level || "—"}</p>
-            </div>
-            <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800">
-              <div className="flex items-center gap-3 mb-3">
-                <Clock className="w-6 h-6 text-[#FFB70F]" />
-                <h3 className="text-lg font-bold text-[#FFB70F]">Course duration</h3>
-              </div>
-              <p className="text-white font-medium">{durationLabel}</p>
-            </div>
-            <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800">
-              <div className="flex items-center gap-3 mb-3">
-                <Users className="w-6 h-6 text-[#FFB70F]" />
-                <h3 className="text-lg font-bold text-[#FFB70F]">Student requirements</h3>
-              </div>
-              <ul className="space-y-1 text-gray-300">
-                <li>Max students: <span className="text-white">{course.max_students ?? "—"}</span></li>
-                <li>Age: <span className="text-white">{course.min_age ?? "—"} – {course.max_age ?? "—"} years</span></li>
-                {course.prerequisites && course.prerequisites.length > 0 && (
-                  <li>Prerequisites: {course.prerequisites.length} item(s)</li>
-                )}
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing & Availability */}
-        <section>
-          <SectionHeader subtitle="Pricing & availability" title="Fees and options" />
-          <div className="bg-gray-900/50 rounded-xl p-6 md:p-8 border border-gray-800">
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-              <IndianRupee className="w-8 h-8 text-[#FFB70F]" />
-              <h3 className="text-xl font-bold text-[#FFB70F]">Course fees (INR)</h3>
-            </div>
-            {feeEntries.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {feeEntries.map((f, i) => (
-                  <div key={`fee-${i}`} className="bg-[#171A26] rounded-lg px-4 py-3 border border-gray-700">
-                    <p className="text-gray-400 text-sm">{f.label}</p>
-                    <p className="text-xl font-bold text-white">{f.value}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-400">Fees to be announced.</p>
-            )}
-            <p className="mt-4 text-sm text-gray-400">
-              Branch-specific pricing: <span className="text-white font-medium">{branchSpecific ? "Yes" : "No"}</span>
-            </p>
-          </div>
-        </section>
-
-        {/* Course Content: Description, Syllabus, Equipment */}
-        <section>
-          <SectionHeader subtitle="Course content" title="What you&apos;ll learn" />
-          <div className="space-y-6">
-            {course.description && (
-              <div className="bg-gray-900/50 rounded-xl p-6 md:p-8 border border-gray-800">
-                <h3 className="text-lg font-bold text-[#FFB70F] mb-4 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5" /> Description
-                </h3>
-                <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{course.description}</p>
-              </div>
-            )}
-            {course.syllabus && (
-              <div className="bg-gray-900/50 rounded-xl p-6 md:p-8 border border-gray-800">
-                <h3 className="text-lg font-bold text-[#FFB70F] mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5" /> Course syllabus
-                </h3>
-                <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{course.syllabus}</p>
-              </div>
-            )}
-            {course.equipment_required && (
-              <div className="bg-gray-900/50 rounded-xl p-6 md:p-8 border border-gray-800">
-                <h3 className="text-lg font-bold text-[#FFB70F] mb-4 flex items-center gap-2">
-                  <Shield className="w-5 h-5" /> Equipment required
-                </h3>
-                <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{course.equipment_required}</p>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Student requirements (detailed) */}
-        {(course.max_students != null || course.min_age != null || course.max_age != null || (course.prerequisites && course.prerequisites.length > 0)) && (
-          <section>
-            <SectionHeader subtitle="Requirements" title="Student requirements" />
-            <div className="bg-gray-900/50 rounded-xl p-6 md:p-8 border border-gray-800">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {course.max_students != null && (
-                  <div>
-                    <p className="text-[#FFB70F] text-sm font-semibold uppercase tracking-wide mb-1">Maximum students</p>
-                    <p className="text-white text-lg font-medium">{course.max_students}</p>
-                  </div>
-                )}
-                {(course.min_age != null || course.max_age != null) && (
-                  <div>
-                    <p className="text-[#FFB70F] text-sm font-semibold uppercase tracking-wide mb-1">Age range</p>
-                    <p className="text-white text-lg font-medium">{course.min_age ?? "—"} – {course.max_age ?? "—"} years</p>
-                  </div>
-                )}
-              </div>
-              {course.prerequisites && course.prerequisites.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-gray-700">
-                  <p className="text-[#FFB70F] text-sm font-semibold uppercase tracking-wide mb-3">Prerequisites</p>
-                  <ul className="list-disc list-inside space-y-2 text-gray-300">
-                    {course.prerequisites.map((p, i) => (
-                      <li key={i}>{p}</li>
-                    ))}
-                  </ul>
+              {info.price && (
+                <div className="flex items-center gap-3 py-5 px-4 text-white">
+                  <IndianRupee className="w-7 h-7 flex-shrink-0 opacity-90" />
+                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Price Details</p><p className="font-bold text-lg">{info.price}</p></div>
+                </div>
+              )}
+              {info.training_time && (
+                <div className="flex items-center gap-3 py-5 px-4 text-white">
+                  <Clock className="w-7 h-7 flex-shrink-0 opacity-90" />
+                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Timings</p><p className="font-bold text-lg">{info.training_time}</p></div>
                 </div>
               )}
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {/* Course curriculum / modules */}
-        {modules.length > 0 && (
-          <section>
-            <SectionHeader subtitle="Curriculum" title={`Course modules (${modules.length})`} />
-            <div className="space-y-4">
-              {modules.map((mod, i) => (
-                <div
-                  key={mod.id ?? i}
-                  className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 flex flex-col sm:flex-row sm:items-start gap-4"
-                >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FFB70F]/20 flex items-center justify-center text-[#FFB70F] font-bold">
-                    {i + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-white">{mod.title || `Module ${i + 1}`}</h3>
-                    {(mod.duration != null || mod.duration_minutes != null) && (
-                      <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> {mod.duration_minutes ?? mod.duration} min
-                      </p>
-                    )}
-                    {mod.description && (
-                      <p className="text-gray-400 mt-2 leading-relaxed">{mod.description}</p>
-                    )}
-                  </div>
+      {/* ============ 3. ABOUT ============ */}
+      {(about.title || about.description || course.description) && (
+        <section className="py-16 md:py-20">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+              <div>
+                <p className="text-[#F73322] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {courseTitle}</p>
+                <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                  {about.title || "Start Today and Change Your Life"}
+                </h2>
+                <div className="space-y-4 text-gray-400 leading-relaxed">
+                  <p>{about.description || course.description}</p>
+                  {about.secondary_description && <p>{about.secondary_description}</p>}
+                </div>
+                <Link href={hero.cta_link || "/register"} className="inline-block mt-8 rounded border-2 border-[#FFB70F] px-8 py-3 text-[#FFB70F] font-semibold hover:bg-[#FFB70F] hover:text-black transition-colors">
+                  Read More
+                </Link>
+              </div>
+              {(about.image1 || about.image2) && (
+                <div className="grid grid-cols-2 gap-4">
+                  {about.image1 && <img src={about.image1} alt="" className="rounded-lg w-full h-64 object-cover" />}
+                  {about.image2 && <img src={about.image2} alt="" className="rounded-lg w-full h-64 object-cover mt-8" />}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ============ 4. BENEFITS ============ */}
+      {benefits.length > 0 && (
+        <section className="py-16 md:py-20 bg-[#1E2130]">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <SectionLabel sub="Why Choose Us" title={`Benefits of ${courseTitle}`} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {benefits.map((b, i) => (
+                <div key={i} className="bg-[#171A26] border border-gray-800 rounded-xl p-6 hover:border-[#FFB70F] transition-colors text-center">
+                  {b.icon && <span className="text-3xl block mb-3">{b.icon}</span>}
+                  <h3 className="text-xl font-bold text-[#FFB70F] uppercase mb-2" style={{ fontFamily: "'Oswald', sans-serif" }}>{b.title}</h3>
+                  <p className="text-gray-400 text-sm">{b.description}</p>
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {/* CTA */}
-        <section className="pt-8">
-          <div className="text-center">
-            <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-6" />
-            <p className="text-gray-400 mb-6">Ready to join? Register and start your journey.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                href="/register"
-                className="inline-flex items-center justify-center rounded-xl bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-[#F73322] hover:text-white transition-colors shadow-lg"
-              >
-                Register for this course
-              </Link>
-              <Link
-                href="/courses"
-                className="inline-flex items-center gap-2 text-[#FFB70F] hover:text-white font-semibold transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" /> View all courses
-              </Link>
+      {/* ============ 5. LEARNING / VIDEO ============ */}
+      {(learning.title || learning.video_url || learning.description) && (
+        <section className="py-16 md:py-20">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <SectionLabel sub="Our Classes" title={learning.title || `What You Will Learn`} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div className="text-gray-400 leading-relaxed space-y-4">
+                {learning.description && learning.description.split("\n").map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+              {learning.video_url && (
+                <div className="relative rounded-xl overflow-hidden aspect-video bg-black">
+                  {getYouTubeId(learning.video_url) ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${getYouTubeId(learning.video_url)}`}
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video controls className="w-full h-full object-cover" poster={learning.thumbnail || undefined}>
+                      <source src={learning.video_url} type="video/mp4" />
+                    </video>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>
-      </div>
+      )}
+
+      {/* ============ 6. GALLERY ============ */}
+      {gallery.length > 0 && (
+        <section className="py-16 md:py-20 bg-[#1E2130]">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <SectionLabel sub="Martial Style" title="Our Gallery" />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {gallery.map((url, i) => (
+                <div key={i} className="overflow-hidden rounded-lg group">
+                  <img src={url} alt="" className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ============ 7. INSTRUCTORS ============ */}
+      {instructors.length > 0 && (
+        <section className="py-16 md:py-20">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <SectionLabel sub="Our Team" title="Our Instructors" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {instructors.map((inst, i) => (
+                <div key={i} className="text-center group">
+                  <div className="relative w-48 h-48 mx-auto mb-4 rounded-full overflow-hidden border-4 border-[#F73322] group-hover:border-[#FFB70F] transition-colors">
+                    {inst.photo ? (
+                      <img src={inst.photo} alt={inst.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-800 flex items-center justify-center text-4xl text-gray-600">👤</div>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-bold text-[#F73322] uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{inst.name}</h3>
+                  <p className="text-gray-400 text-sm">{inst.designation}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ============ 8. TESTIMONIALS ============ */}
+      {testimonials.length > 0 && (
+        <section className="py-16 md:py-20 bg-[#1E2130]">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <SectionLabel sub="Testimonials" title="Success Stories" />
+            <div className="max-w-4xl mx-auto">
+              {/* Active testimonial */}
+              <div className="bg-[#171A26] border border-gray-800 rounded-xl p-8 md:p-10 text-center relative">
+                <Quote className="w-10 h-10 text-[#FFB70F] mx-auto mb-4 opacity-50" />
+                <p className="text-gray-300 text-lg leading-relaxed mb-6 italic">&ldquo;{testimonials[testimonialIdx]?.text}&rdquo;</p>
+                <p className="text-[#FFB70F] font-bold uppercase">{testimonials[testimonialIdx]?.name}</p>
+                <p className="text-gray-500 text-sm">{testimonials[testimonialIdx]?.designation}</p>
+              </div>
+              {/* Carousel nav */}
+              {testimonials.length > 1 && (
+                <div className="flex items-center justify-center gap-6 mt-6">
+                  <button onClick={() => setTestimonialIdx((p) => (p - 1 + testimonials.length) % testimonials.length)} className="w-10 h-10 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:border-[#FFB70F] hover:text-[#FFB70F] transition-colors">
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="flex gap-2">
+                    {testimonials.map((_, i) => (
+                      <button key={i} onClick={() => setTestimonialIdx(i)} className={`w-3 h-3 rounded-full transition-colors ${i === testimonialIdx ? "bg-[#FFB70F]" : "bg-gray-700"}`} />
+                    ))}
+                  </div>
+                  <button onClick={() => setTestimonialIdx((p) => (p + 1) % testimonials.length)} className="w-10 h-10 rounded-full border border-gray-700 flex items-center justify-center text-gray-400 hover:border-[#FFB70F] hover:text-[#FFB70F] transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+              {/* Thumbnail row */}
+              {testimonials.length > 1 && (
+                <div className="flex justify-center gap-4 mt-6">
+                  {testimonials.map((t, i) => (
+                    <button key={i} onClick={() => setTestimonialIdx(i)} className={`flex flex-col items-center transition-opacity ${i === testimonialIdx ? "opacity-100" : "opacity-50 hover:opacity-80"}`}>
+                      <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${i === testimonialIdx ? "border-[#FFB70F]" : "border-gray-700"}`}>
+                        {t.photo ? <img src={t.photo} alt={t.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-800 flex items-center justify-center text-lg">👤</div>}
+                      </div>
+                      <span className="text-[10px] text-gray-400 mt-1 max-w-[70px] truncate">{t.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ============ 9. PDF ATTACHMENTS ============ */}
+      {attachments.length > 0 && (
+        <section className="py-16 md:py-20">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <SectionLabel sub="Resources" title="Downloads" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
+              {attachments.map((a, i) => (
+                <a key={i} href={a.file_url} target="_blank" rel="noopener noreferrer" download className="flex items-center gap-3 bg-[#1E2130] border border-gray-800 rounded-lg px-5 py-4 hover:border-[#FFB70F] transition-colors group">
+                  <Download className="w-6 h-6 text-[#FFB70F] group-hover:scale-110 transition-transform" />
+                  <span className="text-gray-300 font-medium">{a.title || "Download"}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ============ CTA ============ */}
+      <section className="py-12 bg-[#F73322]">
+        <div className="container mx-auto px-4 max-w-7xl text-center">
+          <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+            Ready to Start Your Journey?
+          </h2>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link href={hero.cta_link || "/register"} className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg">
+              Register Now
+            </Link>
+            <Link href="/courses" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
+              <ArrowLeft className="w-4 h-4" /> View All Courses
+            </Link>
+          </div>
+        </div>
+      </section>
     </main>
   )
 }

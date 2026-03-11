@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, MoreVertical, Menu, Settings, User, LogOut } from "lucide-react"
+import { ChevronDown, MoreVertical, Menu, Settings, User, LogOut, FileText } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useRouter, usePathname } from "next/navigation"
+import { useCMS } from "@/contexts/CMSContext"
 import { useState, useEffect } from "react"
 import NotificationDropdown from "@/components/notification-dropdown"
 import Sidebar from "@/components/layout/Sidebar"
@@ -34,6 +35,7 @@ export default function Navbar({ role }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [profileImage, setProfileImage] = useState<string>("")
 
+  const { cms } = useCMS()
   const menuItems = getMenuForRole(role)
   const basePath = getBasePath(role)
   const roleLabel = getRoleLabel(role)
@@ -81,6 +83,7 @@ export default function Navbar({ role }: NavbarProps) {
 
   const profilePath = `${basePath}/profile`
   const settingsPath = `${basePath}/settings`
+  const cmsPath = `${basePath}/cms`
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
@@ -88,7 +91,7 @@ export default function Navbar({ role }: NavbarProps) {
         <div className="flex justify-between items-center h-auto gap-4">
           <div className="flex items-center space-x-2 flex-shrink-0">
             <div className="flex-shrink-0">
-              <img src="/logo.png" alt="Logo" className="xl:w-[95px] w-[80px] h-auto" />
+              <img src={cms?.branding?.navbar_logo || "/logo.png"} alt="Logo" className="xl:w-[95px] w-[80px] h-auto" />
             </div>
 
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -105,7 +108,7 @@ export default function Navbar({ role }: NavbarProps) {
 
           <div className="flex items-center space-x-2 lg:space-x-3 ml-auto">
             <nav className="hidden lg:flex items-center space-x-2 xl:space-x-3 2xl:space-x-4">
-              {menuItems.map((item) => {
+              {menuItems.filter(item => item.label !== "Settings").map((item) => {
                 const Icon = item.icon
                 return item.children ? (
                   <DropdownMenu key={item.path}>
@@ -189,6 +192,12 @@ export default function Navbar({ role }: NavbarProps) {
                     <DropdownMenuItem onClick={() => router.push(settingsPath)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
                       <Settings className="w-4 h-4" />
                       Settings
+                    </DropdownMenuItem>
+                  )}
+                  {role === "super_admin" && (
+                    <DropdownMenuItem onClick={() => router.push(cmsPath)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      CMS
                     </DropdownMenuItem>
                   )}
                   <div className="h-px bg-gray-200/60 my-2" />

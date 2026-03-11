@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+/* Allow up to 120 MB bodies (video uploads) */
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const BACKEND_URL =
   process.env.API_BASE_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -21,44 +25,68 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
     request.headers.forEach((value, key) => {
       if (
         key.toLowerCase() !== "host" &&
-        key.toLowerCase() !== "connection"
+        key.toLowerCase() !== "connection" &&
+        key.toLowerCase() !== "content-length"
       ) {
         headers[key] = value;
       }
     });
 
-    const body =
-      method !== "GET" && method !== "HEAD"
-        ? await request.text()
-        : undefined;
+    let body: BodyInit | undefined = undefined;
+    if (method !== "GET" && method !== "HEAD") {
+      const contentType = request.headers.get("content-type") || "";
+      if (
+        contentType.includes("multipart/form-data") ||
+        contentType.includes("application/octet-stream")
+      ) {
+        // Binary upload — forward raw bytes
+        body = Buffer.from(await request.arrayBuffer());
+      } else {
+        // JSON / text
+        body = await request.text();
+      }
+    }
 
     const res = await fetch(url, {
       method,
       headers,
-      body: body || undefined,
+      body,
     });
 
-    const text = await res.text();
-    let data: unknown = text;
     const contentType = res.headers.get("content-type") || "";
-    if (contentType.includes("application/json") && text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        // keep as text
+
+    if (contentType.includes("application/json")) {
+      const text = await res.text();
+      let data: unknown = text;
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // keep as text
+        }
       }
+
+      if (res.status >= 500) {
+        console.error("[backend proxy] Backend returned", res.status, "for", method, url);
+        console.error("[backend proxy] Response:", typeof data === "object" ? JSON.stringify(data) : data);
+      }
+
+      return NextResponse.json(data, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
     }
 
-    if (res.status >= 500) {
-      console.error("[backend proxy] Backend returned", res.status, "for", method, url);
-      console.error("[backend proxy] Response:", typeof data === "object" ? JSON.stringify(data) : data);
-    }
-
-    return NextResponse.json(data, {
+    // Non-JSON response (binary, HTML, etc.) — stream it through
+    const resBody = await res.arrayBuffer();
+    return new NextResponse(resBody, {
       status: res.status,
       statusText: res.statusText,
       headers: {
-        "Content-Type": res.headers.get("content-type") || "application/json",
+        "Content-Type": contentType,
       },
     });
   } catch (err) {

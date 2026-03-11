@@ -3,7 +3,7 @@
 import { getBackendApiUrl } from "@/lib/config"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Edit, Trash2, X, Eye } from "lucide-react"
+import { Search, Edit, X, Eye } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useRouter, usePathname } from "next/navigation"
@@ -71,8 +71,6 @@ export default function BranchesList() {
       router.replace("/branch-admin/dashboard")
     }
   }, [pathname, router])
-  const [showDeletePopup, setShowDeletePopup] = useState(false)
-  const [branchToDelete, setBranchToDelete] = useState<string | null>(null)
   const [selectedBranch, setSelectedBranch] = useState("")
   const [selectedCoach, setSelectedCoach] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
@@ -299,55 +297,12 @@ const itemsPerPage = 5
     }
   }
 
-  const handleDeleteClick = (branchId: string) => {
-    setBranchToDelete(branchId)
-    setShowDeletePopup(true)
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (branchToDelete) {
-      try {
-        const token = TokenManager.getToken()
-        if (!token) {
-          throw new Error("Authentication token not found. Please login again.")
-        }
-
-        const response = await fetch(getBackendApiUrl(`branches/${branchToDelete}`), {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to delete branch (${response.status})`)
-        }
-
-        // Remove branch from local state
-        setBranches(branches.filter(branch => branch.id !== branchToDelete))
-        setBranchToDelete(null)
-        setShowDeletePopup(false)
-
-      } catch (error) {
-        console.error("Error deleting branch:", error)
-        alert(`Error deleting branch: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
-    }
-  }
-
   const handleViewClick = (branchId: string) => {
     router.push(`${basePath}/branches/${branchId}`)
   }
 
   const handleEditClick = (branchId: string) => {
     router.push(`${basePath}/branches/edit/${branchId}`)
-  }
-
-  const handleDeleteCancel = () => {
-    setShowDeletePopup(false)
-    setBranchToDelete(null)
   }
 
   const handleOpenAssignModal = () => {
@@ -569,13 +524,6 @@ const paginatedBranches = filteredBranches.slice(
                         >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button
-                          className="text-gray-400 hover:text-red-600"
-                          onClick={() => handleDeleteClick(branch.id)}
-                          title="Delete Branch"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                         <Switch
                           checked={branch.is_active ?? true}
                           className="data-[state=checked]:bg-yellow-400"
@@ -758,33 +706,6 @@ const paginatedBranches = filteredBranches.slice(
         </div>
       )}
 
-      {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Delete Branch</h2>
-              <button onClick={handleDeleteCancel} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-gray-600">
-                Are you sure you want to delete this branch? This action cannot be undone.
-              </p>
-            </div>
-
-            <div className="flex space-x-3">
-              <Button onClick={handleDeleteCancel} variant="outline" className="flex-1 bg-transparent">
-                Cancel
-              </Button>
-              <Button onClick={handleDeleteConfirm} className="flex-1 bg-red-500 hover:bg-red-600 text-white">
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

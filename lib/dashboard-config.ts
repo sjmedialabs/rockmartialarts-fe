@@ -14,6 +14,7 @@ import {
   BarChart,
   CreditCard,
   User,
+  Settings,
   type LucideIcon
 } from "lucide-react"
 
@@ -54,6 +55,16 @@ const SUPER_ADMIN_MENU: NavItem[] = [
     ],
   },
   { label: "Reports", path: `${SUPER_ADMIN_BASE}/reports`, icon: BarChart },
+  { label: "Payment Tracking", path: `${SUPER_ADMIN_BASE}/payment-tracking`, icon: CreditCard },
+  {
+    label: "Settings",
+    path: `${SUPER_ADMIN_BASE}/settings`,
+    icon: Settings,
+    children: [
+      { label: "General Settings", path: `${SUPER_ADMIN_BASE}/settings` },
+      { label: "Dropdown Settings", path: `${SUPER_ADMIN_BASE}/settings/dropdown-settings` },
+    ],
+  },
 ]
 
 // Branch admin: no Branches menu, no Add Branch Manager / Add New Branch

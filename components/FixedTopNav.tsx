@@ -1,5 +1,7 @@
 "use client"
 
+import { useCMS } from "@/contexts/CMSContext"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -7,18 +9,22 @@ import { Menu, LogIn } from "lucide-react"
 
 const navLinks = [
   { label: "Courses", href: "/courses" },
+  { label: "Branches", href: "/branches" },
   { label: "Store", href: "/store" },
 ]
 
 export function FixedTopNav() {
+  const { cms } = useCMS()
+  const navbarLogo = cms?.branding?.navbar_logo || "/logo.png"
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#766E6E] bg-[#171A26] px-4 py-5">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#766E6E] bg-[#171A26] px-4 py-2">
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         <Link href="/" className="flex-shrink-0">
           <img
-            src="/logo.png"
+            src={navbarLogo}
             alt="Rock Martial Arts Academy"
-            className="h-10 w-auto object-contain md:h-12"
+            className="w-[100px] h-[100px] object-contain"
           />
         </Link>
 

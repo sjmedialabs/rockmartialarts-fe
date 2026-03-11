@@ -13,6 +13,12 @@ type CourseItem = {
   description?: string
   difficulty_level?: string
   pricing?: { amount?: number; currency?: string }
+  media_resources?: { course_image_url?: string; promo_video_url?: string }
+  page_content?: { hero_section?: { hero_image?: string } }
+}
+
+function getCourseImage(c: CourseItem): string | null {
+  return c.media_resources?.course_image_url || c.page_content?.hero_section?.hero_image || null
 }
 
 export default function CoursesPage() {
@@ -71,8 +77,14 @@ export default function CoursesPage() {
                     href={`/courses/${toCourseSlug(c)}`}
                     className="group block rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden hover:border-[#FFB70F] transition-colors"
                   >
-                    <div className="aspect-[4/3] bg-gray-800 flex items-center justify-center">
-                      <span className="text-4xl text-gray-600 group-hover:text-[#FFB70F] transition-colors">🥋</span>
+                    <div className="aspect-[4/3] bg-gray-800 overflow-hidden">
+                      {getCourseImage(c) ? (
+                        <img src={getCourseImage(c)!} alt={c.title || c.name || ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-4xl text-gray-600 group-hover:text-[#FFB70F] transition-colors">🥋</span>
+                        </div>
+                      )}
                     </div>
                     <div className="p-5">
                       <h2 className="text-xl font-bold text-[#FFB70F] group-hover:text-white transition-colors mb-1">

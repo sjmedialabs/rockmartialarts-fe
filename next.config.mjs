@@ -9,6 +9,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "120mb",
+    },
+  },
   async redirects() {
     return [
       { source: "/branch-manager-dashboard", destination: "/dashboard", permanent: true },

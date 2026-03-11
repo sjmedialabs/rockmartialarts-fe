@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Edit, Trash2, ToggleLeft, ToggleRight, Eye, Mail, Loader2 } from "lucide-react"
+import { Search, Edit, ToggleLeft, ToggleRight, Eye, Mail, Loader2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
@@ -45,7 +45,6 @@ export default function CoachesListPage() {
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [showAssignPopup, setShowAssignPopup] = useState(false)
-  const [showDeletePopup, setShowDeletePopup] = useState(false)
   const [showSendCredentialsPopup, setShowSendCredentialsPopup] = useState(false)
   const [selectedCoach, setSelectedCoach] = useState<string | null>(null)
   const [selectedCoachForCredentials, setSelectedCoachForCredentials] = useState<Coach | null>(null)
@@ -172,44 +171,6 @@ const itemsPerPage = 5
       setAssignmentError(error instanceof Error ? error.message : 'Failed to assign manager')
     } finally {
       setAssignmentLoading(false)
-    }
-  }
-
-  const handleDeleteClick = (coachId: string) => {
-    setSelectedCoach(coachId)
-    setShowDeletePopup(true)
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (selectedCoach !== null) {
-      try {
-        const token = TokenManager.getToken()
-        if (!token) {
-          throw new Error("Authentication token not found. Please login again.")
-        }
-
-        const response = await fetch(getBackendApiUrl(`coaches/${selectedCoach}`), {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to delete coach (${response.status})`)
-        }
-
-        // Remove coach from local state
-        setCoaches(coaches.filter(coach => coach.id !== selectedCoach))
-        setShowDeletePopup(false)
-        setSelectedCoach(null)
-
-      } catch (error) {
-        console.error("Error deleting coach:", error)
-        alert(`Error deleting coach: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
     }
   }
 
@@ -442,15 +403,6 @@ const paginatedCoaches = filteredCoaches.slice(
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(coach.id)}
-                              className="p-1 h-8 w-8"
-                              title="Delete Coach"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
                               onClick={() => toggleCoachStatus(coach.id)}
                               className="p-1 h-8 w-8"
                             >
@@ -590,31 +542,6 @@ const paginatedCoaches = filteredCoaches.slice(
               >
                 {assignmentLoading ? "Assigning..." : "Assign as Manager"}
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Popup */}
-      {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-8 h-8 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Coach</h3>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to delete this coach? This action cannot be undone.
-              </p>
-              <div className="flex space-x-3">
-                <Button variant="outline" onClick={() => setShowDeletePopup(false)} className="flex-1">
-                  Cancel
-                </Button>
-                <Button onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700 text-white flex-1">
-                  Delete
-                </Button>
-              </div>
             </div>
           </div>
         </div>

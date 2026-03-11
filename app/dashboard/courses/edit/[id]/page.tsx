@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { uploadFile } from "@/lib/upload"
+import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
 
 export default function EditCoursePage() {
   const router = useRouter()
@@ -72,6 +74,13 @@ export default function EditCoursePage() {
     imageUrl: "",
     videoUrl: "",
     tags: [] as string[]
+  })
+  const [pageContent, setPageContent] = useState<PageContent>({})
+  const [seoData, setSeoData] = useState({
+    meta_title: "",
+    meta_description: "",
+    meta_keywords: "",
+    og_image: ""
   })
 
   /** Selected course duration (from master data); used to limit add-tenure options to <= this duration. */
@@ -166,6 +175,18 @@ export default function EditCoursePage() {
           tags: course.tags || [],
         })
         setIsLoading(false)
+        // Populate page content sections
+        if (course.page_content) {
+          setPageContent(course.page_content)
+        }
+        if (course.seo) {
+          setSeoData({
+            meta_title: course.seo.meta_title || "",
+            meta_description: course.seo.meta_description || "",
+            meta_keywords: course.seo.meta_keywords || "",
+            og_image: course.seo.og_image || ""
+          })
+        }
       } catch (error) {
         console.error('Error fetching course:', error)
         toast({
@@ -554,7 +575,7 @@ export default function EditCoursePage() {
           equipment_required: formData.equipmentRequired ? formData.equipmentRequired.split(',').map(item => item.trim()) : []
         },
         media_resources: {
-          course_image_url: (formData as any).courseImageUrl || "",
+          course_image_url: formData.imageUrl || "",
           promo_video_url: (formData as any).promoVideoUrl || ""
         },
         pricing: {
@@ -584,7 +605,9 @@ export default function EditCoursePage() {
         settings: {
           offers_certification: (formData as any).offersCertification || true,
           active: true
-        }
+        },
+        page_content: pageContent,
+        seo: seoData.meta_title || seoData.meta_description ? seoData : undefined
       }
       
       // Add curriculum if modules exist (may be handled separately by API)
@@ -1017,18 +1040,30 @@ export default function EditCoursePage() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="imageUrl">Course Image URL</Label>
-                        <div className="flex space-x-2">
+                        <Label>Course Image</Label>
+                        {formData.imageUrl && (
+                          <img src={formData.imageUrl} alt="Course" className="w-32 h-24 object-cover rounded border" />
+                        )}
+                        <div className="flex items-center gap-2">
                           <Input
                             id="imageUrl"
                             value={formData.imageUrl}
                             onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                            placeholder="Enter course image URL"
-                            className="placeholder:text-muted-foreground"
+                            placeholder="URL or upload an image"
+                            className="flex-1"
                           />
-                          <Button type="button" variant="outline" size="sm">
-                            <Upload className="w-4 h-4" />
-                          </Button>
+                          <label className="cursor-pointer">
+                            <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                              const file = e.target.files?.[0]; if (!file) return;
+                              try {
+                                const result = await uploadFile(file);
+                                setFormData({ ...formData, imageUrl: result.file_url });
+                              } catch (err: any) { alert(err.message || "Upload failed"); }
+                            }} />
+                            <span className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800">
+                              <Upload className="w-4 h-4" /> Upload
+                            </span>
+                          </label>
                         </div>
                       </div>
 
@@ -1236,6 +1271,57 @@ export default function EditCoursePage() {
                     </Button>
                   </div>
 
+                  {/* SEO Settings */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-[#4F5077]">SEO Settings</h3>
+                    <p className="text-sm text-gray-500">Configure search engine optimization for this course page.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="seo_meta_title">Meta Title</Label>
+                        <Input
+                          id="seo_meta_title"
+                          value={seoData.meta_title}
+                          onChange={(e) => setSeoData({ ...seoData, meta_title: e.target.value })}
+                          placeholder="Course page meta title"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="seo_meta_keywords">Meta Keywords</Label>
+                        <Input
+                          id="seo_meta_keywords"
+                          value={seoData.meta_keywords}
+                          onChange={(e) => setSeoData({ ...seoData, meta_keywords: e.target.value })}
+                          placeholder="keyword1, keyword2, keyword3"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="seo_meta_description">Meta Description</Label>
+                      <Textarea
+                        id="seo_meta_description"
+                        value={seoData.meta_description}
+                        onChange={(e) => setSeoData({ ...seoData, meta_description: e.target.value })}
+                        placeholder="Course page meta description"
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="seo_og_image">OG Image URL</Label>
+                      <Input
+                        id="seo_og_image"
+                        value={seoData.og_image}
+                        onChange={(e) => setSeoData({ ...seoData, og_image: e.target.value })}
+                        placeholder="https://example.com/og-image.jpg"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Page Content Sections */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-[#4F5077]">Course Page Sections</h3>
+                    <p className="text-sm text-gray-500">Configure the sections that appear on the public course detail page.</p>
+                    <CourseFormSections value={pageContent} onChange={setPageContent} />
+                  </div>
                   <div className="pt-6 border-t">
                     <div className="flex space-x-4">
                       <Button 

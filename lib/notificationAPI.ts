@@ -49,10 +49,16 @@ export interface MessageNotificationResponse {
 }
 
 class NotificationAPI {
+  /** Use the same-origin proxy so all browser requests stay on HTTPS */
   private baseURL: string
 
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+    // In the browser, always go through the Next.js proxy to avoid mixed-content issues
+    if (typeof window !== 'undefined') {
+      this.baseURL = '/api/backend'
+    } else {
+      this.baseURL = (process.env.API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8003') + '/api'
+    }
   }
 
   private getUserRole(): string | null {
@@ -91,12 +97,23 @@ class NotificationAPI {
   private async makeRequest(endpoint: string, options: RequestInit = {}) {
     const token = this.getAuthToken()
 
-    const defaultHeaders = {
+    const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Bearer ${token}` })
     }
 
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+    // endpoint comes in as /api/xxx — strip leading /api/ when using proxy
+    let url: string
+    if (this.baseURL === '/api/backend') {
+      // Browser: /api/backend/payments/notifications
+      const stripped = endpoint.replace(/^\/api\//, '')
+      url = `${this.baseURL}/${stripped}`
+    } else {
+      // Server: http://…/api/payments/notifications
+      url = `${this.baseURL.replace(/\/api$/, '')}${endpoint}`
+    }
+
+    const response = await fetch(url, {
       ...options,
       headers: {
         ...defaultHeaders,
@@ -117,15 +134,12 @@ class NotificationAPI {
       const userRole = this.getUserRole()
 
       if (userRole === 'branch_manager') {
-        // Branch managers get message notifications
         const data = await this.makeRequest(`/api/messages/notifications?skip=${skip}&limit=${limit}`)
         return data.notifications || []
       } else if (userRole === 'super_admin') {
-        // Superadmins get payment notifications
         const data = await this.makeRequest(`/api/payments/notifications?skip=${skip}&limit=${limit}`)
         return data || []
       } else {
-        // Other roles get message notifications
         const data = await this.makeRequest(`/api/messages/notifications?skip=${skip}&limit=${limit}`)
         return data.notifications || []
       }
@@ -160,17 +174,14 @@ class NotificationAPI {
       const userRole = this.getUserRole()
 
       if (userRole === 'branch_manager') {
-        // Branch managers mark message notifications as read
         await this.makeRequest(`/api/messages/notifications/${notificationId}/read`, {
           method: 'PUT'
         })
       } else if (userRole === 'super_admin') {
-        // Superadmins mark payment notifications as read
         await this.makeRequest(`/api/payments/notifications/${notificationId}/read`, {
           method: 'PUT'
         })
       } else {
-        // Other roles mark message notifications as read
         await this.makeRequest(`/api/messages/notifications/${notificationId}/read`, {
           method: 'PUT'
         })

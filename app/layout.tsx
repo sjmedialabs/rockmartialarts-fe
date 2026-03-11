@@ -3,6 +3,7 @@ import { Poppins, Roboto,Inter,Bebas_Neue } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { RegistrationProvider } from '@/contexts/RegistrationContext'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { CMSProvider } from '@/contexts/CMSContext'
 import { Toaster } from '@/components/ui/toaster'
 import AccessibilityProvider from '@/components/accessibility-provider'
 import { FixedTopNavWrapper } from '@/components/FixedTopNavWrapper'
@@ -61,10 +62,12 @@ export default function RootLayout({
       <body className={`font-sans ${poppins.variable}`}>
         <AccessibilityProvider>
           <AuthProvider>
+            <CMSProvider>
             <RegistrationProvider>
               <FixedTopNavWrapper />
               <TopNavSpacer>{children}</TopNavSpacer>
             </RegistrationProvider>
+            </CMSProvider>
           </AuthProvider>
           <Toaster />
         </AccessibilityProvider>

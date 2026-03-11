@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 const BACKEND_URL =
   process.env.API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   "http://127.0.0.1:8003";
 
@@ -90,17 +91,24 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
       },
     });
   } catch (err) {
+    const isLocalhost =
+      !BACKEND_URL || /^https?:\/\/127\.0\.0\.1|^https?:\/\/localhost/i.test(BACKEND_URL);
+    const isProduction = process.env.NODE_ENV === "production";
     console.error("[backend proxy] fetch failed:", err);
-    return NextResponse.json(
-      {
-        detail:
-          "Cannot reach the backend at " +
-          BACKEND_URL +
-          ". Is it running? Error: " +
-          (err instanceof Error ? err.message : String(err)),
-      },
-      { status: 502 }
-    );
+    let detail: string;
+    if (isProduction && isLocalhost) {
+      detail =
+        "Backend URL not configured. Set NEXT_PUBLIC_API_BASE_URL or API_BASE_URL to your API server URL in the deployment environment (e.g. Vercel Environment Variables).";
+    } else if (isProduction) {
+      detail = "Service temporarily unavailable. Please try again later.";
+    } else {
+      detail =
+        "Cannot reach the backend at " +
+        BACKEND_URL +
+        ". Is it running? Error: " +
+        (err instanceof Error ? err.message : String(err));
+    }
+    return NextResponse.json({ detail }, { status: 502 });
   }
 }
 

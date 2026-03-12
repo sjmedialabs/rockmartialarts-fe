@@ -110,6 +110,7 @@ interface FormData {
   operational_details: OperationalDetails
   assignments: Assignments
   bank_details: BankDetails
+  admission_fee: number
 }
 
 export default function EditBranch() {
@@ -180,7 +181,8 @@ export default function EditBranch() {
       bank_name: "",
       account_number: "",
       upi_id: ""
-    }
+    },
+    admission_fee: 500
   })
 
   // Auto-generate branch code
@@ -334,7 +336,8 @@ export default function EditBranch() {
             bank_name: branchData.bank_details?.bank_name || "",
             account_number: branchData.bank_details?.account_number || "",
             upi_id: branchData.bank_details?.upi_id || ""
-          }
+          },
+          admission_fee: typeof branchData.admission_fee === "number" ? branchData.admission_fee : 500
         })
 
         setIsLoading(false)
@@ -701,7 +704,8 @@ export default function EditBranch() {
           courses: formData.assignments.courses.map(course => course.course_id).filter(id => id != null),
           branch_admins: formData.assignments.branch_admins
         },
-        bank_details: formData.bank_details
+        bank_details: formData.bank_details,
+        admission_fee: formData.admission_fee
       }
       
       console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))
@@ -1342,9 +1346,26 @@ export default function EditBranch() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="admissionFee">Admission Fee (Branch Specific)</Label>
+                <Input
+                  id="admissionFee"
+                  type="number"
+                  min={0}
+                  value={formData.admission_fee}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      admission_fee: Number(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="Enter admission fee for this branch"
+                />
+              </div>
+
               <div className="pt-4 border-t">
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p><span className="font-medium">Note:</span> Bank details are optional.</p>
+                  <p><span className="font-medium">Note:</span> Bank details are optional. Admission fee is used when calculating registration payments for this branch.</p>
                 </div>
               </div>
             </CardContent>

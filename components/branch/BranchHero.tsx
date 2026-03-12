@@ -24,25 +24,33 @@ export function BranchHero({ branch, coverImageUrl }: BranchHeroProps) {
     branch.branch?.address || (branch as any).address
   )
 
+  const mediaUrl = coverImageUrl || "/assets/img/banner.jpg"
+  const isVideo = typeof mediaUrl === "string" && /\.(mp4|webm)$/i.test(mediaUrl)
+
   return (
     <section
-      className="relative min-h-[50vh] flex items-end justify-center overflow-hidden bg-[#171A26]"
+      className="relative min-h-[60vh] flex items-end justify-center overflow-hidden bg-[#171A26]"
       data-aos="fade-up"
       data-aos-duration="600"
       data-aos-once="true"
     >
       {/* Cover / first gallery image or placeholder */}
       <div className="absolute inset-0">
-        {coverImageUrl ? (
-            <img
-              src={coverImageUrl}
-              alt=""
-              className="w-full h-full object-cover"
-            />
+        {isVideo ? (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src={mediaUrl} type="video/mp4" />
+          </video>
         ) : (
-          <div
-            className="w-full h-full bg-cover bg-center"
-            style={{ backgroundImage: "url(/assets/img/banner.jpg)" }}
+          <img
+            src={mediaUrl}
+            alt=""
+            className="w-full h-full object-cover"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#171A26] via-[#171A26]/80 to-transparent" />

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCMS } from "@/contexts/CMSContext"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -16,8 +17,22 @@ export function FixedTopNav() {
   const { cms } = useCMS()
   const navbarLogo = cms?.branding?.navbar_logo || "/logo.png"
 
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(typeof window !== "undefined" ? window.scrollY > 8 : false)
+    window.addEventListener("scroll", onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#766E6E] bg-[#171A26] px-4 py-2">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 px-4 py-2 transition-[background-color,backdrop-filter] duration-300 ${
+        scrolled ? "bg-[#171A26]/85 backdrop-blur-md" : "bg-transparent"
+      }`}
+    >
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         <Link href="/" className="flex-shrink-0">
           <img
@@ -68,7 +83,7 @@ export function FixedTopNav() {
           </li>
         </ul>
 
-        <Sheet>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button
               variant="ghost"
@@ -79,25 +94,27 @@ export function FixedTopNav() {
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[280px] border-[#766E6E] bg-[#171A26]">
-            <ul className="mt-8 flex flex-col gap-6">
+          <SheetContent side="right" className="w-[300px] border-[#766E6E] bg-[#171A26] px-6 py-6">
+            <ul className="mt-4 flex flex-col gap-6">
               {navLinks.map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className="text-lg font-medium uppercase tracking-wide text-white hover:text-[#FFB70F]"
+                    onClick={() => setMobileOpen(false)}
+                    className="block text-lg font-medium uppercase tracking-wide text-white hover:text-[#FFB70F]"
                   >
                     {item.label}
                   </Link>
                 </li>
               ))}
-              <li className="[&_.relative]:static">
-                <BranchesNavDropdown />
+              <li>
+                <BranchesNavDropdown variant="mobile" onNavigate={() => setMobileOpen(false)} />
               </li>
               <li>
                 <Link
                   href="/contact"
                   className="text-lg font-medium uppercase tracking-wide text-white hover:text-[#FFB70F]"
+                  onClick={() => setMobileOpen(false)}
                 >
                   Contact
                 </Link>
@@ -105,7 +122,8 @@ export function FixedTopNav() {
               <li>
                 <Link
                   href="/register"
-                  className="inline-block rounded-[10px] bg-white px-5 py-3.5 text-base font-medium text-black"
+                  className="block w-full rounded-[10px] bg-white px-5 py-3.5 text-base font-medium text-black text-center"
+                  onClick={() => setMobileOpen(false)}
                 >
                   Register now
                 </Link>
@@ -113,7 +131,8 @@ export function FixedTopNav() {
               <li>
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 rounded-[10px] bg-[#FFB70F] px-5 py-3.5 text-base font-medium text-white"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-[#FFB70F] px-5 py-3.5 text-base font-medium text-white mt-1"
+                  onClick={() => setMobileOpen(false)}
                 >
                   <LogIn className="h-5 w-5" />
                   Login

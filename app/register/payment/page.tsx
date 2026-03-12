@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useRegistration } from "@/contexts/RegistrationContext"
+import { useCMS } from "@/contexts/CMSContext"
 import { openRazorpayCheckout, type RazorpayPaymentResponse } from "@/lib/razorpay"
 
 interface PaymentCalculation {
@@ -29,6 +30,7 @@ interface CoursePaymentInfo {
 export default function PaymentPage() {
   const router = useRouter()
   const { registrationData, updateRegistrationData } = useRegistration()
+  const { cms } = useCMS()
 
   const [paymentInfo, setPaymentInfo] = useState<CoursePaymentInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -145,6 +147,9 @@ export default function PaymentPage() {
     }
   }
 
+  const registrationMediaUrl = cms?.homepage?.registration_media_url
+  const registrationMediaType = cms?.homepage?.registration_media_type || "auto"
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -160,10 +165,31 @@ export default function PaymentPage() {
     <div className="min-h-screen flex">
       {/* Left Side - Illustration */}
       <div className="hidden lg:flex lg:w-1/2 bg-gray-200 items-center justify-center relative overflow-hidden">
-        <div
-          className="w-[512px] h-[748px] bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/images/payment-left.png')" }}
-        />
+        <div className="w-[512px] h-[748px] bg-cover bg-center bg-no-repeat overflow-hidden rounded-xl">
+          {registrationMediaUrl ? (
+            registrationMediaType === "video" || /\.(mp4|webm)$/i.test(registrationMediaUrl) ? (
+              <video
+                src={registrationMediaUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src={registrationMediaUrl}
+                alt="Registration"
+                className="w-full h-full object-cover"
+              />
+            )
+          ) : (
+            <div
+              className="w-full h-full bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: "url('/images/payment-left.png')" }}
+            />
+          )}
+        </div>
       </div>
 
       {/* Right Side - Payment Details */}
@@ -284,9 +310,9 @@ export default function PaymentPage() {
             <div className="flex items-center justify-center space-x-2 mb-2">
               <Link href="/register" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">1</Link>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-course" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">2</Link>
+              <Link href="/register/select-branch" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">2</Link>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-branch" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">3</Link>
+              <Link href="/register/select-course" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">3</Link>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
               <div className="w-8 h-8 bg-yellow-400 text-black rounded-full flex items-center justify-center font-bold text-sm">4</div>
               <div className="w-8 h-1 bg-gray-200 rounded"></div>

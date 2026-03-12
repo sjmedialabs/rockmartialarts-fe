@@ -8,12 +8,14 @@ import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRegistration } from "@/contexts/RegistrationContext"
+import { useCMS } from "@/contexts/CMSContext"
 import { Calendar } from "lucide-react"
 import Link from "next/link"
 
 export default function RegisterPage() {
   const router = useRouter()
   const { registrationData, updateRegistrationData } = useRegistration()
+  const { cms } = useCMS()
   
   const [formData, setFormData] = useState({
     firstName: registrationData.firstName || "",
@@ -214,7 +216,7 @@ export default function RegisterPage() {
         dob: formData.dob,
         password: formData.password,
       })
-      router.push("/register/select-course")
+      router.push("/register/select-branch")
     } finally {
       setSubmitting(false)
     }
@@ -228,16 +230,38 @@ export default function RegisterPage() {
     }
   }
 
+  const registrationMediaUrl = cms?.homepage?.registration_media_url
+  const registrationMediaType = cms?.homepage?.registration_media_type || "auto"
+
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Illustration */}
       <div className="hidden lg:flex lg:w-1/2 bg-gray-200 items-center justify-center relative overflow-hidden">
-        <div
-          className="w-[550px] h-[550px] bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: "url('/images/registration-left.png')",
-          }}
-        />
+        <div className="w-[550px] h-[550px] bg-cover bg-center bg-no-repeat overflow-hidden rounded-xl">
+          {registrationMediaUrl ? (
+            registrationMediaType === "video" || /\.(mp4|webm)$/i.test(registrationMediaUrl) ? (
+              <video
+                src={registrationMediaUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src={registrationMediaUrl}
+                alt="Registration"
+                className="w-full h-full object-cover"
+              />
+            )
+          ) : (
+            <div
+              className="w-full h-full bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: "url('/images/registration-left.png')" }}
+            />
+          )}
+        </div>
       </div>
 
       {/* Right Side - Registration Form */}

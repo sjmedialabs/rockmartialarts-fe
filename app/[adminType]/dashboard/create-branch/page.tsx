@@ -112,6 +112,7 @@ interface FormData {
   operational_details: OperationalDetails
   assignments: Assignments
   bank_details: BankDetails
+  admission_fee: number
 }
 
 export default function CreateBranchPage() {
@@ -179,7 +180,8 @@ export default function CreateBranchPage() {
       bank_name: "",
       account_number: "",
       upi_id: ""
-    }
+    },
+    admission_fee: 500
   })
 
   // Auto-generate branch code
@@ -639,7 +641,8 @@ export default function CreateBranchPage() {
           courses: formData.assignments.courses.map(course => course.course_id),
           branch_admins: formData.assignments.branch_admins
         },
-        bank_details: formData.bank_details
+        bank_details: formData.bank_details,
+        admission_fee: formData.admission_fee
       }
       
       console.log("Submitting branch data:", JSON.stringify(submitData, null, 2))

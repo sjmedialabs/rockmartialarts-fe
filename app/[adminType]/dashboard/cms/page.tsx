@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Save, Globe, FileText, Image, Home, Search } from "lucide-react"
+import { Loader2, Save, Globe, FileText, Image, Home, Search, Plus, X } from "lucide-react"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 
@@ -18,6 +19,13 @@ interface SEOSettings {
   meta_description?: string
   meta_keywords?: string
   og_image?: string
+}
+
+interface TestimonialItem {
+  name: string
+  role: string
+  quote?: string
+  image?: string
 }
 
 interface HomepageSection {
@@ -32,8 +40,11 @@ interface HomepageSection {
   courses_subtitle?: string
   testimonials_title?: string
   testimonials_subtitle?: string
+  testimonials?: TestimonialItem[]
   cta_title?: string
   cta_subtitle?: string
+  registration_media_url?: string
+  registration_media_type?: string
 }
 
 interface FooterContent {
@@ -174,6 +185,30 @@ export default function CMSPage() {
     }
   }
 
+  const handleTestimonialImageUpload = async (index: number, file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const imageUrl = uploadData.url || uploadData.file_url || uploadData.image_url || ""
+      const list = [...(homepage.testimonials || [])]
+      if (!list[index]) list[index] = { name: "", role: "" }
+      list[index] = { ...list[index], image: imageUrl }
+      setHomepage((prev) => ({ ...prev, testimonials: list }))
+      toast({ title: "Uploaded", description: "Testimonial photo uploaded" })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -265,6 +300,41 @@ export default function CMSPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle className="text-[#4F5077]">Registration Media</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Configure the media shown on the left side of the registration steps. Supports images, GIFs, or hosted videos.
+              </p>
+              <div className="space-y-2">
+                <Label>Media URL</Label>
+                <Input
+                  value={homepage.registration_media_url || ""}
+                  onChange={(e) => setHomepage({ ...homepage, registration_media_url: e.target.value })}
+                  placeholder="Enter image / GIF / video URL"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Media Type</Label>
+                <Select
+                  value={homepage.registration_media_type || ""}
+                  onValueChange={(value) => setHomepage({ ...homepage, registration_media_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Auto-detect from URL" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="image">Image / GIF</SelectItem>
+                    <SelectItem value="video">Video</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="text-[#4F5077]">About Section</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -313,6 +383,40 @@ export default function CMSPage() {
                   <Label>Testimonials Subtitle</Label>
                   <Textarea value={homepage.testimonials_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, testimonials_subtitle: e.target.value })} placeholder="Enter testimonials section subtitle" rows={2} />
                 </div>
+              </div>
+              <div className="space-y-2 pt-4 border-t">
+                <Label>Testimonial cards (round image on top; first 4 shown on home, all on Testimonials page)</Label>
+                {(homepage.testimonials || []).map((t, i) => (
+                  <div key={i} className="border rounded-lg p-4 space-y-3 relative bg-gray-50/50">
+                    <Button type="button" variant="ghost" size="sm" className="absolute top-2 right-2 text-red-500 hover:bg-red-50" onClick={() => setHomepage({ ...homepage, testimonials: (homepage.testimonials || []).filter((_, idx) => idx !== i) })}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Name</Label>
+                        <Input value={t.name} onChange={(e) => { const n = [...(homepage.testimonials || [])]; n[i] = { ...t, name: e.target.value }; setHomepage({ ...homepage, testimonials: n }) }} placeholder="Full name" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Role / Title</Label>
+                        <Input value={t.role} onChange={(e) => { const n = [...(homepage.testimonials || [])]; n[i] = { ...t, role: e.target.value }; setHomepage({ ...homepage, testimonials: n }) }} placeholder="e.g. Parent, Student" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Quote (optional)</Label>
+                      <Textarea value={t.quote || ""} onChange={(e) => { const n = [...(homepage.testimonials || [])]; n[i] = { ...t, quote: e.target.value }; setHomepage({ ...homepage, testimonials: n }) }} placeholder="Testimonial quote" rows={2} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Round image (shows on top of card)</Label>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {t.image && <img src={t.image} alt={t.name} className="w-12 h-12 rounded-full object-cover border" />}
+                        <Input type="file" accept="image/*" className="max-w-xs text-sm" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleTestimonialImageUpload(i, file) }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => setHomepage({ ...homepage, testimonials: [...(homepage.testimonials || []), { name: "", role: "" }] })}>
+                  <Plus className="h-4 w-4 mr-2" /> Add testimonial
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -23,6 +23,8 @@ interface HomepageSection {
   testimonials_subtitle?: string
   cta_title?: string
   cta_subtitle?: string
+  registration_media_url?: string
+  registration_media_type?: string
 }
 
 interface FooterContent {

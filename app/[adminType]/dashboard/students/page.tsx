@@ -572,6 +572,15 @@ const paginatedStudents = filteredStudents.slice(
             >
               + Add Student
             </Button> */}
+            {adminType === "super-admin" && (
+              <Button
+                onClick={() => router.push(`${basePath}/students/import`)}
+                variant="outline"
+                className="border-[#4F5077] text-[#4F5077] hover:bg-gray-100 px-6"
+              >
+                Bulk Import
+              </Button>
+            )}
             <Button
               onClick={handleAssignClick}
               className="bg-blue-500 hover:bg-blue-600 text-white px-6"

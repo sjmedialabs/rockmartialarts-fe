@@ -13,9 +13,6 @@ const DASHBOARD_PREFIXES = [
 export function TopNavSpacer({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isDashboard = pathname != null && DASHBOARD_PREFIXES.some((p) => pathname.startsWith(p))
-  return (
-    <div className={isDashboard ? undefined : "pt-20 lg:pt-24"}>
-      {children}
-    </div>
-  )
+  const spacerClass = isDashboard ? "pt-20 lg:pt-24" : undefined
+  return <div className={spacerClass}>{children}</div>
 }

@@ -31,7 +31,7 @@ export interface HomePageViewProps {
   physicalBenefits: string[]
   mentalBenefits: string[]
   trainers: { name: string; role: string; img: string }[]
-  testimonials: { name: string; role: string }[]
+  testimonials: { name: string; role: string; quote?: string; image?: string }[]
   defaultTestimonialQuote: string
 }
 
@@ -275,7 +275,7 @@ export default function HomePageView({
         </div>
       </section>
 
-      {/* Testimonials - staggered cards */}
+      {/* Testimonials - max 4 cards with round image on top; More button to /testimonials */}
       <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
         <div className="container mx-auto px-4 max-w-7xl">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -289,16 +289,23 @@ export default function HomePageView({
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
             staggerDelay={0.1}
           >
-            {testimonials.map((t, i) => (
+            {testimonials.slice(0, 4).map((t, i) => (
               <AnimatedCard key={i} scrollReveal={false}>
-                <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full">
+                <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0">
+                    {t.image ? (
+                      <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-700 flex items-center justify-center text-2xl text-gray-400">👤</div>
+                    )}
+                  </div>
                   <img
                     src="/assets/img/courses/quote.png"
                     alt=""
-                    className="w-10 h-10 mb-3 opacity-80"
+                    className="w-8 h-8 mb-2 opacity-80"
                   />
-                  <p className="text-gray-300 text-sm leading-relaxed mb-4">
-                    {defaultTestimonialQuote}
+                  <p className="text-gray-300 text-sm leading-relaxed mb-4 flex-1">
+                    {t.quote || defaultTestimonialQuote}
                   </p>
                   <h3 className="text-[#FFB70F] font-semibold">{t.name}</h3>
                   <p className="text-white/80 text-sm">{t.role}</p>
@@ -306,6 +313,16 @@ export default function HomePageView({
               </AnimatedCard>
             ))}
           </AnimatedStaggerGrid>
+          {testimonials.length > 0 && (
+            <AnimatedSection className="text-center mt-10" variant="fadeSlideUp">
+              <Link
+                href="/testimonials"
+                className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+              >
+                More testimonials
+              </Link>
+            </AnimatedSection>
+          )}
         </div>
       </section>
 

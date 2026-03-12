@@ -36,7 +36,7 @@ const trainers = [
   { name: "Gayatri krishna", role: "Yoga Trainers", img: "/assets/img/courses/yoga_trainers.png" },
 ]
 
-const testimonials = [
+const defaultTestimonials = [
   { name: "Divya Menon", role: "Yoga Instructor & Environmentalist" },
   { name: "Rosan Gupta", role: "Project Manager" },
   { name: "Yogitha Narayan", role: "Software developer" },
@@ -116,6 +116,15 @@ export default async function HomePage() {
   const coursesSubtitle = homepage.courses_subtitle || "Choose"
   const testimonialsTitle = homepage.testimonials_title || "Success stories"
   const testimonialsSubtitle = homepage.testimonials_subtitle || "Testimonials"
+  const testimonials =
+    homepage.testimonials && homepage.testimonials.length > 0
+      ? homepage.testimonials.map((t: any) => ({
+          name: t.name || "",
+          role: t.role || "",
+          quote: t.quote,
+          image: t.image,
+        }))
+      : defaultTestimonials
   const ctaTitle = homepage.cta_title || "Learn martial arts with discipline energy enhance your physical and mental well-being with our holistic tai-chi training."
   const ctaSubtitle = homepage.cta_subtitle || ""
 
@@ -138,7 +147,7 @@ export default async function HomePage() {
       physicalBenefits={physicalBenefits}
       mentalBenefits={mentalBenefits}
       trainers={trainers}
-      testimonials={testimonials}
+      testimonials={testimonials as { name: string; role: string; quote?: string; image?: string }[]}
       defaultTestimonialQuote={defaultTestimonialQuote}
     />
   )

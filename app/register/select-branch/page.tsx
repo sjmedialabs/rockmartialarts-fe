@@ -8,6 +8,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRegistration } from "@/contexts/RegistrationContext"
+import { useCMS } from "@/contexts/CMSContext"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI } from "@/lib/dropdownAPI"
 
@@ -25,6 +26,7 @@ export default function SelectBranchPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { registrationData, updateRegistrationData } = useRegistration()
+  const { cms } = useCMS()
 
   const [selectedLocation, setSelectedLocation] = useState("")
   const [branch_id, setBranchId] = useState(registrationData.branch_id || "")
@@ -103,7 +105,8 @@ export default function SelectBranchPage() {
         }))
         
         setAllBranches(branches)
-        setFilteredBranches(branches)
+        // Initially, don't show branches until a location is selected
+        setFilteredBranches([])
 
         console.log(`Loaded ${branches.length} branches`)
 
@@ -125,7 +128,12 @@ export default function SelectBranchPage() {
 
   // Filter branches when location changes
   useEffect(() => {
-    if (!selectedLocation || selectedLocation === 'all') {
+    if (!selectedLocation) {
+      // No location selected yet: hide branch list
+      setFilteredBranches([])
+      setBranchId("")
+    } else if (selectedLocation === 'all') {
+      // "All Locations" selected: show all branches
       setFilteredBranches(allBranches)
     } else {
       const filtered = allBranches.filter(branch => {
@@ -174,18 +182,40 @@ export default function SelectBranchPage() {
       } : null
     })
 
-    router.push("/register/payment")
+    router.push("/register/select-course")
   }
+
+  const registrationMediaUrl = cms?.homepage?.registration_media_url
+  const registrationMediaType = cms?.homepage?.registration_media_type || "auto"
 
   return (
     <div className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 bg-gray-200 items-center justify-center relative overflow-hidden">
-        <div
-          className="w-[300px] h-[550px] bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: "url('/images/select-branch-left.png')",
-          }}
-        />
+        <div className="w-[300px] h-[550px] bg-cover bg-center bg-no-repeat overflow-hidden rounded-xl">
+          {registrationMediaUrl ? (
+            registrationMediaType === "video" || /\.(mp4|webm)$/i.test(registrationMediaUrl) ? (
+              <video
+                src={registrationMediaUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src={registrationMediaUrl}
+                alt="Registration"
+                className="w-full h-full object-cover"
+              />
+            )
+          ) : (
+            <div
+              className="w-full h-full bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: "url('/images/select-branch-left.png')" }}
+            />
+          )}
+        </div>
       </div>
 
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
@@ -235,15 +265,17 @@ export default function SelectBranchPage() {
                   setBranchId(value)
                   if (fieldErrors.branch) setFieldErrors(prev => ({ ...prev, branch: '' }))
                 }}
-                disabled={isLoadingBranches}
+                disabled={isLoadingBranches || !selectedLocation}
               >
                 <SelectTrigger className={`!w-full !h-14 !pl-6 !pr-10 !py-4 !text-[14px] bg-[#F9F8FF] !border-0 !rounded-xl data-[placeholder]:text-black focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent !min-h-14 ${fieldErrors.branch ? '!border !border-red-500' : ''}`}>
                   <SelectValue placeholder={
-                    isLoadingBranches
-                      ? "Loading branches..."
-                      : filteredBranches.length === 0
-                        ? "No branches available"
-                        : "Select Branch"
+                    !selectedLocation
+                      ? "Select location first"
+                      : isLoadingBranches
+                        ? "Loading branches..."
+                        : filteredBranches.length === 0
+                          ? "No branches available"
+                          : "Select Branch"
                   } className="text-gray-500" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
@@ -287,15 +319,15 @@ export default function SelectBranchPage() {
             <div className="flex items-center justify-center space-x-2 mb-2">
               <Link href="/register" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">1</Link>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-course" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">2</Link>
-              <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <div className="w-8 h-8 bg-yellow-400 text-black rounded-full flex items-center justify-center font-bold text-sm">3</div>
+              <div className="w-8 h-8 bg-yellow-400 text-black rounded-full flex items-center justify-center font-bold text-sm">2</div>
+              <div className="w-8 h-1 bg-gray-200 rounded"></div>
+              <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">3</div>
               <div className="w-8 h-1 bg-gray-200 rounded"></div>
               <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">4</div>
               <div className="w-8 h-1 bg-gray-200 rounded"></div>
               <div className="w-8 h-8 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center font-bold text-sm">5</div>
             </div>
-            <span className="text-gray-500 text-sm font-medium">Step 3 of 5 - Branch Selection</span>
+            <span className="text-gray-500 text-sm font-medium">Step 2 of 5 - Branch Selection</span>
           </div>
         </div>
       </div>

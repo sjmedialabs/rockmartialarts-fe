@@ -53,7 +53,7 @@ export function HeroAnimation({
   }
 
   return (
-    <section className={`relative min-h-[90vh] flex items-center justify-center overflow-hidden ${className}`}>
+    <section className={`relative min-h-screen flex items-center justify-center overflow-hidden ${className}`}>
       {/* Hero image/video: slide in from right + subtle scale (Cult.fit-style media motion) */}
       {media && (
         <motion.div

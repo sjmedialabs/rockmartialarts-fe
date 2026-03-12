@@ -41,7 +41,15 @@ const SUPER_ADMIN_MENU: NavItem[] = [
   { label: "Dashboard", path: SUPER_ADMIN_BASE, icon: LayoutDashboard },
   { label: "Branches", path: `${SUPER_ADMIN_BASE}/branches`, icon: Building },
   { label: "Coachs", path: `${SUPER_ADMIN_BASE}/coaches`, icon: Users },
-  { label: "Students", path: `${SUPER_ADMIN_BASE}/students`, icon: GraduationCap },
+  {
+    label: "Students",
+    path: `${SUPER_ADMIN_BASE}/students`,
+    icon: GraduationCap,
+    children: [
+      { label: "All Students", path: `${SUPER_ADMIN_BASE}/students`, icon: GraduationCap },
+      { label: "Bulk Import", path: `${SUPER_ADMIN_BASE}/students/import`, icon: GraduationCap },
+    ],
+  },
   { label: "Messages", path: `${SUPER_ADMIN_BASE}/messages`, icon: MessageSquare },
   { label: "Courses", path: `${SUPER_ADMIN_BASE}/courses`, icon: BookOpen },
   {

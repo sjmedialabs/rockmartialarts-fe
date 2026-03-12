@@ -389,9 +389,9 @@ export default function PaymentConfirmationPage() {
             <div className="flex items-center justify-center space-x-2 mb-2">
               <Link href="/register" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">1</Link>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-course" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">2</Link>
+              <Link href="/register/select-branch" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">2</Link>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-branch" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">3</Link>
+              <Link href="/register/select-course" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">3</Link>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
               <Link href="/register/payment" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">4</Link>
               <div className="w-8 h-1 bg-green-500 rounded"></div>

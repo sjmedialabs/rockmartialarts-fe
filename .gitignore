@@ -2,6 +2,7 @@
 node_modules/
 /.pnp
 .pnp.js
+.gitignore
 
 # Next.js
 .next/
@@ -40,4 +41,4 @@ Thumbs.db
 # *.mov
 # *.avi
 # *.zip
-# *.tar.gz
+# *.tar

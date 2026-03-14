@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, MoreVertical, Menu, Settings, User, LogOut, FileText } from "lucide-react"
+import { ChevronDown, MoreVertical, Settings, User, LogOut, FileText } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,12 +10,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useRouter, usePathname } from "next/navigation"
 import { useCMS } from "@/contexts/CMSContext"
 import { useState, useEffect } from "react"
 import NotificationDropdown from "@/components/notification-dropdown"
-import Sidebar from "@/components/layout/Sidebar"
+import { MobileSidebar } from "@/components/layout/responsive"
 import {
   DashboardRole,
   getMenuForRole,
@@ -86,28 +85,18 @@ export default function Navbar({ role }: NavbarProps) {
   const cmsPath = `${basePath}/cms`
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm">
-      <div className="w-full px-4 lg:px-6 py-2">
-        <div className="flex justify-between items-center h-auto gap-4">
-          <div className="flex items-center space-x-2 flex-shrink-0">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200/80 backdrop-blur-sm min-w-0">
+      <div className="w-full px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5">
+        <div className="flex justify-between items-center gap-2 sm:gap-4 min-h-[48px] sm:min-h-[56px]">
+          <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
             <div className="flex-shrink-0">
-              <img src={cms?.branding?.navbar_logo || "/logo.png"} alt="Logo" className="xl:w-[95px] w-[80px] h-auto" />
+              <img src={cms?.branding?.navbar_logo || "/logo.png"} alt="Logo" className="h-8 w-auto sm:h-9 xl:h-10 max-w-[95px] object-contain" />
             </div>
-
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="lg:hidden hover:bg-gray-100/80 transition-colors duration-200 rounded-lg">
-                  <Menu className="w-5 h-5 text-gray-700" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-64 p-0 bg-white/95 backdrop-blur-md border-r border-gray-200/50">
-                <Sidebar role={role} onNavigate={handleMobileNav} />
-              </SheetContent>
-            </Sheet>
+            <MobileSidebar role={role} onNavigate={handleMobileNav} open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen} />
           </div>
 
-          <div className="flex items-center space-x-2 lg:space-x-3 ml-auto">
-            <nav className="hidden lg:flex items-center space-x-2 xl:space-x-3 2xl:space-x-4">
+          <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 ml-auto flex-shrink-0">
+            <nav className="hidden lg:flex items-center gap-2 xl:gap-3 2xl:gap-4">
               {menuItems.filter(item => item.label !== "Settings").map((item) => {
                 const Icon = item.icon
                 return item.children ? (
@@ -171,15 +160,15 @@ export default function Navbar({ role }: NavbarProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center space-x-3 bg-white rounded-full px-4 py-2 shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200">
-                  <Avatar className="w-10 h-10">
+                <button className="flex items-center gap-2 sm:gap-3 bg-white rounded-full pl-1 pr-2 sm:px-4 py-2 shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 min-h-[48px] min-w-[48px] sm:min-w-0">
+                  <Avatar className="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0">
                     <AvatarImage src={profileImage} />
                     <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white font-semibold text-sm">
                       {roleLabel.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-semibold text-gray-800 hidden lg:inline">{roleLabel}</span>
-                  <ChevronDown className="w-4 h-4 text-gray-600 transition-transform duration-200" />
+                  <ChevronDown className="w-4 h-4 text-gray-600 transition-transform duration-200 hidden sm:block" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuPortal>

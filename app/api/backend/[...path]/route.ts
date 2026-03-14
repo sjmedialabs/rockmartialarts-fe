@@ -67,9 +67,12 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
         }
       }
 
-      if (res.status >= 500) {
+      if (res.status >= 500 || res.status === 405) {
         console.error("[backend proxy] Backend returned", res.status, "for", method, url);
         console.error("[backend proxy] Response:", typeof data === "object" ? JSON.stringify(data) : data);
+        if (res.status === 405) {
+          console.error("[backend proxy] 405 Method Not Allowed: ensure the backend at", BACKEND_URL, "has the route", method, "/api/" + path);
+        }
       }
 
       return NextResponse.json(data, {

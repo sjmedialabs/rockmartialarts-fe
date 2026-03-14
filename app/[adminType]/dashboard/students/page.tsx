@@ -547,25 +547,25 @@ const paginatedStudents = filteredStudents.slice(
 )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 min-w-0">
 
       {/* Main Content */}
-      <main className="w-full p-4 lg:px-8 lg:py-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-[#4F5077]">Student list</h1>
+      <main className="w-full min-w-0">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4 sm:mb-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#4F5077]">Student list</h1>
             <Button
               onClick={() => window.location.reload()}
               variant="outline"
               size="sm"
               disabled={loading || refreshing}
-              className="flex items-center space-x-2"
+              className="min-h-[44px] sm:min-h-[40px]"
             >
               <RefreshCw className={`w-4 h-4 text-[#4F5077] ${loading || refreshing ? 'animate-spin' : ''}`} />
               <span className="text-[#4F5077]">Refresh</span>
             </Button>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {/* <Button
               onClick={() => router.push(`${basePath}/create-student`)}
               className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
@@ -576,14 +576,14 @@ const paginatedStudents = filteredStudents.slice(
               <Button
                 onClick={() => router.push(`${basePath}/students/import`)}
                 variant="outline"
-                className="border-[#4F5077] text-[#4F5077] hover:bg-gray-100 px-6"
+                className="border-[#4F5077] text-[#4F5077] hover:bg-gray-100 px-4 sm:px-6 min-h-[48px]"
               >
                 Bulk Import
               </Button>
             )}
             <Button
               onClick={handleAssignClick}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 sm:px-6 min-h-[48px]"
             >
               Assign to Branch
             </Button>
@@ -631,12 +631,12 @@ const paginatedStudents = filteredStudents.slice(
           </div>
         )}
 
-        {/* List view filter + Search */}
-        <div className="mb-6 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
+        {/* List view filter + Search - stacks on mobile */}
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-[#4F5077]">Show:</span>
             <Select value={listViewFilter} onValueChange={(v) => handleListViewFilterChange(v as 'all' | 'unassigned')}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px] min-h-[44px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -648,7 +648,7 @@ const paginatedStudents = filteredStudents.slice(
               <span className="text-sm text-gray-500">Loading unassigned...</span>
             )}
           </div>
-          <div className="relative max-w-md flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-0 sm:max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
             <Input
               placeholder="Search by name, ID, location"
@@ -659,10 +659,10 @@ const paginatedStudents = filteredStudents.slice(
           </div>
         </div>
 
-        {/* Students Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        {/* Students Table - horizontal scroll on small screens */}
+        <div className="bg-white rounded-lg shadow overflow-hidden min-w-0">
+          <div className="overflow-x-auto -mx-0 scrollbar-thin">
+            <table className="w-full min-w-[640px]">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Student Name</th>

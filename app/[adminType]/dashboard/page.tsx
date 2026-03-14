@@ -236,7 +236,7 @@ export default function SuperAdminDashboard() {
           <div className="flex flex-col lg:col-span-2">
 
              {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 xl:gap-6 gap-2 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 xl:gap-6 mb-4 sm:mb-6">
           {loading ? (
             Array.from({ length: 4 }).map((_, index) => (
               <Card key={index}>

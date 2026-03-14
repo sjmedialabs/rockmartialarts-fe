@@ -10,6 +10,7 @@ import {
   BranchInfoCards,
   BranchAbout,
   BranchGallery,
+  BranchAchievements,
   BranchMap,
   BranchContact,
   BranchFacilities,
@@ -108,11 +109,12 @@ export default function BranchDetailPage() {
   return (
     <main className="min-h-screen bg-[#171A26]">
       <BranchHero branch={branch} coverImageUrl={coverImage} />
-      <BranchInfoCards branch={branch} />
-      <BranchAbout branch={branch} aboutImageUrl={aboutImage} />
       <BranchCourses branch={branch} />
+      <BranchAbout branch={branch} aboutImageUrl={aboutImage} />
       <BranchGallery branch={branch} />
+      {branch.id && <BranchAchievements branchId={branch.id} />}
       <BranchFacilities branch={branch} />
+      <BranchInfoCards branch={branch} />
       <BranchMap branch={branch} />
       <BranchContact branch={branch} />
     </main>

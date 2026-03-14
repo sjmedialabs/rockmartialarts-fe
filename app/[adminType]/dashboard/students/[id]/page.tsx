@@ -27,6 +27,7 @@ import {
   CheckCircle,
   XCircle
 } from "lucide-react"
+import { AchievementList, type AchievementItem } from "@/components/achievements"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 
@@ -112,6 +113,8 @@ export default function StudentDetailPage() {
   const [enrollmentHistory, setEnrollmentHistory] = useState<EnrollmentHistory[]>([])
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([])
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
+  const [achievements, setAchievements] = useState<AchievementItem[]>([])
+  const [achievementsLoading, setAchievementsLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(true)
   const [paymentsLoading, setPaymentsLoading] = useState(true)
@@ -193,7 +196,8 @@ export default function StudentDetailPage() {
       await Promise.all([
         fetchEnrollmentHistory(token),
         fetchPaymentHistory(token),
-        fetchAttendanceRecords(token)
+        fetchAttendanceRecords(token),
+        fetchAchievements(token)
       ])
 
     } catch (err: any) {
@@ -277,6 +281,23 @@ export default function StudentDetailPage() {
       setError('Error loading payment history')
     } finally {
       setPaymentsLoading(false)
+    }
+  }
+
+  const fetchAchievements = async (token: string) => {
+    try {
+      setAchievementsLoading(true)
+      const res = await fetch(getApiUrl(`achievements/student/${studentId}`), {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAchievements(data.achievements || [])
+      }
+    } catch {
+      setAchievements([])
+    } finally {
+      setAchievementsLoading(false)
     }
   }
 
@@ -696,6 +717,18 @@ export default function StudentDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Student Achievements */}
+            <AchievementList
+              studentId={studentId}
+              studentName={student?.full_name}
+              achievements={achievements}
+              loading={achievementsLoading}
+              onRefresh={() => {
+                const t = TokenManager.getToken()
+                if (t) fetchAchievements(t)
+              }}
+            />
 
             {/* Recent Attendance */}
             <Card>

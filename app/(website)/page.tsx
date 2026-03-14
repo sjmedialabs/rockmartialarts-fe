@@ -6,9 +6,12 @@ export const metadata = {
   description: "Strengthen, discipline, and empower with martial arts. Shaolin Kung Fu, Taekwondo, Kick Boxing, Kuchipudi and more.",
 }
 
-/* ---------- static fallback data ---------- */
+/** Always fetch courses from API at request time (no static/cache fallback to mock). */
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
-const staticClasses = [
+/* ---------- static fallback only when API fails (e.g. backend down) ---------- */
+const staticClassesFallback = [
   { name: "Shaolin Kung Fu", img: "/assets/img/courses/choose_img1.png", href: "/courses" },
   { name: "Taekwondo", img: "/assets/img/courses/choose_img2.png", href: "/courses" },
   { name: "Kick Boxing", img: "/assets/img/courses/choose_img3.png", href: "/courses" },
@@ -65,19 +68,20 @@ async function getCMSContent() {
 
 /* ---------- fetch courses at build / request time ---------- */
 
-async function getCourses() {
+async function getCourses(): Promise<{ courses: any[]; fromApi: boolean }> {
   try {
     const backendUrl = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8003"
     const res = await fetch(`${backendUrl}/api/courses/public/all`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
-    if (!res.ok) return []
+    if (!res.ok) return { courses: [], fromApi: true }
     const data = await res.json()
     const list = data.courses ?? data ?? []
-    return Array.isArray(list) ? list : []
+    const arr = Array.isArray(list) ? list : []
+    return { courses: arr, fromApi: true }
   } catch {
-    return []
+    return { courses: [], fromApi: false }
   }
 }
 
@@ -88,19 +92,25 @@ function getCourseImage(c: any): string | null {
 /* ---------- component ---------- */
 
 export default async function HomePage() {
-  const [apiCourses, cms] = await Promise.all([getCourses(), getCMSContent()])
+  const [coursesResult, cms] = await Promise.all([getCourses(), getCMSContent()])
+  const { courses: apiCourses, fromApi } = coursesResult
 
   const homepage = cms?.homepage || {}
   const footer = cms?.footer || {}
 
-  /* Merge: if API has courses, use them (with their images); otherwise show static */
-  const classCards = apiCourses.length > 0
-    ? apiCourses.filter((c: any) => c.settings?.active !== false).slice(0, 8).map((c: any) => ({
-        name: c.title || c.name || c.code || "Course",
-        img: getCourseImage(c) || "/assets/img/courses/choose_img1.png",
-        href: `/courses/${toCourseSlug(c)}`,
-      }))
-    : staticClasses
+  /* Real courses from API when available; mock only when API request failed (backend down) */
+  const activeCourses = apiCourses.filter((c: any) => c.settings?.active !== false).slice(0, 8)
+  const classCards =
+    activeCourses.length > 0
+      ? activeCourses.map((c: any) => ({
+          id: c.id,
+          name: c.title || c.name || c.code || "Course",
+          img: getCourseImage(c) || "/assets/img/courses/choose_img1.png",
+          href: `/courses/${toCourseSlug(c)}`,
+        }))
+      : fromApi
+        ? [{ id: "explore", name: "Explore our courses", img: "/assets/img/courses/choose_img1.png", href: "/courses" }]
+        : staticClassesFallback.map((c, i) => ({ ...c, id: `fallback-${i}` }))
 
   /* Hero content from CMS */
   const heroTitle = homepage.hero_title || "IT'S NOT FITNESS. IT'S LIFE."

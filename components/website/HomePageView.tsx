@@ -27,7 +27,7 @@ export interface HomePageViewProps {
   coursesSubtitle: string
   testimonialsTitle: string
   testimonialsSubtitle: string
-  classCards: { name: string; img: string; href: string }[]
+  classCards: { id?: string; name: string; img: string; href: string }[]
   physicalBenefits: string[]
   mentalBenefits: string[]
   trainers: { name: string; role: string; img: string }[]
@@ -155,7 +155,7 @@ export default function HomePageView({
             childClassName="text-center group"
           >
             {classCards.map((c) => (
-              <ScrollZoomContinuous key={c.name}>
+              <ScrollZoomContinuous key={c.id ?? c.name}>
                 <AnimatedCard scrollReveal={false} className="h-full">
                   <div className="mb-4 overflow-hidden rounded-lg aspect-[4/3] bg-gray-800">
                     <img

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { BookOpen, IndianRupee, Loader2 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { BranchData } from "./types"
 
 /** Course from /api/backend/courses/public/all (supports branch_id, branchId, branch?.id, branch_assignments) */
@@ -22,7 +23,8 @@ export interface BranchCourseItem {
     fee_3_months?: number
     fee_6_months?: number
     fee_1_year?: number
-    fee_per_duration?: Record<string, number>
+    /** Keys may be duration UUIDs; only numeric values are used for display (IDs never shown). */
+    fee_per_duration?: Record<string, number | string>
   }
   branch_id?: string
   branchId?: string
@@ -41,12 +43,26 @@ function formatPrice(course: BranchCourseItem): string {
   if (fee_6_months != null) parts.push(`${sym}${fee_6_months} (6 mo)`)
   if (fee_1_year != null) parts.push(`${sym}${fee_1_year}/yr`)
   if (fee_per_duration && Object.keys(fee_per_duration).length) {
-    const first = Object.entries(fee_per_duration)[0]
-    if (first) parts.push(`${sym}${first[1]} (${first[0]})`)
+    const amounts: number[] = []
+    for (const v of Object.values(fee_per_duration)) {
+      if (typeof v === "number" && !Number.isNaN(v)) amounts.push(v)
+      if (typeof v === "string") {
+        const n = parseFloat(v)
+        if (!Number.isNaN(n)) amounts.push(n)
+      }
+    }
+    if (amounts.length) {
+      const min = Math.min(...amounts)
+      const max = Math.max(...amounts)
+      if (min === max) parts.push(`${sym}${min}`)
+      else parts.push(`From ${sym}${min}`)
+    }
   }
-  if (parts.length) return parts.join(" · ")
-  if (amount != null) return `From ${sym}${amount}`
-  return "Contact for fees"
+  let out: string
+  if (parts.length) out = parts.join(" · ")
+  else if (amount != null) out = `From ${sym}${amount}`
+  else out = "Contact for fees"
+  return stripUuidFromPriceDisplay(out)
 }
 
 function belongsToBranch(course: BranchCourseItem, branchId: string): boolean {

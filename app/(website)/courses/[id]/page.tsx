@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Quote,
 } from "lucide-react"
+import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -150,7 +151,7 @@ export default function CourseDetailPage() {
               {info.price && (
                 <div className="flex items-center gap-3 py-5 px-4 text-white">
                   <IndianRupee className="w-7 h-7 flex-shrink-0 opacity-90" />
-                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Price Details</p><p className="font-bold text-lg">{info.price}</p></div>
+                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Price Details</p><p className="font-bold text-lg">{stripUuidFromPriceDisplay(info.price)}</p></div>
                 </div>
               )}
               {info.training_time && (

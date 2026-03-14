@@ -88,7 +88,7 @@ export default function CoursesPage() {
                     </div>
                     <div className="p-5">
                       <h2 className="text-xl font-bold text-[#FFB70F] group-hover:text-white transition-colors mb-1">
-                        {c.title || c.name || c.code || c.id}
+                        {c.title || c.name || c.code || "Course"}
                       </h2>
                       {c.difficulty_level && (
                         <p className="text-gray-500 text-sm mb-2">{c.difficulty_level}</p>

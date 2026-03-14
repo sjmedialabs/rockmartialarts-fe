@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Edit, Trash2, RefreshCw, Eye } from "lucide-react"
+import { Search, Edit, Trash2, RefreshCw, Eye, Link2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
@@ -469,6 +469,41 @@ const itemsPerPage = 5
     router.push(`${basePath}/students/edit/${studentId}`)
   }
 
+  const [onboardLinkLoading, setOnboardLinkLoading] = useState<string | null>(null)
+  const handleSendOnboardLink = async (studentId: string) => {
+    const token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
+    if (!token) {
+      alert("Please log in again.")
+      return
+    }
+    setOnboardLinkLoading(studentId)
+    try {
+      const res = await fetch(getBackendApiUrl("onboarding/generate-link"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ student_id: studentId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.detail || data.message || "Failed to generate link")
+      }
+      const link = data.link || ""
+      if (link && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link)
+        alert("Onboard link copied to clipboard. Send it to the student so they can set their password and complete their profile (course, branch, duration, joining date).")
+      } else {
+        prompt("Copy this link and send it to the student:", link)
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to generate onboard link")
+    } finally {
+      setOnboardLinkLoading(null)
+    }
+  }
+
   const handleToggleStudent = async (studentId: string) => {
     try {
       const token = TokenManager.getToken()
@@ -799,6 +834,20 @@ const paginatedStudents = filteredStudents.slice(
                             title="Edit Student"
                           >
                             <Edit className="w-4 h-4 text-gray-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSendOnboardLink(student.id)}
+                            disabled={onboardLinkLoading === student.id}
+                            className="p-1 h-8 w-8"
+                            title="Send onboard link (set password & course/branch/duration)"
+                          >
+                            {onboardLinkLoading === student.id ? (
+                              <span className="text-xs">...</span>
+                            ) : (
+                              <Link2 className="w-4 h-4 text-green-600" />
+                            )}
                           </Button>
                           <Button
                             variant="ghost"

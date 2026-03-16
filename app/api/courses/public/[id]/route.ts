@@ -53,31 +53,11 @@ export async function GET(
 
   const base = BACKEND_URL.replace(/\/$/, "")
 
-  // 1) If it looks like a UUID, try public detail first (has stats, curriculum, enrolled, reviews, achievements)
+  // 1) If it looks like a UUID, try to get course by id from backend (may 401 if auth required)
   if (isUuid(slugOrId)) {
-    const detailRes = await fetchJson(`${base}/api/courses/public/detail/${slugOrId}`)
-    if (detailRes.ok && typeof detailRes.data === "object" && detailRes.data !== null) {
-      const detail = detailRes.data as Record<string, unknown>
-      const courseFromDetail = detail.course as Record<string, unknown>
-      const enriched = await enrichCourseWithDurations(base, courseFromDetail || {})
-      Object.assign(enriched, {
-        statistics: detail.statistics,
-        curriculum: detail.curriculum,
-        enrolled_students: detail.enrolled_students,
-        student_reviews: detail.student_reviews,
-        student_achievements: detail.student_achievements,
-        branches_offering: detail.branches_offering,
-      })
-      return NextResponse.json(enriched)
-    }
     const { ok, status, data } = await fetchJson(`${base}/api/courses/${slugOrId}`)
     if (ok) {
       const enriched = await enrichCourseWithDurations(base, data as Record<string, unknown>)
-      const detailRes2 = await fetchJson(`${base}/api/courses/public/detail/${slugOrId}`)
-      if (detailRes2.ok && typeof detailRes2.data === "object" && detailRes2.data !== null) {
-        const d = detailRes2.data as Record<string, unknown>
-        Object.assign(enriched, { statistics: d.statistics, curriculum: d.curriculum, enrolled_students: d.enrolled_students, student_reviews: d.student_reviews, student_achievements: d.student_achievements, branches_offering: d.branches_offering })
-      }
       return NextResponse.json(enriched)
     }
     // 401/403/404: fall through to list fallback
@@ -108,21 +88,7 @@ export async function GET(
     return NextResponse.json({ error: "Course not found" }, { status: 404 })
   }
 
-  const courseObj = course as Record<string, unknown>
-  const courseId = courseObj.id as string
-  const enriched = await enrichCourseWithDurations(base, { ...courseObj })
-  const detailRes = await fetchJson(`${base}/api/courses/public/detail/${courseId}`)
-  if (detailRes.ok && typeof detailRes.data === "object" && detailRes.data !== null) {
-    const detail = detailRes.data as Record<string, unknown>
-    Object.assign(enriched, {
-      statistics: detail.statistics,
-      curriculum: detail.curriculum,
-      enrolled_students: detail.enrolled_students,
-      student_reviews: detail.student_reviews,
-      student_achievements: detail.student_achievements,
-      branches_offering: detail.branches_offering,
-    })
-  }
+  const enriched = await enrichCourseWithDurations(base, course as Record<string, unknown>)
   return NextResponse.json(enriched)
 }
 

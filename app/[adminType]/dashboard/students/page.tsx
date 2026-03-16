@@ -835,22 +835,20 @@ const paginatedStudents = filteredStudents.slice(
                           >
                             <Edit className="w-4 h-4 text-gray-600" />
                           </Button>
-                          {adminType === "super-admin" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSendOnboardLink(student.id)}
-                              disabled={onboardLinkLoading === student.id}
-                              className="p-1 h-8 w-8"
-                              title="Send onboard link (valid 5 days, Super Admin only)"
-                            >
-                              {onboardLinkLoading === student.id ? (
-                                <span className="text-xs">...</span>
-                              ) : (
-                                <Link2 className="w-4 h-4 text-green-600" />
-                              )}
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSendOnboardLink(student.id)}
+                            disabled={onboardLinkLoading === student.id}
+                            className="p-1 h-8 w-8"
+                            title="Send onboard link (set password & course/branch/duration)"
+                          >
+                            {onboardLinkLoading === student.id ? (
+                              <span className="text-xs">...</span>
+                            ) : (
+                              <Link2 className="w-4 h-4 text-green-600" />
+                            )}
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -43,7 +43,7 @@ interface Category {
   code?: string
 }
 
-function OnboardContent() {
+export default function OnboardPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get("token") || ""
@@ -521,22 +521,5 @@ function OnboardContent() {
         </p>
       </div>
     </div>
-  )
-}
-
-export default function OnboardPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500 mx-auto mb-4" />
-            <p className="text-gray-600">Loading...</p>
-          </div>
-        </div>
-      }
-    >
-      <OnboardContent />
-    </Suspense>
   )
 }

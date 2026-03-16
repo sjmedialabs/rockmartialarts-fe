@@ -34,21 +34,11 @@ import { useToast } from "@/hooks/use-toast"
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-/** One block in the About section: custom title, description, optional bullet points, optional image */
-export interface AboutContentBlock {
-  title?: string
-  description?: string
-  bullet_points?: string[]
-  image?: string
-}
-
 export interface PageContent {
   hero_section?: {
     title?: string
     subtitle?: string
     description?: string
-    /** Bullet points shown under hero description (e.g. key highlights) */
-    bullet_points?: string[]
     hero_image?: string
     cta_text?: string
     cta_link?: string
@@ -59,22 +49,20 @@ export interface PageContent {
     price?: string
     training_time?: string
   }
+  course_info_sections?: {
+    title?: string
+    content?: string
+    bullet_points?: string[]
+    image?: string
+    layout?: "image_left" | "image_right"
+  }[]
   about_section?: {
     title?: string
     description?: string
     secondary_description?: string
     image1?: string
     image2?: string
-    content_blocks?: AboutContentBlock[]
   }
-  /** Dynamic sections: 60% text + 40% image or 40% image + 60% text, alternating */
-  course_info_sections?: {
-    layout: "text_left" | "image_left"
-    title?: string
-    content?: string
-    bullet_points?: string[]
-    image?: string
-  }[]
   benefits?: { title: string; description: string; icon?: string }[]
   learning_section?: {
     title?: string
@@ -178,8 +166,8 @@ export default function CourseFormSections({ value, onChange }: Props) {
 
   const hero = pc.hero_section || {}
   const info = pc.course_info || {}
-  const about = pc.about_section || {}
   const courseInfoSections = pc.course_info_sections || []
+  const about = pc.about_section || {}
   const benefits = pc.benefits || []
   const learning = pc.learning_section || {}
   const gallery = pc.gallery_images || []
@@ -192,7 +180,7 @@ export default function CourseFormSections({ value, onChange }: Props) {
       {/* ---- 1. Hero Section ---- */}
       <AccordionItem value="hero" className="border rounded-lg px-4">
         <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Layout className="h-4 w-4" /> Hero</span>
+          <span className="flex items-center gap-2"><Layout className="h-4 w-4" /> Hero Section</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -209,7 +197,6 @@ export default function CourseFormSections({ value, onChange }: Props) {
             <Label>Hero Description</Label>
             <Textarea value={hero.description || ""} onChange={(e) => set("hero_section", { ...hero, description: e.target.value })} rows={3} placeholder="Course introduction paragraph..." />
           </div>
-          <p className="text-xs text-muted-foreground">Title, description and bullet points are optional; hero is mainly the background image and CTA.</p>
           <FileUpload accept="image/*" label="Hero Background Image" currentUrl={hero.hero_image} onUploaded={(url) => set("hero_section", { ...hero, hero_image: url })} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -269,84 +256,61 @@ export default function CourseFormSections({ value, onChange }: Props) {
             <Label>Secondary Description</Label>
             <Textarea value={about.secondary_description || ""} onChange={(e) => set("about_section", { ...about, secondary_description: e.target.value })} rows={3} placeholder="Additional paragraph..." />
           </div>
-          <div className="border-t pt-4 space-y-4">
-            <Label className="text-base">Content blocks (custom sections with title, description, bullet points)</Label>
-            <p className="text-xs text-muted-foreground">Add sections like &quot;Mental and Spiritual Aspects&quot;, &quot;History of Wushu&quot;, etc. Each can have a custom title, description, and bullet points.</p>
-            {(about.content_blocks || []).map((block, blockIdx) => (
-              <div key={blockIdx} className="border rounded-lg p-4 space-y-3 relative bg-muted/30">
-                <Button type="button" variant="ghost" size="sm" className="absolute top-2 right-2 text-red-500" onClick={() => set("about_section", { ...about, content_blocks: (about.content_blocks || []).filter((_, i) => i !== blockIdx) })}><X className="h-4 w-4" /></Button>
-                <div className="space-y-1 pr-8">
-                  <Label>Block title</Label>
-                  <Input value={block.title || ""} onChange={(e) => { const blocks = [...(about.content_blocks || [])]; blocks[blockIdx] = { ...block, title: e.target.value }; set("about_section", { ...about, content_blocks: blocks }) }} placeholder="e.g. Mental and Spiritual Aspects" />
-                </div>
-                <div className="space-y-1">
-                  <Label>Description</Label>
-                  <Textarea value={block.description || ""} onChange={(e) => { const blocks = [...(about.content_blocks || [])]; blocks[blockIdx] = { ...block, description: e.target.value }; set("about_section", { ...about, content_blocks: blocks }) }} rows={3} placeholder="Paragraph for this section..." />
-                </div>
-                <div className="space-y-1">
-                  <Label>Bullet points (optional)</Label>
-                  {(block.bullet_points || []).map((bp, i) => (
-                    <div key={i} className="flex gap-2 mb-1">
-                      <Input value={bp} onChange={(e) => { const arr = [...(block.bullet_points || [])]; arr[i] = e.target.value; const blocks = [...(about.content_blocks || [])]; blocks[blockIdx] = { ...block, bullet_points: arr }; set("about_section", { ...about, content_blocks: blocks }) }} placeholder="e.g. Mindfulness: being present..." />
-                      <Button type="button" variant="ghost" size="sm" className="text-red-500 shrink-0" onClick={() => { const arr = (block.bullet_points || []).filter((_, idx) => idx !== i); const blocks = [...(about.content_blocks || [])]; blocks[blockIdx] = { ...block, bullet_points: arr }; set("about_section", { ...about, content_blocks: blocks }) }}><X className="h-4 w-4" /></Button>
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => { const arr = [...(block.bullet_points || []), ""]; const blocks = [...(about.content_blocks || [])]; blocks[blockIdx] = { ...block, bullet_points: arr }; set("about_section", { ...about, content_blocks: blocks }) }}><Plus className="h-4 w-4 mr-1" /> Add bullet</Button>
-                </div>
-                <FileUpload accept="image/*" label="Block image (optional)" currentUrl={block.image} onUploaded={(url) => { const blocks = [...(about.content_blocks || [])]; blocks[blockIdx] = { ...block, image: url }; set("about_section", { ...about, content_blocks: blocks }) }} />
-              </div>
-            ))}
-            <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("about_section", { ...about, content_blocks: [...(about.content_blocks || []), { title: "", description: "", bullet_points: [] }] })}>
-              <Plus className="h-4 w-4 mr-2" /> Add content block
-            </Button>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <FileUpload accept="image/*" label="Image 1 (right column)" currentUrl={about.image1} onUploaded={(url) => set("about_section", { ...about, image1: url })} />
-            <FileUpload accept="image/*" label="Image 2 (right column)" currentUrl={about.image2} onUploaded={(url) => set("about_section", { ...about, image2: url })} />
+            <FileUpload accept="image/*" label="Image 1" currentUrl={about.image1} onUploaded={(url) => set("about_section", { ...about, image1: url })} />
+            <FileUpload accept="image/*" label="Image 2" currentUrl={about.image2} onUploaded={(url) => set("about_section", { ...about, image2: url })} />
           </div>
         </AccordionContent>
       </AccordionItem>
 
-      {/* ---- 3b. Course Info Sections (60-40 / 40-60 alternating) ---- */}
+      {/* ---- 3a. Course Info Sections (60-40 / 40-60 alternating) ---- */}
       <AccordionItem value="courseInfoSections" className="border rounded-lg px-4">
         <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Course Info Sections ({courseInfoSections.length})</span>
+          <span className="flex items-center gap-2"><Layout className="h-4 w-4" /> Course Info Sections ({courseInfoSections.length})</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
-          <p className="text-xs text-muted-foreground">Add sections with 60% text + 40% image, or 40% image + 60% text. They alternate on the course detail page.</p>
-          {courseInfoSections.map((sec, idx) => (
-            <div key={idx} className="border rounded-lg p-4 space-y-3 relative bg-muted/30">
-              <Button type="button" variant="ghost" size="sm" className="absolute top-2 right-2 text-red-500" onClick={() => set("course_info_sections", courseInfoSections.filter((_, i) => i !== idx))}><X className="h-4 w-4" /></Button>
-              <div className="flex gap-4 items-center pr-8">
-                <Label>Layout</Label>
-                <select value={sec.layout || "text_left"} onChange={(e) => { const arr = [...courseInfoSections]; arr[idx] = { ...sec, layout: e.target.value as "text_left" | "image_left" }; set("course_info_sections", arr) }} className="rounded border px-2 py-1">
-                  <option value="text_left">60% text left, 40% image right</option>
-                  <option value="image_left">40% image left, 60% text right</option>
-                </select>
+          <p className="text-sm text-gray-500">These blocks appear on the course detail page with alternating image left/right layout (60% text, 40% image).</p>
+          {courseInfoSections.map((sec, i) => (
+            <div key={i} className="border rounded-lg p-3 space-y-2 relative">
+              <Button type="button" variant="ghost" size="sm" className="absolute top-1 right-1 text-red-500" onClick={() => set("course_info_sections", courseInfoSections.filter((_, idx) => idx !== i))}>
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="space-y-1">
+                <Label>Section Title</Label>
+                <Input value={sec.title || ""} onChange={(e) => { const n = [...courseInfoSections]; n[i] = { ...sec, title: e.target.value }; set("course_info_sections", n) }} placeholder="e.g. Why Choose This Course" />
               </div>
               <div className="space-y-1">
-                <Label>Section title</Label>
-                <Input value={sec.title || ""} onChange={(e) => { const arr = [...courseInfoSections]; arr[idx] = { ...sec, title: e.target.value }; set("course_info_sections", arr) }} placeholder="e.g. History of Wushu" />
+                <Label>Content</Label>
+                <Textarea value={sec.content || ""} onChange={(e) => { const n = [...courseInfoSections]; n[i] = { ...sec, content: e.target.value }; set("course_info_sections", n) }} rows={3} placeholder="Paragraph text..." />
               </div>
               <div className="space-y-1">
-                <Label>Content (paragraph)</Label>
-                <Textarea value={sec.content || ""} onChange={(e) => { const arr = [...courseInfoSections]; arr[idx] = { ...sec, content: e.target.value }; set("course_info_sections", arr) }} rows={3} placeholder="Description for this section..." />
+                <Label>Bullet points (one per line or add below)</Label>
+                <div className="space-y-1">
+                  {(sec.bullet_points || []).map((bp, j) => (
+                    <div key={j} className="flex gap-2">
+                      <Input value={bp} onChange={(e) => { const pts = [...(sec.bullet_points || [])]; pts[j] = e.target.value; const n = [...courseInfoSections]; n[i] = { ...sec, bullet_points: pts }; set("course_info_sections", n) }} placeholder="Bullet point" />
+                      <Button type="button" variant="ghost" size="sm" className="text-red-500 shrink-0" onClick={() => { const pts = (sec.bullet_points || []).filter((_, k) => k !== j); const n = [...courseInfoSections]; n[i] = { ...sec, bullet_points: pts }; set("course_info_sections", n) }}><X className="h-4 w-4" /></Button>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => { const pts = [...(sec.bullet_points || []), ""]; const n = [...courseInfoSections]; n[i] = { ...sec, bullet_points: pts }; set("course_info_sections", n) }}><Plus className="h-4 w-4 mr-1" /> Add bullet</Button>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label>Bullet points (optional)</Label>
-                {(sec.bullet_points || []).map((bp, i) => (
-                  <div key={i} className="flex gap-2 mb-1">
-                    <Input value={bp} onChange={(e) => { const arr = [...(sec.bullet_points || [])]; arr[i] = e.target.value; const sections = [...courseInfoSections]; sections[idx] = { ...sec, bullet_points: arr }; set("course_info_sections", sections) }} placeholder="Bullet point" />
-                    <Button type="button" variant="ghost" size="sm" className="text-red-500 shrink-0" onClick={() => { const arr = (sec.bullet_points || []).filter((_, j) => j !== i); const sections = [...courseInfoSections]; sections[idx] = { ...sec, bullet_points: arr }; set("course_info_sections", sections) }}><X className="h-4 w-4" /></Button>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => { const arr = [...(sec.bullet_points || []), ""]; const sections = [...courseInfoSections]; sections[idx] = { ...sec, bullet_points: arr }; set("course_info_sections", sections) }}><Plus className="h-4 w-4 mr-1" /> Add bullet</Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label>Layout</Label>
+                  <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm" value={sec.layout || "image_right"} onChange={(e) => { const n = [...courseInfoSections]; n[i] = { ...sec, layout: e.target.value as "image_left" | "image_right" }; set("course_info_sections", n) }}>
+                    <option value="image_right">Image right (text left)</option>
+                    <option value="image_left">Image left (text right)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <FileUpload accept="image/*" label="Section image" currentUrl={sec.image} onUploaded={(url) => { const n = [...courseInfoSections]; n[i] = { ...sec, image: url }; set("course_info_sections", n) }} />
+                </div>
               </div>
-              <FileUpload accept="image/*" label="Section image" currentUrl={sec.image} onUploaded={(url) => { const arr = [...courseInfoSections]; arr[idx] = { ...sec, image: url }; set("course_info_sections", arr) }} />
             </div>
           ))}
-          <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("course_info_sections", [...courseInfoSections, { layout: "text_left", title: "", content: "", bullet_points: [] }])}>
-            <Plus className="h-4 w-4 mr-2" /> Add section
+          <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => set("course_info_sections", [...courseInfoSections, { title: "", content: "", layout: "image_right" }])}>
+            <Plus className="h-4 w-4 mr-2" /> Add Course Info Section
           </Button>
         </AccordionContent>
       </AccordionItem>

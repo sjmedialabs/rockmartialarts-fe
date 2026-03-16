@@ -1,17 +1,114 @@
 "use client"
 
 import { useCMS } from "@/contexts/CMSContext"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, LogIn } from "lucide-react"
+import { Menu, LogIn, Loader2, ChevronDown, BookOpen } from "lucide-react"
 import { BranchesNavDropdown } from "@/components/BranchesNavDropdown"
+import { toCourseSlug } from "@/lib/course-slug"
 
 const navLinks = [
-  { label: "Courses", href: "/courses" },
   { label: "Store", href: "/store" },
 ]
+
+type CourseNavItem = {
+  id: string
+  title?: string
+  name?: string
+  code?: string
+}
+
+function CoursesNavDropdown({ variant = "desktop", onNavigate }: { variant?: "desktop" | "mobile"; onNavigate?: () => void }) {
+  const [courses, setCourses] = useState<CourseNavItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const isMobile = variant === "mobile"
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (!open || courses.length > 0) return
+    setLoading(true)
+    fetch("/api/backend/courses/public/all", { headers: { "Content-Type": "application/json" } })
+      .then((res) => (res.ok ? res.json() : Promise.resolve({ courses: [] })))
+      .then((data) => {
+        const list = data.courses ?? data ?? []
+        setCourses(Array.isArray(list) ? list : [])
+      })
+      .catch(() => setCourses([]))
+      .finally(() => setLoading(false))
+  }, [open, courses.length])
+
+  const displayName = (c: CourseNavItem) => c.title || c.name || c.code || "Course"
+
+  return (
+    <div ref={ref} className={isMobile ? "w-full" : "relative"}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        onMouseEnter={isMobile ? undefined : () => setOpen(true)}
+        className={
+          isMobile
+            ? "flex w-full items-center justify-between text-lg font-medium uppercase tracking-wide text-white py-2 hover:text-[#FFB70F] transition-colors"
+            : "flex items-center gap-1 text-sm font-medium uppercase tracking-wide text-white hover:text-[#FFB70F] transition-colors"
+        }
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
+        Courses
+        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div
+          className={
+            isMobile
+              ? "mt-2 w-full rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50"
+              : "absolute left-0 top-full mt-1 min-w-[260px] rounded-lg border border-gray-700 bg-[#171A26] py-2 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+          }
+          onMouseLeave={isMobile ? undefined : () => setOpen(false)}
+        >
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 px-4 py-4 text-gray-400 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Loading courses...</span>
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="px-4 py-3 text-center text-gray-400 text-sm">No courses available</div>
+          ) : (
+            <ul className="max-h-[70vh] overflow-y-auto">
+              {courses.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    href={`/courses/${toCourseSlug(c)}`}
+                    onClick={() => {
+                      setOpen(false)
+                      onNavigate?.()
+                    }}
+                    className="flex items-start gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left"
+                  >
+                    <BookOpen className="h-4 w-4 text-[#FFB70F] mt-0.5 flex-shrink-0" />
+                    <span className="block font-medium text-white truncate">
+                      {displayName(c)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function FixedTopNav() {
   const { cms } = useCMS()
@@ -43,6 +140,9 @@ export function FixedTopNav() {
         </Link>
 
         <ul className="hidden items-center gap-6 lg:flex">
+          <li>
+            <CoursesNavDropdown />
+          </li>
           {navLinks.map((item) => (
             <li key={item.href}>
               <Link
@@ -96,6 +196,9 @@ export function FixedTopNav() {
           </SheetTrigger>
           <SheetContent side="right" className="w-[300px] border-[#766E6E] bg-[#171A26] px-6 py-6">
             <ul className="mt-4 flex flex-col gap-6">
+              <li>
+                <CoursesNavDropdown variant="mobile" onNavigate={() => setMobileOpen(false)} />
+              </li>
               {navLinks.map((item) => (
                 <li key={item.href}>
                   <Link

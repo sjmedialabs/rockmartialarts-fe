@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Poppins, Roboto,Inter,Bebas_Neue } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { RegistrationProvider } from '@/contexts/RegistrationContext'
+
+const enableVercelAnalytics = process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ENABLED === 'true'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { CMSProvider } from '@/contexts/CMSContext'
 import { Toaster } from '@/components/ui/toaster'
@@ -71,7 +73,7 @@ export default function RootLayout({
           </AuthProvider>
           <Toaster />
         </AccessibilityProvider>
-        <Analytics />
+        {enableVercelAnalytics && <Analytics />}
       </body>
     </html>
   )

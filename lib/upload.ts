@@ -23,8 +23,22 @@ export async function uploadFile(file: File): Promise<UploadResult> {
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Upload failed" }))
-    throw new Error(err.detail || err.message || `Upload failed (${res.status})`)
+    // Try to surface the backend error message clearly (JSON or plain text)
+    let message = `Upload failed (${res.status})`
+    try {
+      const data = await res.json()
+      if (data && typeof data === "object") {
+        message = (data.detail as string) || (data.message as string) || message
+      }
+    } catch {
+      try {
+        const text = await res.text()
+        if (text) message = text
+      } catch {
+        // ignore, keep default message
+      }
+    }
+    throw new Error(message)
   }
 
   const data = await res.json()

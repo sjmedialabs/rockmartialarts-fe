@@ -297,122 +297,8 @@ export default function CourseDetailPage() {
         </section>
       )}
 
-      {/* ============ 3. ABOUT COURSE – always render when admin filled About section ============ */}
-      {(about.title || about.description || course.description || (about.content_blocks && about.content_blocks.length > 0)) && (
-        <section className="py-16 md:py-20 bg-[#1E2130] text-gray-100">
-          <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="About Course" title={about.title || `About ${courseTitle}`} />
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-start">
-              <div className="lg:col-span-3 space-y-6">
-                <p className="text-base md:text-lg leading-relaxed text-gray-200">
-                  {about.description || course.description}
-                </p>
-                {about.secondary_description && (
-                  <p className="text-sm md:text-base leading-relaxed text-gray-300">
-                    {about.secondary_description}
-                  </p>
-                )}
-                {(about.content_blocks || []).length > 0 && (
-                  <div className="space-y-6 mt-6">
-                    {about.content_blocks!.map((block, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded-2xl border border-gray-700 bg-gradient-to-r from-[#171A26] to-[#1E2130] p-6 md:p-7 hover:border-[#FFB70F] hover:-translate-y-1 transition-all duration-300 shadow-xl shadow-black/30"
-                      >
-                        {block.title && (
-                          <h3
-                            className="text-lg md:text-2xl font-bold text-white mb-3 uppercase"
-                            style={{ fontFamily: "'Oswald', sans-serif" }}
-                          >
-                            {block.title}
-                          </h3>
-                        )}
-                        {block.description && (
-                          <p className="text-sm md:text-base text-gray-200 leading-relaxed mb-3">
-                            {block.description}
-                          </p>
-                        )}
-                        {block.bullet_points && block.bullet_points.length > 0 && (
-                          <ul className="space-y-1.5 text-sm md:text-base">
-                            {block.bullet_points.filter(Boolean).map((bp, i) => (
-                              <li key={i} className="flex items-start gap-2">
-                                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#FFB70F]" />
-                                <span className="text-gray-100">{bp}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {(about.image1 || about.image2) && (
-                <div className="lg:col-span-2 space-y-5">
-                  {about.image1 && (
-                    <div className="relative overflow-hidden rounded-2xl shadow-xl shadow-black/40">
-                      <img
-                        src={about.image1}
-                        alt=""
-                        className="w-full h-64 md:h-72 object-cover transform hover:scale-105 transition-transform duration-700"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                    </div>
-                  )}
-                  {about.image2 && (
-                    <div className="relative overflow-hidden rounded-2xl shadow-xl shadow-black/40">
-                      <img
-                        src={about.image2}
-                        alt=""
-                        className="w-full h-56 md:h-64 object-cover transform hover:scale-105 transition-transform duration-700"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ 4. COURSE INFO SECTIONS (60-40 / 40-60 alternating) or legacy ABOUT fallback ============ */}
-      {courseInfoSections.length > 0 && (
-        <section className="py-16 md:py-20 bg-white text-[#171A26]">
-          <div className="container mx-auto px-4 max-w-7xl space-y-16">
-            {courseInfoSections.map((sec, idx) => {
-              const textLeft = sec.layout !== "image_left"
-              return (
-                <div key={idx} className={`grid grid-cols-1 gap-8 md:gap-12 items-center ${textLeft ? "md:grid-cols-5" : "md:grid-cols-5"}`}>
-                  <div className={textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2"}>
-                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
-                    {sec.content && <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{sec.content}</div>}
-                    {sec.bullet_points && sec.bullet_points.length > 0 && (
-                      <ul className="list-none space-y-2">
-                        {sec.bullet_points.filter(Boolean).map((bp, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
-                            <span className="text-gray-700">{bp}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
-                    {sec.image ? <img src={sec.image} alt={sec.title || ""} className="rounded-lg w-full h-64 object-cover" /> : <div className="w-full h-48 bg-gray-200 rounded-lg" />}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-      {courseInfoSections.length === 0 &&
-        !about.title &&
-        !about.description &&
-        !about.secondary_description &&
-        !(about.content_blocks && about.content_blocks.length > 0) &&
-        !(about.image1 || about.image2) && (
+      {/* ============ 3. ABOUT COURSE (immediately below branch/info strip) ============ */}
+      {(about.title || about.description || course.description || (about.content_blocks && about.content_blocks.length > 0) || about.image1 || about.image2) && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className={`grid grid-cols-1 gap-12 items-start ${(about.image1 || about.image2 || (about.content_blocks || []).some(b => b.image)) ? "lg:grid-cols-5" : ""}`}>
@@ -445,7 +331,7 @@ export default function CourseDetailPage() {
                     )}
                     {block.image && (
                       <div className="mt-4">
-                        <img src={block.image} alt={block.title || ""} className="rounded-lg w-full max-w-md h-56 object-cover" />
+                        <img src={block.image} alt={block.title || ""} className="rounded-lg w-full max-w-md object-cover" />
                       </div>
                     )}
                   </div>
@@ -453,11 +339,43 @@ export default function CourseDetailPage() {
               </div>
               {(about.image1 || about.image2) && (
                 <div className="lg:col-span-2 space-y-4">
-                  {about.image1 && <img src={about.image1} alt="" className="rounded-lg w-full h-64 object-cover" />}
-                  {about.image2 && <img src={about.image2} alt="" className="rounded-lg w-full h-64 object-cover" />}
+                  {about.image1 && <img src={about.image1} alt="" className="rounded-lg w-full object-cover" />}
+                  {about.image2 && <img src={about.image2} alt="" className="rounded-lg w-full object-cover" />}
                 </div>
               )}
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* ============ 3a. COURSE INFO SECTIONS (60-40 / 40-60 alternating) ============ */}
+      {courseInfoSections.length > 0 && (
+        <section className="py-16 md:py-20 bg-white text-[#171A26]">
+          <div className="container mx-auto px-4 max-w-7xl space-y-16">
+            {courseInfoSections.map((sec, idx) => {
+              const textLeft = sec.layout !== "image_left"
+              return (
+                <div key={idx} className={`grid grid-cols-1 gap-8 md:gap-12 items-center ${textLeft ? "md:grid-cols-5" : "md:grid-cols-5"}`}>
+                  <div className={textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2"}>
+                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
+                    {sec.content && <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{sec.content}</div>}
+                    {sec.bullet_points && sec.bullet_points.length > 0 && (
+                      <ul className="list-none space-y-2">
+                        {sec.bullet_points.filter(Boolean).map((bp, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
+                            <span className="text-gray-700">{bp}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
+                    {sec.image ? <img src={sec.image} alt={sec.title || ""} className="rounded-lg w-full object-cover" /> : <div className="w-full h-48 bg-gray-200 rounded-lg" />}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </section>
       )}

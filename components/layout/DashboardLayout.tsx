@@ -18,8 +18,11 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col min-w-0">
       <Navbar role={role} />
-      <main className="w-full flex-1 mt-16 sm:mt-20 min-w-0">
-        <ResponsiveContainer className="py-4 sm:py-5 md:py-6">
+      <main className="w-full flex-1 min-w-0">
+        <ResponsiveContainer
+          maxWidth="full"
+          className="pt-20 pb-4 sm:pb-5 md:pb-6"
+        >
           {children}
         </ResponsiveContainer>
       </main>

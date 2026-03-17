@@ -179,8 +179,38 @@ export default function CourseDetailPage() {
         </section>
       )}
 
-      {/* ============ 3. ABOUT COURSE (immediately below branch/info strip) ============ */}
-      {(about.title || about.description || about.secondary_description || course.description || (about.content_blocks && about.content_blocks.length > 0) || about.image1 || about.image2 || (pc.about_section && typeof pc.about_section === "object" && Object.keys(pc.about_section).length > 0)) && (
+      {/* ============ 3. COURSE INFO SECTIONS (60-40 / 40-60 alternating) or legacy ABOUT ============ */}
+      {courseInfoSections.length > 0 && (
+        <section className="py-16 md:py-20 bg-white text-[#171A26]">
+          <div className="container mx-auto px-4 max-w-7xl space-y-16">
+            {courseInfoSections.map((sec, idx) => {
+              const textLeft = sec.layout !== "image_left"
+              return (
+                <div key={idx} className={`grid grid-cols-1 gap-8 md:gap-12 items-center ${textLeft ? "md:grid-cols-5" : "md:grid-cols-5"}`}>
+                  <div className={textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2"}>
+                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
+                    {sec.content && <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{sec.content}</div>}
+                    {sec.bullet_points && sec.bullet_points.length > 0 && (
+                      <ul className="list-none space-y-2">
+                        {sec.bullet_points.filter(Boolean).map((bp, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
+                            <span className="text-gray-700">{bp}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
+                    {sec.image ? <img src={sec.image} alt={sec.title || ""} className="rounded-lg w-full h-64 object-cover" /> : <div className="w-full h-48 bg-gray-200 rounded-lg" />}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+      {courseInfoSections.length === 0 && (about.title || about.description || course.description || (about.content_blocks && about.content_blocks.length > 0) || about.image1 || about.image2) && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className={`grid grid-cols-1 gap-12 items-start ${(about.image1 || about.image2 || (about.content_blocks || []).some(b => b.image)) ? "lg:grid-cols-5" : ""}`}>

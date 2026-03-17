@@ -1,11 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server"
 
-export async function GET(request: NextRequest) {
-  try {
-    // Mock courses data with additional properties for the dashboard
-    const courses = [
-      {
-        id: 'course-123456',
+const BACKEND_URL =
+  process.env.API_BASE_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://127.0.0.1:8003"
+
+const MOCK_COURSES = [
+  {
+    id: "course-123456",
         title: 'Advanced Kung Fu Training',
         name: 'Advanced Kung Fu Training', // Add name property for compatibility
         code: 'KF-ADV-001',
@@ -100,22 +103,43 @@ export async function GET(request: NextRequest) {
         students: 32,
         enabled: true
       }
-    ]
-    
-    return NextResponse.json(
-      {
-        message: 'Courses retrieved successfully',
-        courses,
-        total: courses.length
-      },
-      { status: 200 }
-    )
-    
-  } catch (error) {
-    console.error('Error retrieving courses:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+]
+
+export async function GET(_request: NextRequest) {
+  try {
+    const base = BACKEND_URL.replace(/\/$/, "")
+    const res = await fetch(`${base}/api/courses/public/all`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    })
+    const text = await res.text()
+    let data: unknown = text
+    if (res.headers.get("content-type")?.includes("application/json") && text) {
+      try {
+        data = JSON.parse(text)
+      } catch {
+        // keep as text
+      }
+    }
+    if (res.ok && typeof data === "object" && data !== null && "courses" in data) {
+      const payload = data as { courses?: unknown[]; total?: number; message?: string }
+      return NextResponse.json({
+        message: payload.message ?? "Courses retrieved successfully",
+        courses: Array.isArray(payload.courses) ? payload.courses : [],
+        total: payload.total ?? (Array.isArray(payload.courses) ? payload.courses.length : 0),
+      })
+    }
+    return NextResponse.json({
+      message: "Courses retrieved successfully",
+      courses: MOCK_COURSES,
+      total: MOCK_COURSES.length,
+    })
+  } catch {
+    return NextResponse.json({
+      message: "Courses retrieved successfully",
+      courses: MOCK_COURSES,
+      total: MOCK_COURSES.length,
+    })
   }
 }

@@ -15,8 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Quote,
-  Users,
-  Star,
 } from "lucide-react"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 
@@ -24,20 +22,8 @@ import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-type AboutContentBlock = {
-  title?: string
-  description?: string
-  bullet_points?: string[]
-  image?: string
-}
-
-type CourseInfoSection = {
-  title?: string
-  content?: string
-  bullet_points?: string[]
-  image?: string
-  layout?: "image_left" | "image_right"
-}
+type CourseInfoSection = { title?: string; content?: string; bullet_points?: string[]; image?: string; layout?: "image_left" | "image_right" }
+type AboutContentBlock = { title?: string; description?: string; bullet_points?: string[]; image?: string }
 
 type PageContent = {
   hero_section?: { title?: string; subtitle?: string; description?: string; hero_image?: string; cta_text?: string; cta_link?: string }
@@ -61,6 +47,9 @@ type CourseData = {
   difficulty_level?: string
   page_content?: PageContent
   media_resources?: { course_image_url?: string; promo_video_url?: string }
+  fee_per_duration?: Record<string, number>
+  available_durations?: { id: string; name?: string; duration_months?: number; code?: string }[]
+  branch_assignments?: { branch_id: string; branch_name: string; location: string }[]
   [key: string]: any
 }
 
@@ -83,6 +72,13 @@ function getYouTubeId(url: string): string | null {
   return m ? m[1] : null
 }
 
+function resolveUploadUrl(url?: string): string {
+  if (!url) return ""
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) return url
+  // Backend uploads are proxied via /api/backend/uploads
+  return `/api/backend/uploads/${encodeURIComponent(url)}`
+}
+
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
@@ -95,6 +91,8 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [testimonialIdx, setTestimonialIdx] = useState(0)
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
+  const [selectedDurationKey, setSelectedDurationKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!slug) return
@@ -126,10 +124,34 @@ export default function CourseDetailPage() {
   const instructors = pc.instructors || []
   const testimonials = pc.testimonials || []
   const attachments = pc.pdf_attachments || []
-  const courseInfoSections = pc.course_info_sections || []
+  const courseInfoSections = (pc.course_info_sections || []) as CourseInfoSection[]
 
   const courseTitle = hero.title || course.title || course.course_name || "Course"
   const heroImg = hero.hero_image || course.media_resources?.course_image_url || "/assets/img/banner.jpg"
+  const aboutImage = resolveUploadUrl(about.image1 || about.image2 || "")
+
+  const branches = (course.branch_assignments || []) as { branch_id: string; branch_name: string; location: string }[]
+  const durations = (course.available_durations || []) as { id: string; name?: string; duration_months?: number; code?: string }[]
+  const feePerDuration = (course.fee_per_duration || {}) as Record<string, number>
+
+  const effectiveLocationId = selectedLocationId ?? (branches[0]?.branch_id ?? null)
+  const effectiveDurationKey = selectedDurationKey ?? (durations[0]?.id ?? durations[0]?.code ?? null)
+
+  const selectedBranch = branches.find((b) => b.branch_id === effectiveLocationId) || branches[0]
+
+  let priceDisplay = info.price ? stripUuidFromPriceDisplay(info.price) : ""
+  if (effectiveDurationKey && feePerDuration) {
+    const direct = feePerDuration[effectiveDurationKey]
+    const byCode =
+      durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)?.id &&
+      feePerDuration[durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)!.id]
+    const amount = direct ?? byCode
+    if (typeof amount === "number" && !Number.isNaN(amount)) {
+      priceDisplay = `₹ ${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+    }
+  }
+
+  const timingLine = (info.training_time || "").split(/\r?\n|[;,]/)[0]?.trim() || ""
 
   return (
     <main className="min-h-screen bg-[#171A26] text-gray-300">
@@ -150,71 +172,98 @@ export default function CourseDetailPage() {
         </div>
       </section>
 
-      {/* ============ 2. INFO BAR ============ */}
-      {(info.location || info.duration || info.price) && (
+      {/* ============ 2. INFO BAR (location / duration / price / timings) ============ */}
+      {(info.location || durations.length > 0 || info.price || info.training_time) && (
         <section className="bg-[#F73322]">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/20">
-              {info.location && (
+              {/* Location selector */}
+              {(branches.length > 0 || info.location) && (
                 <div className="flex items-center gap-3 py-5 px-4 text-white">
                   <MapPin className="w-7 h-7 flex-shrink-0 opacity-90" />
-                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Select Location</p><p className="font-bold text-lg">{info.location}</p></div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wider text-white/80">Select Location</p>
+                    {branches.length > 1 ? (
+                      <select
+                        className="mt-0.5 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0"
+                        value={effectiveLocationId ?? ""}
+                        onChange={(e) => setSelectedLocationId(e.target.value || null)}
+                      >
+                        {branches.map((b) => (
+                          <option key={b.branch_id} value={b.branch_id} className="text-black">
+                            {b.branch_name || b.location}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="text-[12px] font-semibold truncate">
+                        {selectedBranch?.branch_name || info.location}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
-              {info.duration && (
+
+              {/* Duration selector */}
+              {(durations.length > 0 || info.duration) && (
                 <div className="flex items-center gap-3 py-5 px-4 text-white">
                   <Calendar className="w-7 h-7 flex-shrink-0 opacity-90" />
-                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Course Duration</p><p className="font-bold text-lg">{info.duration}</p></div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wider text-white/80">Course Duration</p>
+                    {durations.length > 0 ? (
+                      <select
+                        className="mt-0.5 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0"
+                        value={effectiveDurationKey ?? ""}
+                        onChange={(e) => setSelectedDurationKey(e.target.value || null)}
+                      >
+                        {durations.map((d) => (
+                          <option key={d.id} value={d.id} className="text-black">
+                            {d.name || d.code || `${d.duration_months ?? ""} month(s)`}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="text-[12px] font-semibold truncate">{info.duration}</p>
+                    )}
+                  </div>
                 </div>
               )}
-              {info.price && (
+
+              {/* Price details for selected duration */}
+              {(priceDisplay || info.price) && (
                 <div className="flex items-center gap-3 py-5 px-4 text-white">
                   <IndianRupee className="w-7 h-7 flex-shrink-0 opacity-90" />
-                  <div><p className="text-[11px] uppercase tracking-wider text-white/80">Price Details</p><p className="font-bold text-lg">{stripUuidFromPriceDisplay(info.price)}</p></div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wider text-white/80">Price Details</p>
+                    <p className="text-[12px] font-semibold truncate">
+                      {priceDisplay || (info.price ? stripUuidFromPriceDisplay(info.price) : "")}
+                    </p>
+                  </div>
                 </div>
               )}
-              {/* Training time (timings) is intentionally hidden from the public site */}
+
+              {/* Timings - always single line */}
+              {timingLine && (
+                <div className="flex items-center gap-3 py-5 px-4 text-white">
+                  <Clock className="w-7 h-7 flex-shrink-0 opacity-90" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wider text-white/80">Timings</p>
+                    <p className="text-[12px] font-semibold truncate">{timingLine}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
       )}
 
-      {/* ============ 3. COURSE INFO SECTIONS (60-40 / 40-60 alternating) or legacy ABOUT ============ */}
-      {courseInfoSections.length > 0 && (
-        <section className="py-16 md:py-20 bg-white text-[#171A26]">
-          <div className="container mx-auto px-4 max-w-7xl space-y-16">
-            {courseInfoSections.map((sec, idx) => {
-              const textLeft = sec.layout !== "image_left"
-              return (
-                <div key={idx} className={`grid grid-cols-1 gap-8 md:gap-12 items-center ${textLeft ? "md:grid-cols-5" : "md:grid-cols-5"}`}>
-                  <div className={textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2"}>
-                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
-                    {sec.content && <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{sec.content}</div>}
-                    {sec.bullet_points && sec.bullet_points.length > 0 && (
-                      <ul className="list-none space-y-2">
-                        {sec.bullet_points.filter(Boolean).map((bp, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
-                            <span className="text-gray-700">{bp}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
-                    {sec.image ? <img src={sec.image} alt={sec.title || ""} className="rounded-lg w-full h-64 object-cover" /> : <div className="w-full h-48 bg-gray-200 rounded-lg" />}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-      {courseInfoSections.length === 0 && (about.title || about.description || course.description || (about.content_blocks && about.content_blocks.length > 0) || about.image1 || about.image2) && (
+      {/* ============ 3. ABOUT COURSE ============ */}
+      {(about.title || about.description || about.secondary_description || course.description || (about.content_blocks && about.content_blocks.length > 0) || about.image1 || about.image2) && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
           <div className="container mx-auto px-4 max-w-7xl">
-            <div className={`grid grid-cols-1 gap-12 items-start ${(about.image1 || about.image2 || (about.content_blocks || []).some(b => b.image)) ? "lg:grid-cols-5" : ""}`}>
-              <div className={about.image1 || about.image2 ? "lg:col-span-3" : ""}>
+            <div className="flex flex-col lg:flex-row items-start gap-8">
+              {/* LEFT: text content (60%) */}
+              <div className="w-full lg:w-[60%]">
                 <p className="text-[#F73322] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {courseTitle}</p>
                 <h2 className="text-3xl md:text-4xl font-extrabold text-[#171A26] uppercase mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
                   {about.title || "Start Today and Change Your Life"}
@@ -223,12 +272,10 @@ export default function CourseDetailPage() {
                   {(about.description || course.description) && <p>{about.description || course.description}</p>}
                   {about.secondary_description && <p>{about.secondary_description}</p>}
                 </div>
-                {(about.content_blocks || []).map((block, idx) => (
+                {(about.content_blocks || []).map((block: AboutContentBlock, idx: number) => (
                   <div key={idx} className="mt-10">
                     {block.title && (
-                      <h3 className="text-xl md:text-2xl font-bold text-[#171A26] mb-3" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                        {block.title}
-                      </h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-[#171A26] mb-3" style={{ fontFamily: "'Oswald', sans-serif" }}>{block.title}</h3>
                     )}
                     {block.description && <p className="text-gray-700 leading-relaxed mb-3">{block.description}</p>}
                     {block.bullet_points && block.bullet_points.length > 0 && (
@@ -241,53 +288,22 @@ export default function CourseDetailPage() {
                         ))}
                       </ul>
                     )}
-                    {block.image && (
-                      <div className="mt-4">
-                        <img src={block.image} alt={block.title || ""} className="rounded-lg w-full max-w-md object-cover" />
-                      </div>
-                    )}
+                    
                   </div>
                 ))}
+                
               </div>
-              {(about.image1 || about.image2) && (
-                <div className="lg:col-span-2 space-y-4">
-                  {about.image1 && <img src={about.image1} alt="" className="rounded-lg w-full object-cover" />}
-                  {about.image2 && <img src={about.image2} alt="" className="rounded-lg w-full object-cover" />}
+              {/* RIGHT: image (40%) */}
+              {aboutImage && (
+                <div className="w-full lg:w-[40%]">
+                  <img
+                    src={aboutImage}
+                    alt="About Course"
+                    className="rounded-xl w-full h-auto object-cover"
+                  />
                 </div>
               )}
             </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ 3a. COURSE INFO SECTIONS (60-40 / 40-60 alternating) ============ */}
-      {courseInfoSections.length > 0 && (
-        <section className="py-16 md:py-20 bg-white text-[#171A26]">
-          <div className="container mx-auto px-4 max-w-7xl space-y-16">
-            {courseInfoSections.map((sec, idx) => {
-              const textLeft = sec.layout !== "image_left"
-              return (
-                <div key={idx} className={`grid grid-cols-1 gap-8 md:gap-12 items-center ${textLeft ? "md:grid-cols-5" : "md:grid-cols-5"}`}>
-                  <div className={textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2"}>
-                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
-                    {sec.content && <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{sec.content}</div>}
-                    {sec.bullet_points && sec.bullet_points.length > 0 && (
-                      <ul className="list-none space-y-2">
-                        {sec.bullet_points.filter(Boolean).map((bp, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
-                            <span className="text-gray-700">{bp}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
-                    {sec.image ? <img src={sec.image} alt={sec.title || ""} className="rounded-lg w-full object-cover" /> : <div className="w-full h-48 bg-gray-200 rounded-lg" />}
-                  </div>
-                </div>
-              )
-            })}
           </div>
         </section>
       )}
@@ -312,63 +328,42 @@ export default function CourseDetailPage() {
         </div>
       </section>
 
-      {/* ============ 3b. COURSE STATISTICS ============ */}
-      {course.statistics && (course.statistics.enrolled_count !== undefined || course.statistics.branches_count !== undefined || course.statistics.instructors_count !== undefined) && (
-        <section className="py-16 md:py-20 bg-[#1E2130]">
-          <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="Overview" title="Course Statistics" />
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              {(course.statistics.enrolled_count ?? 0) >= 0 && (
-                <div className="bg-[#171A26] border border-gray-800 rounded-xl p-6 text-center hover:border-[#FFB70F] transition-colors">
-                  <Users className="w-10 h-10 text-[#FFB70F] mx-auto mb-3" />
-                  <p className="text-3xl font-bold text-white">{course.statistics.enrolled_count ?? 0}</p>
-                  <p className="text-gray-400 text-sm uppercase tracking-wider">Enrolled Students</p>
+      {/* ============ 3a. COURSE INFO SECTIONS (60-40 / 40-60 alternating) ============ */}
+      {courseInfoSections.length > 0 && (
+        <section className="py-16 md:py-20 bg-white text-[#171A26]">
+          <div className="container mx-auto px-4 max-w-7xl space-y-16">
+            {courseInfoSections.map((sec, idx) => {
+              const textLeft = sec.layout !== "image_left"
+              return (
+                <div key={idx} className={`grid grid-cols-1 gap-8 md:gap-12 items-center md:grid-cols-5`}>
+                  <div className={textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2"}>
+                    {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
+                    {sec.content && <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{sec.content}</div>}
+                    {sec.bullet_points && sec.bullet_points.length > 0 && (
+                      <ul className="list-none space-y-2">
+                        {sec.bullet_points.filter(Boolean).map((bp, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
+                            <span className="text-gray-700">{bp}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
+                    {sec.image ? (
+                      <img
+                        src={resolveUploadUrl(sec.image)}
+                        alt={sec.title || ""}
+                        className="rounded-lg w-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-48 bg-gray-200 rounded-lg" />
+                    )}
+                  </div>
                 </div>
-              )}
-              {(course.statistics.branches_count ?? 0) >= 0 && (
-                <div className="bg-[#171A26] border border-gray-800 rounded-xl p-6 text-center hover:border-[#FFB70F] transition-colors">
-                  <MapPin className="w-10 h-10 text-[#FFB70F] mx-auto mb-3" />
-                  <p className="text-3xl font-bold text-white">{course.statistics.branches_count ?? 0}</p>
-                  <p className="text-gray-400 text-sm uppercase tracking-wider">Branches</p>
-                </div>
-              )}
-              {(course.statistics.instructors_count ?? 0) >= 0 && (
-                <div className="bg-[#171A26] border border-gray-800 rounded-xl p-6 text-center hover:border-[#FFB70F] transition-colors">
-                  <Star className="w-10 h-10 text-[#FFB70F] mx-auto mb-3" />
-                  <p className="text-3xl font-bold text-white">{course.statistics.instructors_count ?? 0}</p>
-                  <p className="text-gray-400 text-sm uppercase tracking-wider">Instructors</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============ 3c. COURSE CURRICULUM ============ */}
-      {course.curriculum && course.curriculum.length > 0 && (
-        <section className="py-16 md:py-20">
-          <div className="container mx-auto px-4 max-w-7xl">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-              <div>
-                <p className="text-[#F73322] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {courseTitle}</p>
-                <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                  {about.title || "Start Today and Change Your Life"}
-                </h2>
-                <div className="space-y-4 text-gray-400 leading-relaxed">
-                  <p>{about.description || course.description}</p>
-                  {about.secondary_description && <p>{about.secondary_description}</p>}
-                </div>
-                <Link href={hero.cta_link || "/register"} className="inline-block mt-8 rounded border-2 border-[#FFB70F] px-8 py-3 text-[#FFB70F] font-semibold hover:bg-[#FFB70F] hover:text-black transition-colors">
-                  Read More
-                </Link>
-              </div>
-              {(about.image1 || about.image2) && (
-                <div className="grid grid-cols-2 gap-4">
-                  {about.image1 && <img src={about.image1} alt="" className="rounded-lg w-full h-64 object-cover" />}
-                  {about.image2 && <img src={about.image2} alt="" className="rounded-lg w-full h-64 object-cover mt-8" />}
-                </div>
-              )}
-            </div>
+              )
+            })}
           </div>
         </section>
       )}
@@ -524,23 +519,6 @@ export default function CourseDetailPage() {
           </div>
         </section>
       )}
-
-      {/* ============ CTA ============ */}
-      <section className="py-12 bg-[#F73322]">
-        <div className="container mx-auto px-4 max-w-7xl text-center">
-          <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
-            Ready to Start Your Journey?
-          </h2>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link href={hero.cta_link || "/register"} className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg">
-              Register Now
-            </Link>
-            <Link href="/courses" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
-              <ArrowLeft className="w-4 h-4" /> View All Courses
-            </Link>
-          </div>
-        </div>
-      </section>
     </main>
   )
 }

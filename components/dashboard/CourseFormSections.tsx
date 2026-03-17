@@ -256,9 +256,16 @@ export default function CourseFormSections({ value, onChange }: Props) {
             <Label>Secondary Description</Label>
             <Textarea value={about.secondary_description || ""} onChange={(e) => set("about_section", { ...about, secondary_description: e.target.value })} rows={3} placeholder="Additional paragraph..." />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <FileUpload accept="image/*" label="Image 1" currentUrl={about.image1} onUploaded={(url) => set("about_section", { ...about, image1: url })} />
-            <FileUpload accept="image/*" label="Image 2" currentUrl={about.image2} onUploaded={(url) => set("about_section", { ...about, image2: url })} />
+          <div className="space-y-1">
+            <Label>About Image (shown on right, 40%)</Label>
+            <FileUpload
+              accept="image/*"
+              label="Upload About Image"
+              currentUrl={about.image1 || about.image2}
+              onUploaded={(url) =>
+                set("about_section", { ...about, image1: url })
+              }
+            />
           </div>
         </AccordionContent>
       </AccordionItem>

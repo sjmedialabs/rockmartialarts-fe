@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu, LogIn } from "lucide-react"
 import { BranchesNavDropdown } from "@/components/BranchesNavDropdown"
+import { CoursesNavDropdown } from "@/components/CoursesNavDropdown"
 
 const navLinks = [
-  { label: "Courses", href: "/courses" },
   { label: "Store", href: "/store" },
 ]
 
@@ -43,6 +43,9 @@ export function FixedTopNav() {
         </Link>
 
         <ul className="hidden items-center gap-6 lg:flex">
+          <li>
+            <CoursesNavDropdown />
+          </li>
           {navLinks.map((item) => (
             <li key={item.href}>
               <Link
@@ -96,6 +99,9 @@ export function FixedTopNav() {
           </SheetTrigger>
           <SheetContent side="right" className="w-[300px] border-[#766E6E] bg-[#171A26] px-6 py-6">
             <ul className="mt-4 flex flex-col gap-6">
+              <li>
+                <CoursesNavDropdown variant="mobile" onNavigate={() => setMobileOpen(false)} />
+              </li>
               {navLinks.map((item) => (
                 <li key={item.href}>
                   <Link

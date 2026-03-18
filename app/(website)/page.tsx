@@ -54,9 +54,27 @@ const defaultTestimonialQuote =
 
 async function getCMSContent() {
   try {
-    const backendUrl = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8003"
-    const res = await fetch(`${backendUrl}/api/cms/public`, {
-      next: { revalidate: 60 },
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+
+    // Prefer same-origin proxy when we can form an absolute URL (server-side fetch).
+    if (siteOrigin) {
+      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/cms/public`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (res.ok) return await res.json()
+    }
+
+    // Fallback: fetch backend public CMS directly.
+    const backendUrl =
+      process.env.API_BASE_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "http://127.0.0.1:8003"
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/cms/public`, {
+      cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
     if (!res.ok) return null

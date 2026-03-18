@@ -104,7 +104,8 @@ export class TokenManager {
    */
   static getToken(): string | null {
     if (typeof window === 'undefined') return null
-    return localStorage.getItem(this.ACCESS_TOKEN_KEY)
+    // Prefer unified key; fall back to legacy 'token' for older login flows
+    return localStorage.getItem(this.ACCESS_TOKEN_KEY) || localStorage.getItem('token')
   }
 
   /**

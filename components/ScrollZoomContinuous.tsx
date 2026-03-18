@@ -27,13 +27,13 @@ export function ScrollZoomContinuous({ children, className = "" }: ScrollZoomCon
 
   const { scrollYProgress } = useScroll({
     target: ref,
-    offset: ["start end", "end start"],
+    // Start progress when element reaches viewport center (earlier trigger)
+    offset: ["start center", "end start"],
   })
 
-  // In visible area = scale 1; by the time next section enters (element leaves viewport top) = scale 0
-  // progress 0 = element entering from bottom, 0.5–0.6 = in view, 1 = element left from top
-  const scale = useTransform(scrollYProgress, [0, 0.55, 1], [1, 1, 0])
-  const opacity = useTransform(scrollYProgress, [0, 0.55, 1], [1, 1, 0])
+  // Hold at scale 1 around center, then shrink out as it approaches viewport top.
+  const scale = useTransform(scrollYProgress, [0, 0.2, 1], [1, 1, 0])
+  const opacity = useTransform(scrollYProgress, [0, 0.2, 1], [1, 1, 0])
 
   return (
     <motion.div ref={ref} style={{ scale, opacity }} className={className}>

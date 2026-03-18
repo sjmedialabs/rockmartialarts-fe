@@ -4,14 +4,25 @@ import Link from "next/link"
 
 async function getCMSContent() {
   try {
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+
+    if (siteOrigin) {
+      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/cms/public`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (res.ok) return await res.json()
+    }
+
     const backendUrl =
       process.env.API_BASE_URL ||
       process.env.NEXT_PUBLIC_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_BASE_URL ||
       "http://127.0.0.1:8003"
-    const base = (backendUrl as string).replace(/\/$/, "")
-    const res = await fetch(`${base}/api/cms/public`, {
-      next: { revalidate: 60 },
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/cms/public`, {
+      cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
     if (!res.ok) return null

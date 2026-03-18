@@ -60,6 +60,15 @@ export default function HomePageView({
 }: HomePageViewProps) {
   const shouldReduceMotion = useReducedMotion()
 
+  const resolveUploadUrl = (url?: string): string => {
+    if (!url) return ""
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) return url
+    return `/api/backend/uploads/${encodeURIComponent(url)}`
+  }
+
+  const resolvedHeroImage = resolveUploadUrl(heroImage)
+  const resolvedHeroVideo = resolveUploadUrl(heroVideo)
+
   // Hero CTAs: scale slightly on hover (Cult.fit-style)
   const heroActions = !shouldReduceMotion ? (
     <div className="flex flex-wrap items-center justify-center gap-4">
@@ -103,9 +112,9 @@ export default function HomePageView({
         description={heroDescription || undefined}
         actions={heroActions}
         media={
-          heroImage && !heroVideo ? (
+          resolvedHeroImage && !heroVideo ? (
             <img
-              src={heroImage}
+              src={resolvedHeroImage}
               alt="Hero"
               className="absolute inset-0 w-full h-full object-cover"
             />
@@ -116,9 +125,9 @@ export default function HomePageView({
               loop
               playsInline
               className="absolute inset-0 w-full h-full object-cover"
-              poster={heroImage || undefined}
+              poster={resolvedHeroImage || undefined}
             >
-              <source src={heroVideo} type="video/mp4" />
+              <source src={resolvedHeroVideo} type="video/mp4" />
             </video>
           )
         }

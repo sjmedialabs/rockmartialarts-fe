@@ -37,7 +37,7 @@ export function AnimatedCard({
     <motion.div
       initial={scrollReveal ? { opacity: 0, y: 16 } : false}
       whileInView={scrollReveal ? { opacity: 1, y: 0 } : false}
-      viewport={scrollReveal ? { once: true, margin: "-40px 0px -40px 0px" } : undefined}
+      viewport={scrollReveal ? { once: true, margin: "0px 0px -40% 0px" } : undefined}
       transition={{
         duration: 0.5,
         ease: [0.25, 0.46, 0.45, 0.94],

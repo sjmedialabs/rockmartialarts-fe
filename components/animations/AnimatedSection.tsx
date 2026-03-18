@@ -36,7 +36,7 @@ export function AnimatedSection({
   className = "",
 }: AnimatedSectionProps) {
   const ref = useRef(null)
-  const inView = useInView(ref, { once: true, margin: "-80px 0px -80px 0px", amount: 0.2 })
+  const inView = useInView(ref, { once: true, margin: "0px 0px -40% 0px", amount: 0.2 })
   const shouldReduceMotion = useReducedMotion()
 
   const hidden = {

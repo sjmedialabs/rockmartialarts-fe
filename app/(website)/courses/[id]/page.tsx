@@ -46,6 +46,7 @@ type CourseData = {
   description?: string
   difficulty_level?: string
   page_content?: PageContent
+  course_content?: { syllabus?: string; equipment_required?: string[] }
   media_resources?: { course_image_url?: string; promo_video_url?: string }
   fee_per_duration?: Record<string, number>
   available_durations?: { id: string; name?: string; duration_months?: number; code?: string }[]
@@ -125,6 +126,8 @@ export default function CourseDetailPage() {
   const testimonials = pc.testimonials || []
   const attachments = pc.pdf_attachments || []
   const courseInfoSections = (pc.course_info_sections || []) as CourseInfoSection[]
+  const courseContent = (course.course_content || {}) as { syllabus?: string; equipment_required?: string[] }
+  const media = (course.media_resources || {}) as { course_image_url?: string; promo_video_url?: string }
 
   const courseTitle = hero.title || course.title || course.course_name || "Course"
   const heroImg = hero.hero_image || course.media_resources?.course_image_url || "/assets/img/banner.jpg"
@@ -152,6 +155,8 @@ export default function CourseDetailPage() {
   }
 
   const timingLine = (info.training_time || "").split(/\r?\n|[;,]/)[0]?.trim() || ""
+  const promoVideoUrl = media.promo_video_url || ""
+  const effectiveLearningVideo = learning.video_url || promoVideoUrl
 
   return (
     <main className="min-h-screen bg-[#171A26] text-gray-300">
@@ -334,9 +339,17 @@ export default function CourseDetailPage() {
           <div className="container mx-auto px-4 max-w-7xl space-y-16">
             {courseInfoSections.map((sec, idx) => {
               const textLeft = sec.layout !== "image_left"
+              const hasImage = Boolean(sec.image)
               return (
-                <div key={idx} className={`grid grid-cols-1 gap-8 md:gap-12 items-center md:grid-cols-5`}>
-                  <div className={textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2"}>
+                <div
+                  key={idx}
+                  className={
+                    hasImage
+                      ? "grid grid-cols-1 gap-8 md:gap-12 items-center md:grid-cols-5"
+                      : "grid grid-cols-1 gap-6"
+                  }
+                >
+                  <div className={hasImage ? (textLeft ? "md:col-span-3" : "md:col-span-3 md:order-2") : ""}>
                     {sec.title && <h2 className="text-2xl md:text-3xl font-extrabold text-[#171A26] uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>{sec.title}</h2>}
                     {sec.content && <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{sec.content}</div>}
                     {sec.bullet_points && sec.bullet_points.length > 0 && (
@@ -350,20 +363,54 @@ export default function CourseDetailPage() {
                       </ul>
                     )}
                   </div>
-                  <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
-                    {sec.image ? (
+                  {hasImage && (
+                    <div className={textLeft ? "md:col-span-2" : "md:col-span-2 md:order-1"}>
                       <img
                         src={resolveUploadUrl(sec.image)}
                         alt={sec.title || ""}
                         className="rounded-lg w-full object-cover"
                       />
-                    ) : (
-                      <div className="w-full h-48 bg-gray-200 rounded-lg" />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
+          </div>
+        </section>
+      )}
+
+      {/* ============ COURSE CONTENT (syllabus / equipment) ============ */}
+      {(courseContent.syllabus || (courseContent.equipment_required && courseContent.equipment_required.length > 0)) && (
+        <section className="py-16 md:py-20 bg-[#1E2130]">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <SectionLabel sub="Course" title="Course Content" />
+            <div className="max-w-4xl mx-auto bg-[#171A26] border border-gray-800 rounded-xl p-6 md:p-8 space-y-6">
+              {courseContent.syllabus && (
+                <div>
+                  <h3 className="text-xl font-bold text-[#FFB70F] uppercase mb-3" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                    Syllabus
+                  </h3>
+                  <div className="text-gray-300 leading-relaxed whitespace-pre-line">
+                    {courseContent.syllabus}
+                  </div>
+                </div>
+              )}
+              {courseContent.equipment_required && courseContent.equipment_required.filter(Boolean).length > 0 && (
+                <div>
+                  <h3 className="text-xl font-bold text-[#FFB70F] uppercase mb-3" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                    Equipment Required
+                  </h3>
+                  <ul className="list-none space-y-2">
+                    {courseContent.equipment_required.filter(Boolean).map((eq, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
+                        <span className="text-gray-300">{eq}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       )}
@@ -387,7 +434,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 5. LEARNING / VIDEO ============ */}
-      {(learning.title || learning.video_url || learning.description) && (
+      {(learning.title || effectiveLearningVideo || learning.description) && (
         <section className="py-16 md:py-20">
           <div className="container mx-auto px-4 max-w-7xl">
             <SectionLabel sub="Our Classes" title={learning.title || `What You Will Learn`} />
@@ -395,18 +442,18 @@ export default function CourseDetailPage() {
               <div className="text-gray-400 leading-relaxed space-y-4">
                 {learning.description && learning.description.split("\n").map((p, i) => <p key={i}>{p}</p>)}
               </div>
-              {learning.video_url && (
+              {effectiveLearningVideo && (
                 <div className="relative rounded-xl overflow-hidden aspect-video bg-black">
-                  {getYouTubeId(learning.video_url) ? (
+                  {getYouTubeId(effectiveLearningVideo) ? (
                     <iframe
-                      src={`https://www.youtube.com/embed/${getYouTubeId(learning.video_url)}`}
+                      src={`https://www.youtube.com/embed/${getYouTubeId(effectiveLearningVideo)}`}
                       className="absolute inset-0 w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     />
                   ) : (
                     <video controls className="w-full h-full object-cover" poster={learning.thumbnail || undefined}>
-                      <source src={learning.video_url} type="video/mp4" />
+                      <source src={effectiveLearningVideo} type="video/mp4" />
                     </video>
                   )}
                 </div>

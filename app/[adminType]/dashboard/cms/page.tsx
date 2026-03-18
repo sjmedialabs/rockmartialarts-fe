@@ -43,6 +43,8 @@ interface HomepageSection {
   testimonials?: TestimonialItem[]
   cta_title?: string
   cta_subtitle?: string
+  bottom_cta_title?: string
+  bottom_cta_subtitle?: string
   registration_media_url?: string
   registration_media_type?: string
 }
@@ -441,6 +443,33 @@ export default function CMSPage() {
                     value={homepage.cta_subtitle || ""}
                     onChange={(e) => setHomepage({ ...homepage, cta_subtitle: e.target.value })}
                     placeholder="Optional second line under the tagline"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[#4F5077]">CTA (below Testimonials)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label>CTA Title</Label>
+                  <Input
+                    value={homepage.bottom_cta_title || ""}
+                    onChange={(e) => setHomepage({ ...homepage, bottom_cta_title: e.target.value })}
+                    placeholder="Start your martial arts journey today"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>CTA Subtitle</Label>
+                  <Textarea
+                    value={homepage.bottom_cta_subtitle || ""}
+                    onChange={(e) => setHomepage({ ...homepage, bottom_cta_subtitle: e.target.value })}
+                    placeholder="Join Rock Martial Arts Academy and train with expert masters in a supportive community."
                     rows={2}
                   />
                 </div>

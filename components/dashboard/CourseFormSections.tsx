@@ -211,33 +211,6 @@ export default function CourseFormSections({ value, onChange }: Props) {
         </AccordionContent>
       </AccordionItem>
 
-      {/* ---- 2. Course Info Bar ---- */}
-      <AccordionItem value="info" className="border rounded-lg px-4">
-        <AccordionTrigger className="text-[#4F5077] font-semibold">
-          <span className="flex items-center gap-2"><Info className="h-4 w-4" /> Course Info Bar</span>
-        </AccordionTrigger>
-        <AccordionContent className="space-y-3 pb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Location</Label>
-              <Input value={info.location || ""} onChange={(e) => set("course_info", { ...info, location: e.target.value })} placeholder="e.g. Hyderabad" />
-            </div>
-            <div className="space-y-1">
-              <Label>Duration Display</Label>
-              <Input value={info.duration || ""} onChange={(e) => set("course_info", { ...info, duration: e.target.value })} placeholder="e.g. 3 Months" />
-            </div>
-            <div className="space-y-1">
-              <Label>Price Display</Label>
-              <Input value={info.price || ""} onChange={(e) => set("course_info", { ...info, price: e.target.value })} placeholder="e.g. ₹ 4,500" />
-            </div>
-            <div className="space-y-1">
-              <Label>Training Time</Label>
-              <Input value={info.training_time || ""} onChange={(e) => set("course_info", { ...info, training_time: e.target.value })} placeholder="e.g. 6:30am - 8:00am" />
-            </div>
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-
       {/* ---- 3. About Section ---- */}
       <AccordionItem value="about" className="border rounded-lg px-4">
         <AccordionTrigger className="text-[#4F5077] font-semibold">

@@ -155,6 +155,8 @@ export default async function HomePage() {
       : defaultTestimonials
   const ctaTitle = homepage.cta_title || "Learn martial arts with discipline energy enhance your physical and mental well-being with our holistic tai-chi training."
   const ctaSubtitle = homepage.cta_subtitle || ""
+  const bottomCtaTitle = homepage.bottom_cta_title || ""
+  const bottomCtaSubtitle = homepage.bottom_cta_subtitle || ""
 
   return (
     <HomePageView
@@ -165,6 +167,8 @@ export default async function HomePage() {
       heroImage={heroImage}
       ctaTitle={ctaTitle}
       ctaSubtitle={ctaSubtitle}
+      bottomCtaTitle={bottomCtaTitle}
+      bottomCtaSubtitle={bottomCtaSubtitle}
       aboutTitle={aboutTitle}
       aboutSubtitle={aboutSubtitle}
       coursesTitle={coursesTitle}

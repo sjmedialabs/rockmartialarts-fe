@@ -358,12 +358,12 @@ export default function CMSPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label>Courses Title</Label>
-                  <Input value={homepage.courses_title || ""} onChange={(e) => setHomepage({ ...homepage, courses_title: e.target.value })} placeholder="Enter courses section title" />
+                  <Label>Courses Title (main heading)</Label>
+                  <Input value={homepage.courses_title || ""} onChange={(e) => setHomepage({ ...homepage, courses_title: e.target.value })} placeholder='Main heading (e.g. "Our Classes")' />
                 </div>
                 <div className="space-y-2">
-                  <Label>Courses Subtitle</Label>
-                  <Textarea value={homepage.courses_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, courses_subtitle: e.target.value })} placeholder="Enter courses section subtitle" rows={2} />
+                  <Label>Courses Subtitle (small label above title)</Label>
+                  <Textarea value={homepage.courses_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, courses_subtitle: e.target.value })} placeholder='Small label (e.g. "Choose")' rows={2} />
                 </div>
               </div>
             </CardContent>
@@ -376,12 +376,12 @@ export default function CMSPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label>Testimonials Title</Label>
-                  <Input value={homepage.testimonials_title || ""} onChange={(e) => setHomepage({ ...homepage, testimonials_title: e.target.value })} placeholder="Enter testimonials section title" />
+                  <Label>Testimonials Title (main heading)</Label>
+                  <Input value={homepage.testimonials_title || ""} onChange={(e) => setHomepage({ ...homepage, testimonials_title: e.target.value })} placeholder='Main heading (e.g. "Success stories")' />
                 </div>
                 <div className="space-y-2">
-                  <Label>Testimonials Subtitle</Label>
-                  <Textarea value={homepage.testimonials_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, testimonials_subtitle: e.target.value })} placeholder="Enter testimonials section subtitle" rows={2} />
+                  <Label>Testimonials Subtitle (small label above title)</Label>
+                  <Textarea value={homepage.testimonials_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, testimonials_subtitle: e.target.value })} placeholder='Small label (e.g. "Testimonials")' rows={2} />
                 </div>
               </div>
               <div className="space-y-2 pt-4 border-t">
@@ -423,17 +423,26 @@ export default function CMSPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-[#4F5077]">Call to Action Section</CardTitle>
+              <CardTitle className="text-[#4F5077]">Tagline (below Hero)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label>CTA Title</Label>
-                  <Input value={homepage.cta_title || ""} onChange={(e) => setHomepage({ ...homepage, cta_title: e.target.value })} placeholder="Enter CTA title" />
+                  <Label>Tagline Title</Label>
+                  <Input
+                    value={homepage.cta_title || ""}
+                    onChange={(e) => setHomepage({ ...homepage, cta_title: e.target.value })}
+                    placeholder="Learn martial arts with discipline energy enhance your physical and mental well-being with our holistic tai-chi training."
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>CTA Subtitle</Label>
-                  <Textarea value={homepage.cta_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, cta_subtitle: e.target.value })} placeholder="Enter CTA subtitle" rows={2} />
+                  <Label>Tagline Subtitle (optional)</Label>
+                  <Textarea
+                    value={homepage.cta_subtitle || ""}
+                    onChange={(e) => setHomepage({ ...homepage, cta_subtitle: e.target.value })}
+                    placeholder="Optional second line under the tagline"
+                    rows={2}
+                  />
                 </div>
               </div>
             </CardContent>

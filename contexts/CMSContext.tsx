@@ -69,7 +69,11 @@ export function CMSProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/backend/cms/public")
+    // Ensure public CMS is always fresh (avoid browser/CDN caches).
+    fetch(`/api/backend/cms/public?t=${Date.now()}`, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return

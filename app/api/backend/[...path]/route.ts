@@ -20,6 +20,7 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
   const search = request.nextUrl.search; // preserve query string (?key=val&…)
   const url = `${BACKEND_URL.replace(/\/$/, "")}/api/${path}${search}`;
   const method = request.method;
+  const isCmsPublic = path === "cms/public";
 
   try {
     const headers: HeadersInit = {};
@@ -80,6 +81,13 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
         statusText: res.statusText,
         headers: {
           "Content-Type": "application/json",
+          ...(isCmsPublic
+            ? {
+                // CMS must reflect changes immediately; prevent any caching layers.
+                "Cache-Control": "no-store, max-age=0",
+                Pragma: "no-cache",
+              }
+            : {}),
         },
       });
     }
@@ -91,6 +99,12 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
       statusText: res.statusText,
       headers: {
         "Content-Type": contentType,
+        ...(isCmsPublic
+          ? {
+              "Cache-Control": "no-store, max-age=0",
+              Pragma: "no-cache",
+            }
+          : {}),
       },
     });
   } catch (err) {

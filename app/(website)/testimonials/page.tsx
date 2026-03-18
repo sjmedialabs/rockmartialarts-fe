@@ -2,6 +2,9 @@ import Link from "next/link"
 
 /* ---------- fetch CMS content ---------- */
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 async function getCMSContent() {
   try {
     const siteOrigin =

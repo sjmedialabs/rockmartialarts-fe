@@ -339,10 +339,10 @@ export default function HomePageView({
       <AnimatedSection variant="fadeSlideUp" className="py-16 md:py-24 bg-[#171A26] relative z-10">
         <div className="container mx-auto px-4 max-w-3xl text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-            Start your martial arts journey today
+            {ctaTitle || "Start your martial arts journey today"}
           </h2>
           <p className="text-gray-400 mb-8">
-            Join Rock Martial Arts Academy and train with expert masters in a supportive community.
+            {ctaSubtitle || "Join Rock Martial Arts Academy and train with expert masters in a supportive community."}
           </p>
           {!shouldReduceMotion ? (
             <motion.div

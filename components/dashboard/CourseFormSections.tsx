@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Accordion,
   AccordionContent,
@@ -35,6 +36,25 @@ import { useToast } from "@/hooks/use-toast"
 /* ------------------------------------------------------------------ */
 
 export interface PageContent {
+  /**
+   * Controls which sections are visible on the public course detail page.
+   * Default behavior: any key not explicitly set to false is treated as enabled.
+   */
+  section_visibility?: Partial<Record<
+    | "hero"
+    | "info_bar"
+    | "about"
+    | "cta"
+    | "course_info_sections"
+    | "course_content"
+    | "benefits"
+    | "learning"
+    | "gallery"
+    | "instructors"
+    | "testimonials"
+    | "attachments",
+    boolean
+  >>
   hero_section?: {
     title?: string
     subtitle?: string
@@ -165,7 +185,6 @@ export default function CourseFormSections({ value, onChange }: Props) {
     onChange({ ...pc, [key]: val })
 
   const hero = pc.hero_section || {}
-  const info = pc.course_info || {}
   const courseInfoSections = pc.course_info_sections || []
   const about = pc.about_section || {}
   const benefits = pc.benefits || []
@@ -174,9 +193,47 @@ export default function CourseFormSections({ value, onChange }: Props) {
   const instructors = pc.instructors || []
   const testimonials = pc.testimonials || []
   const attachments = pc.pdf_attachments || []
+  const visibility = pc.section_visibility || {}
+
+  const enabled = (key: keyof NonNullable<PageContent["section_visibility"]>) => visibility[key] !== false
+  const setEnabled = (key: keyof NonNullable<PageContent["section_visibility"]>, on: boolean) =>
+    set("section_visibility", { ...(visibility || {}), [key]: on })
 
   return (
-    <Accordion type="multiple" className="w-full space-y-2" defaultValue={["hero"]}>
+    <Accordion type="multiple" className="w-full space-y-2" defaultValue={["visibility", "hero"]}>
+      {/* ---- 0. Section Visibility ---- */}
+      <AccordionItem value="visibility" className="border rounded-lg px-4">
+        <AccordionTrigger className="text-[#4F5077] font-semibold">
+          <span className="flex items-center gap-2"><Info className="h-4 w-4" /> Section Visibility (Show/Hide)</span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-4 pb-4">
+          <p className="text-sm text-gray-500">
+            Toggle sections on the public course detail page. If a section is disabled, it will be hidden even if it has content.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {([
+              ["hero", "Hero section"],
+              ["info_bar", "Info bar (location/duration/price/timings)"],
+              ["about", "About course"],
+              ["cta", "CTA banner (Ready to Start Your Journey?)"],
+              ["course_info_sections", "Course info sections (alternating blocks)"],
+              ["course_content", "Course content (syllabus/equipment)"],
+              ["benefits", "Benefits"],
+              ["learning", "What you will learn / Video"],
+              ["gallery", "Gallery"],
+              ["instructors", "Instructors"],
+              ["testimonials", "Testimonials"],
+              ["attachments", "Downloads / PDF attachments"],
+            ] as const).map(([key, label]) => (
+              <div key={key} className="flex items-center justify-between rounded-lg border p-3">
+                <div className="text-sm font-medium text-[#4F5077]">{label}</div>
+                <Switch checked={enabled(key)} onCheckedChange={(v) => setEnabled(key, v)} />
+              </div>
+            ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+
       {/* ---- 1. Hero Section ---- */}
       <AccordionItem value="hero" className="border rounded-lg px-4">
         <AccordionTrigger className="text-[#4F5077] font-semibold">

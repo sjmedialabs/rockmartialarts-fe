@@ -126,6 +126,8 @@ export default function CourseDetailPage() {
   const testimonials = pc.testimonials || []
   const attachments = pc.pdf_attachments || []
   const courseInfoSections = (pc.course_info_sections || []) as CourseInfoSection[]
+  const visibility = (pc.section_visibility || {}) as Partial<Record<string, boolean>>
+  const enabled = (key: string) => visibility[key] !== false
   const courseContent = (course.course_content || {}) as { syllabus?: string; equipment_required?: string[] }
   const media = (course.media_resources || {}) as { course_image_url?: string; promo_video_url?: string }
 
@@ -161,24 +163,26 @@ export default function CourseDetailPage() {
   return (
     <main className="min-h-screen bg-[#171A26] text-gray-300">
       {/* ============ 1. HERO ============ */}
-      <section className="relative min-h-[70vh] flex items-end overflow-hidden" style={{ backgroundImage: `url(${heroImg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
-        <div className="container relative z-10 mx-auto px-4 max-w-7xl pb-16 pt-32">
-          <h1 className="text-4xl md:text-6xl font-extrabold text-white uppercase leading-tight mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
-            {courseTitle}
-          </h1>
-          {hero.subtitle && <p className="text-lg md:text-xl text-gray-200 max-w-2xl mb-3">{hero.subtitle}</p>}
-          {hero.description && <p className="text-gray-300 max-w-2xl mb-6">{hero.description}</p>}
-          {hero.cta_text && (
-            <Link href={hero.cta_link || "/register"} className="inline-block rounded-lg bg-[#F73322] px-8 py-3.5 text-base font-bold text-white hover:bg-[#FFB70F] hover:text-black transition-colors">
-              {hero.cta_text}
-            </Link>
-          )}
-        </div>
-      </section>
+      {enabled("hero") && (
+        <section className="relative min-h-[70vh] flex items-end overflow-hidden" style={{ backgroundImage: `url(${heroImg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
+          <div className="container relative z-10 mx-auto px-4 max-w-7xl pb-16 pt-32">
+            <h1 className="text-4xl md:text-6xl font-extrabold text-white uppercase leading-tight mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+              {courseTitle}
+            </h1>
+            {hero.subtitle && <p className="text-lg md:text-xl text-gray-200 max-w-2xl mb-3">{hero.subtitle}</p>}
+            {hero.description && <p className="text-gray-300 max-w-2xl mb-6">{hero.description}</p>}
+            {hero.cta_text && (
+              <Link href={hero.cta_link || "/register"} className="inline-block rounded-lg bg-[#F73322] px-8 py-3.5 text-base font-bold text-white hover:bg-[#FFB70F] hover:text-black transition-colors">
+                {hero.cta_text}
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ============ 2. INFO BAR (location / duration / price / timings) ============ */}
-      {(info.location || durations.length > 0 || info.price || info.training_time) && (
+      {enabled("info_bar") && (info.location || durations.length > 0 || info.price || info.training_time) && (
         <section className="bg-[#F73322]">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/20">
@@ -263,7 +267,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 3. ABOUT COURSE ============ */}
-      {(about.title || about.description || about.secondary_description || course.description || (about.content_blocks && about.content_blocks.length > 0) || about.image1 || about.image2) && (
+      {enabled("about") && (about.title || about.description || about.secondary_description || course.description || (about.content_blocks && about.content_blocks.length > 0) || about.image1 || about.image2) && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="flex flex-col lg:flex-row items-start gap-8">
@@ -314,27 +318,29 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ CTA (Ready to Start Your Journey?) ============ */}
-      <section className="py-12 bg-[#F73322]">
-        <div className="container mx-auto px-4 max-w-7xl text-center">
-          <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
-            Ready to Start Your Journey?
-          </h2>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link
-              href={hero.cta_link || "/register"}
-              className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg"
-            >
-              {hero.cta_text || "Register Now"}
-            </Link>
-            <Link href="/courses" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
-              <ArrowLeft className="w-4 h-4" /> View All Courses
-            </Link>
+      {enabled("cta") && (
+        <section className="py-12 bg-[#F73322]">
+          <div className="container mx-auto px-4 max-w-7xl text-center">
+            <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+              Ready to Start Your Journey?
+            </h2>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link
+                href={hero.cta_link || "/register"}
+                className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg"
+              >
+                {hero.cta_text || "Register Now"}
+              </Link>
+              <Link href="/courses" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
+                <ArrowLeft className="w-4 h-4" /> View All Courses
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ============ 3a. COURSE INFO SECTIONS (60-40 / 40-60 alternating) ============ */}
-      {courseInfoSections.length > 0 && (
+      {enabled("course_info_sections") && courseInfoSections.length > 0 && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
           <div className="container mx-auto px-4 max-w-7xl space-y-16">
             {courseInfoSections.map((sec, idx) => {
@@ -380,7 +386,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ COURSE CONTENT (syllabus / equipment) ============ */}
-      {(courseContent.syllabus || (courseContent.equipment_required && courseContent.equipment_required.length > 0)) && (
+      {enabled("course_content") && (courseContent.syllabus || (courseContent.equipment_required && courseContent.equipment_required.length > 0)) && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
             <SectionLabel sub="Course" title="Course Content" />
@@ -416,7 +422,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 4. BENEFITS ============ */}
-      {benefits.length > 0 && (
+      {enabled("benefits") && benefits.length > 0 && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
             <SectionLabel sub="Why Choose Us" title={`Benefits of ${courseTitle}`} />
@@ -434,7 +440,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 5. LEARNING / VIDEO ============ */}
-      {(learning.title || effectiveLearningVideo || learning.description) && (
+      {enabled("learning") && (learning.title || effectiveLearningVideo || learning.description) && (
         <section className="py-16 md:py-20">
           <div className="container mx-auto px-4 max-w-7xl">
             <SectionLabel sub="Our Classes" title={learning.title || `What You Will Learn`} />
@@ -464,7 +470,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 6. GALLERY ============ */}
-      {gallery.length > 0 && (
+      {enabled("gallery") && gallery.length > 0 && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
             <SectionLabel sub="Martial Style" title="Our Gallery" />
@@ -480,7 +486,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 7. INSTRUCTORS ============ */}
-      {instructors.length > 0 && (
+      {enabled("instructors") && instructors.length > 0 && (
         <section className="py-16 md:py-20">
           <div className="container mx-auto px-4 max-w-7xl">
             <SectionLabel sub="Our Team" title="Our Instructors" />
@@ -504,7 +510,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 8. TESTIMONIALS ============ */}
-      {testimonials.length > 0 && (
+      {enabled("testimonials") && testimonials.length > 0 && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
             <SectionLabel sub="Testimonials" title="Success Stories" />
@@ -551,7 +557,7 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 9. PDF ATTACHMENTS ============ */}
-      {attachments.length > 0 && (
+      {enabled("attachments") && attachments.length > 0 && (
         <section className="py-16 md:py-20">
           <div className="container mx-auto px-4 max-w-7xl">
             <SectionLabel sub="Resources" title="Downloads" />

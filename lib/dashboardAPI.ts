@@ -11,6 +11,10 @@ export interface DashboardStats {
   monthly_revenue: number
   pending_payments: number
   today_attendance: number
+  /** New student user accounts created in the selected period */
+  students_registered_in_period?: number
+  /** Distinct courses with at least one enrollment created in the period */
+  courses_with_enrollments_in_period?: number
   // Additional fields for branch manager dashboard
   total_students?: number
   total_coaches?: number

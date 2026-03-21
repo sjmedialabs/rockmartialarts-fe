@@ -11,6 +11,7 @@ import { useRegistration } from "@/contexts/RegistrationContext"
 import { useCMS } from "@/contexts/CMSContext"
 import { Calendar } from "lucide-react"
 import Link from "next/link"
+import { submitLead } from "@/lib/submitLead"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -169,7 +170,10 @@ export default function RegisterPage() {
 
   const handleNextStep = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validateForm()) return
+    if (!validateForm()) {
+      console.error("[Register] Validation failed — check field errors above", formData)
+      return
+    }
     if (submitting) return
 
     // Always re-validate email and phone on submit so "already exists" shows before proceeding (not after payment)
@@ -207,6 +211,15 @@ export default function RegisterPage() {
         return
       }
 
+      const leadName = `${formData.firstName} ${formData.lastName}`.trim()
+      await submitLead({
+        name: leadName || "Prospect",
+        email: normalizedEmail,
+        phone: formData.mobile,
+        course: "",
+        source: "registration_step1",
+      })
+
       updateRegistrationData({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -217,6 +230,8 @@ export default function RegisterPage() {
         password: formData.password,
       })
       router.push("/register/select-branch")
+    } catch (err) {
+      console.error("[Register] Submit error:", err)
     } finally {
       setSubmitting(false)
     }
@@ -376,7 +391,7 @@ export default function RegisterPage() {
             {/* Next Step Button */}
             <Button
               type="submit"
-              disabled={checkingEmail || checkingPhone || submitting}
+              disabled={submitting || emailExists || phoneExists}
               className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-4 px-6 rounded-xl text-[12px] h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-8 disabled:opacity-70"
             >
               {submitting ? "Verifying email & phone..." : "NEXT STEP"}

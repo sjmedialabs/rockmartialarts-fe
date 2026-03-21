@@ -15,6 +15,7 @@ import {
   CreditCard,
   User,
   Settings,
+  UserPlus,
   type LucideIcon
 } from "lucide-react"
 
@@ -64,6 +65,7 @@ const SUPER_ADMIN_MENU: NavItem[] = [
   },
   { label: "Reports", path: `${SUPER_ADMIN_BASE}/reports`, icon: BarChart },
   { label: "Payment Tracking", path: `${SUPER_ADMIN_BASE}/payment-tracking`, icon: CreditCard },
+  { label: "Leads", path: `${SUPER_ADMIN_BASE}/leads`, icon: UserPlus },
   {
     label: "Settings",
     path: `${SUPER_ADMIN_BASE}/settings`,

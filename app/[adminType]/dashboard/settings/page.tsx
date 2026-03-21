@@ -23,7 +23,8 @@ import {
   Save, 
   RefreshCw,
   AlertTriangle,
-  Info
+  Info,
+  CreditCard,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TokenManager } from "@/lib/tokenManager"
@@ -70,7 +71,9 @@ export default function SuperAdminSettingsPage() {
     // Backup Settings
     auto_backup: true,
     backup_frequency: "daily",
-    backup_retention: "30"
+    backup_retention: "30",
+
+    registration_fee: 500,
   })
 
   useEffect(() => {
@@ -100,7 +103,13 @@ export default function SuperAdminSettingsPage() {
       }
 
       const settingsData = await settingsAPI.getSettings(token)
-      setSettings(settingsData)
+      setSettings({
+        ...settingsData,
+        registration_fee:
+          typeof settingsData.registration_fee === "number" && !Number.isNaN(settingsData.registration_fee)
+            ? settingsData.registration_fee
+            : 500,
+      })
       setLoading(false)
     } catch (error) {
       console.error("Error loading settings:", error)
@@ -113,7 +122,7 @@ export default function SuperAdminSettingsPage() {
     }
   }
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const handleInputChange = (field: string, value: string | boolean | number) => {
     setSettings(prev => ({ ...prev, [field]: value }))
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: "" }))
@@ -148,6 +157,10 @@ export default function SuperAdminSettingsPage() {
       newErrors.backup_retention = "Backup retention is required"
     } else if (!/^\d+$/.test(settings.backup_retention)) {
       newErrors.backup_retention = "Backup retention must be a number"
+    }
+
+    if (typeof settings.registration_fee !== "number" || settings.registration_fee < 0 || Number.isNaN(settings.registration_fee)) {
+      newErrors.registration_fee = "Registration fee must be a number ≥ 0"
     }
 
     setErrors(newErrors)
@@ -344,6 +357,38 @@ export default function SuperAdminSettingsPage() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Pricing & registration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Pricing &amp; registration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-w-md">
+                <Label htmlFor="registration_fee" className="text-sm font-medium text-gray-700">
+                  Registration fee (INR)
+                </Label>
+                <Input
+                  id="registration_fee"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={settings.registration_fee}
+                  onChange={(e) => handleInputChange("registration_fee", parseFloat(e.target.value) || 0)}
+                  className={errors.registration_fee ? "border-red-500" : ""}
+                />
+                {errors.registration_fee && (
+                  <p className="mt-1 text-sm text-red-600">{errors.registration_fee}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Default admission/registration amount on the public registration payment page (unless overridden per branch).
+                </p>
+              </div>
             </CardContent>
           </Card>
 

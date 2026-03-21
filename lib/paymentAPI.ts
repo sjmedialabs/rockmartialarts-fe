@@ -26,6 +26,10 @@ export interface PaymentStats {
   total_revenue: number
   payment_count: number
   average_payment: number
+  /** Paid payments in the selected date range */
+  period_payment_count?: number
+  /** Distinct students with a paid payment in the selected range */
+  students_with_payments_in_period?: number
   revenue_by_month?: Array<{
     month: string
     revenue: number

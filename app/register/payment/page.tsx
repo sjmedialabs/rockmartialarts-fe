@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { useRegistration } from "@/contexts/RegistrationContext"
 import { useCMS } from "@/contexts/CMSContext"
 import { openRazorpayCheckout, type RazorpayPaymentResponse } from "@/lib/razorpay"
+import { submitLead } from "@/lib/submitLead"
 
 interface PaymentCalculation {
   course_fee: number
@@ -40,9 +41,9 @@ export default function PaymentPage() {
   // Build fallback payment info from registration context data
   const durationLabel = registrationData.duration_name || `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? 's' : ''}`
 
-  const buildContextPaymentInfo = (): CoursePaymentInfo => {
+  const buildContextPaymentInfo = (registrationFeeAmount: number): CoursePaymentInfo => {
     const courseFee = registrationData.course_price || 0
-    const admissionFee = 500
+    const admissionFee = registrationFeeAmount
     return {
       course_id: registrationData.course_id || "",
       course_name: registrationData.course_name || "Selected Course",
@@ -59,12 +60,28 @@ export default function PaymentPage() {
     }
   }
 
-  // Fetch payment information when component mounts
+  // Fetch public registration fee + payment information when component mounts
   useEffect(() => {
+    let cancelled = false
+
     const fetchPaymentInfo = async () => {
+      let registrationFeeAmount = 500
+      try {
+        const feeRes = await fetch("/api/backend/settings/public", { cache: "no-store" })
+        if (feeRes.ok) {
+          const feeJson = await feeRes.json()
+          if (typeof feeJson.registrationFee === "number" && !Number.isNaN(feeJson.registrationFee)) {
+            registrationFeeAmount = feeJson.registrationFee
+          }
+        }
+      } catch (e) {
+        console.error("[register/payment] Failed to load registration fee:", e)
+      }
+
+      if (cancelled) return
+
       if (!registrationData.course_id || !registrationData.branch_id) {
-        // No course/branch selected — use context data
-        setPaymentInfo(buildContextPaymentInfo())
+        setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
         setLoading(false)
         return
       }
@@ -74,34 +91,34 @@ export default function PaymentPage() {
         const response = await fetch(
           getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?branch_id=${registrationData.branch_id}&duration=${selectedDuration}`),
           {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
           }
         )
 
         if (response.ok) {
           const data = await response.json()
-          // Use the duration label from context if API doesn't return a readable one
           if (!data.duration || data.duration === selectedDuration) {
             data.duration = durationLabel
           }
-          setPaymentInfo(data)
+          if (!cancelled) setPaymentInfo(data)
         } else {
-          // API failed — fall back to context data from course selection step
-          console.warn('payment-info API failed, using context data')
-          setPaymentInfo(buildContextPaymentInfo())
+          console.warn("payment-info API failed, using context data")
+          if (!cancelled) setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
         }
       } catch (error) {
-        console.error('Error fetching payment info:', error)
-        // Network error — fall back to context data
-        setPaymentInfo(buildContextPaymentInfo())
+        console.error("Error fetching payment info:", error)
+        if (!cancelled) setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     fetchPaymentInfo()
-  }, [registrationData.course_id, registrationData.branch_id, registrationData.duration])
+    return () => {
+      cancelled = true
+    }
+  }, [registrationData.course_id, registrationData.branch_id, registrationData.duration, registrationData.course_price])
 
   const handlePayment = async () => {
     if (!paymentInfo) {
@@ -113,6 +130,16 @@ export default function PaymentPage() {
     setError("")
 
     try {
+      const fullName =
+        [registrationData.firstName, registrationData.lastName].filter(Boolean).join(" ").trim() || "Student"
+      await submitLead({
+        name: fullName,
+        email: registrationData.email || "",
+        phone: registrationData.mobile || "",
+        course: paymentInfo.course_name || registrationData.course_name || "",
+        source: "registration_payment",
+      })
+
       await openRazorpayCheckout({
         amount: paymentInfo.pricing.total_amount,
         currency: paymentInfo.pricing.currency,

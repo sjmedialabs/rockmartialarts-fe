@@ -29,6 +29,9 @@ export interface SystemSettings {
   auto_backup: boolean
   backup_frequency: string
   backup_retention: string
+
+  /** Default registration / admission fee (INR) for public checkout */
+  registration_fee: number
   
   created_at?: string
   updated_at?: string
@@ -54,6 +57,7 @@ export interface SettingsResponse {
   auto_backup: boolean
   backup_frequency: string
   backup_retention: string
+  registration_fee: number
   created_at: string
   updated_at: string
 }

@@ -46,10 +46,17 @@ export default function SuperAdminDashboard() {
     return TokenManager.getToken() || BranchManagerAuth.getToken() || null
   }, [])
 
-  // Compute date range from time period
+  const toLocalYMD = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  // Compute date range from time period (local calendar; week = last 7 days including today)
   const dateRange = useMemo(() => {
     const now = new Date()
-    const end_date = now.toISOString().split('T')[0]
+    const end_date = toLocalYMD(now)
     let start: Date
 
     switch (timePeriod) {
@@ -57,8 +64,9 @@ export default function SuperAdminDashboard() {
         start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         break
       case 'this-week': {
-        const day = now.getDay()
-        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day)
+        const s = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        s.setDate(s.getDate() - 6)
+        start = s
         break
       }
       case 'this-year':
@@ -71,7 +79,7 @@ export default function SuperAdminDashboard() {
     }
 
     return {
-      start_date: start.toISOString().split('T')[0],
+      start_date: toLocalYMD(start),
       end_date,
       period: timePeriod
     }
@@ -170,7 +178,13 @@ export default function SuperAdminDashboard() {
         const [statsResponse, paymentsResponse] = await Promise.all([
           paymentAPI.getPaymentStats(token, dateRange),
           paymentAPI.getPayments(
-            { limit: 5, skip: 0, start_date: dateRange.start_date, end_date: dateRange.end_date },
+            {
+              limit: 5,
+              skip: 0,
+              start_date: dateRange.start_date,
+              end_date: dateRange.end_date,
+              status: 'paid',
+            },
             token
           )
         ])
@@ -295,9 +309,11 @@ export default function SuperAdminDashboard() {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-[var(--brand-dark)]">
-                        {dashboardStats ? dashboardStats.active_students : 0}
+                        {dashboardStats
+                          ? (dashboardStats.students_registered_in_period ?? dashboardStats.active_students)
+                          : 0}
                       </p>
-                      <p className="text-xs text-[var(--brand-muted)]">Active students {timePeriodLabel.toLowerCase()}</p>
+                      <p className="text-xs text-[var(--brand-muted)]">New registrations {timePeriodLabel.toLowerCase()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -314,9 +330,11 @@ export default function SuperAdminDashboard() {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-[var(--brand-dark)]">
-                        {dashboardStats ? dashboardStats.active_courses : 0}
+                        {dashboardStats
+                          ? (dashboardStats.courses_with_enrollments_in_period ?? dashboardStats.active_courses)
+                          : 0}
                       </p>
-                      <p className="text-xs text-[var(--brand-muted)]">Active courses {timePeriodLabel.toLowerCase()}</p>
+                      <p className="text-xs text-[var(--brand-muted)]">Courses with enrollments {timePeriodLabel.toLowerCase()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -328,7 +346,7 @@ export default function SuperAdminDashboard() {
                     <div className="flex flex-col xl:flex-row justify-between mt-4">
                       <p className="text-xs font-base text-[var(--brand-muted)]">Total Students</p>
                       <Badge variant="secondary" className="bg-gray-100 text-xs">
-                        {timePeriodLabel}
+                        All time
                       </Badge>
                     </div>
                     <div>
@@ -411,8 +429,19 @@ export default function SuperAdminDashboard() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-center text-sm text-[var(--brand-muted)]">
-                    <p>Payments: {recentPayments?.length || 0} transactions</p>
-                    <p>Students: {paymentStats?.total_students || 0} enrolled</p>
+                    <p>
+                      Payments:{' '}
+                      {(paymentStats?.period_payment_count ??
+                        paymentStats?.payment_count ??
+                        recentPayments?.length) ||
+                        0}{' '}
+                      transactions
+                    </p>
+                    <p>
+                      Students:{' '}
+                      {paymentStats?.students_with_payments_in_period ?? paymentStats?.total_students ?? 0} with payments{' '}
+                      {timePeriodLabel.toLowerCase()}
+                    </p>
                   </div>
                 </div>
               )}
@@ -487,9 +516,16 @@ export default function SuperAdminDashboard() {
                         <div>
                           <p className="font-medium text-sm">{coach.full_name}</p>
                           <p className="text-xs text-gray-500">
-                            {coach.areas_of_expertise.length > 0
-                              ? coach.areas_of_expertise[0]
-                              : "General Training"}
+                            {(() => {
+                              const raw = coach.areas_of_expertise?.[0]
+                              const looksLikeId =
+                                typeof raw === "string" &&
+                                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                                  raw.trim()
+                                )
+                              if (raw && !looksLikeId) return raw
+                              return coach.branch_id ? `Branch: ${coach.branch_id.slice(0, 8)}…` : "Coach"
+                            })()}
                           </p>
                         </div>
                       </div>

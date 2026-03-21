@@ -14,6 +14,17 @@ import { useRouter, useParams, usePathname } from "next/navigation"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
+function formatEnrollmentDate(iso: string | null | undefined): string {
+  if (iso == null || iso === "") return "-"
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return "-"
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+  } catch {
+    return "-"
+  }
+}
+
 interface Student {
   id: string
   student_id?: string
@@ -45,6 +56,9 @@ interface Student {
     branch_id?: string
     branch_name?: string
   } | null
+  has_credentials?: boolean
+  start_date?: string | null
+  end_date?: string | null
   address?: {
     line1: string
     area: string
@@ -58,7 +72,12 @@ interface Student {
 export default function StudentList() {
   const router = useRouter()
   const params = useParams()
-  const adminType = (params?.adminType as string) || "super-admin"
+  const pathname = usePathname()
+  const paramsAdmin = (params?.adminType as string) || ""
+  const pathSegment = pathname?.split("/").filter(Boolean)[0] || ""
+  const adminType =
+    paramsAdmin ||
+    (pathSegment === "super-admin" || pathSegment === "branch-admin" ? pathSegment : "super-admin")
   const basePath = `/${adminType}/dashboard`
   const [showAssignPopup, setShowAssignPopup] = useState(false)
   const [showDeletePopup, setShowDeletePopup] = useState(false)
@@ -84,7 +103,6 @@ export default function StudentList() {
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 5
   const [refreshKey, setRefreshKey] = useState(0)
-  const pathname = usePathname()
   const isBranchAdmin = (params?.adminType as string) === "branch-admin" ||
     (typeof pathname === "string" && pathname.startsWith("/branch-admin"))
   // Fetch students from API (re-runs when refreshKey changes, e.g. after assign)
@@ -98,47 +116,6 @@ const itemsPerPage = 5
         let token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
         if (!token && isBranchAdmin) token = TokenManager.getToken()
 
-        // For development: if no token found (super-admin path only), try to get one from the backend
-        if (!token && !isBranchAdmin) {
-          console.log("No token found, attempting to get development token...")
-          try {
-            const loginResponse = await fetch(getBackendApiUrl('superadmin/login'), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                email: 'admin@marshalats.com',
-                password: 'admin123'
-              })
-            })
-
-            if (loginResponse.ok) {
-              const loginData = await loginResponse.json()
-              token = loginData.data.token
-              console.log("✅ Development token obtained")
-
-              // Store the token for future use
-              TokenManager.storeAuthData({
-                access_token: token,
-                token_type: 'bearer',
-                expires_in: loginData.data.expires_in,
-                user: {
-                  id: loginData.data.id,
-                  full_name: loginData.data.full_name,
-                  email: loginData.data.email,
-                  role: 'superadmin'
-                }
-              })
-            } else {
-              throw new Error("Failed to get development token")
-            }
-          } catch (devTokenError) {
-            console.error("Failed to get development token:", devTokenError)
-            throw new Error("Authentication token not found. Please login again.")
-          }
-        }
-
         if (!token) {
           throw new Error("Authentication token not found. Please login again.")
         }
@@ -149,7 +126,8 @@ const itemsPerPage = 5
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
-          }
+          },
+          cache: 'no-store',
         })
 
         // If enhanced API fails, try basic users API
@@ -160,7 +138,8 @@ const itemsPerPage = 5
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
-            }
+            },
+            cache: 'no-store',
           })
         }
 
@@ -176,7 +155,10 @@ const itemsPerPage = 5
         let studentsData = data.students || data.users || data || []
 
         // Ensure studentsData is always an array and transform data structure
-        const studentsArray = Array.isArray(studentsData) ? studentsData.map(student => ({
+        const studentsArray = Array.isArray(studentsData) ? studentsData.map(student => {
+          const creds =
+            student.has_credentials === false || student.hasCredentials === false ? false : true
+          return {
           id: student.student_id || student.id,
           student_id: student.student_id || student.id,
           full_name: student.student_name || student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
@@ -191,11 +173,20 @@ const itemsPerPage = 5
           is_active: student.is_active !== undefined ? student.is_active : true,
           date_of_birth: student.date_of_birth,
           created_at: student.created_at,
+          has_credentials: creds,
+          start_date: student.start_date ?? null,
+          end_date: student.end_date ?? null,
           // Add fallback course info from user model if available
           course_info: student.course || null,
           // Prefer API branch_info (has branch_name); fallback to legacy student.branch
           branch_info: student.branch_info || student.branch || null
-        })) : []
+        }}) : []
+
+        studentsArray.sort((a, b) => {
+          const ta = a.created_at ? new Date(a.created_at).getTime() : 0
+          const tb = b.created_at ? new Date(b.created_at).getTime() : 0
+          return tb - ta
+        })
 
         setStudents(studentsArray)
 
@@ -248,7 +239,8 @@ const itemsPerPage = 5
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        cache: 'no-store',
       })
     }
     try {
@@ -267,6 +259,11 @@ const itemsPerPage = 5
       const data = await response.json().catch(() => ({}))
       if (response.ok) {
         const list = Array.isArray(data.students) ? data.students : Array.isArray(data) ? data : []
+        list.sort((a: { created_at?: string }, b: { created_at?: string }) => {
+          const ta = a.created_at ? new Date(a.created_at).getTime() : 0
+          const tb = b.created_at ? new Date(b.created_at).getTime() : 0
+          return tb - ta
+        })
         setUnassignedStudents(list)
       } else {
         setUnassignedStudents([])
@@ -570,8 +567,6 @@ const itemsPerPage = 5
     )
   }) : []
 
-  const availableCourses = ["Taekwondo", "Karate", "Kung Fu", "Mixed Martial Arts", "Zumba Dance", "Bharath Natyam"]
-
   // Calculate total pages
 const totalPages = Math.ceil(filteredStudents.length / itemsPerPage)
 
@@ -696,14 +691,17 @@ const paginatedStudents = filteredStudents.slice(
         {/* Students Table - horizontal scroll on small screens */}
         <div className="bg-white rounded-lg shadow overflow-hidden min-w-0">
           <div className="overflow-x-auto -mx-0 scrollbar-thin">
-            <table className="w-full min-w-[640px]">
+            <table className="w-full min-w-[880px]">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Student Name</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Registered</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Gender</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Age</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Courses (Expertise)</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Duration</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Start Date</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">End Date</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Branch</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Phone Number</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Action</th>
@@ -712,7 +710,7 @@ const paginatedStudents = filteredStudents.slice(
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={11} className="py-8 px-6 text-center text-gray-500">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading students...</span>
@@ -721,7 +719,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={8} className="py-8 px-6 text-center">
+                    <td colSpan={11} className="py-8 px-6 text-center">
                       <div className="text-red-500 mb-2">
                         <strong>Error loading students:</strong>
                       </div>
@@ -738,7 +736,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : listViewFilter === 'unassigned' && unassignedStudentsLoading ? (
                   <tr>
-                    <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={11} className="py-8 px-6 text-center text-gray-500">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading unassigned students...</span>
@@ -747,9 +745,9 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={11} className="py-8 px-6 text-center text-gray-500">
                       <div className="mb-2">
-                        {searchTerm ? `No students found matching "${searchTerm}"` : 'No students found'}
+                        {searchTerm ? `No students found matching "${searchTerm}"` : 'No data available'}
                       </div>
                       {!searchTerm && (
                         <Button
@@ -766,6 +764,7 @@ const paginatedStudents = filteredStudents.slice(
                   paginatedStudents.map((student) => (
                     <tr key={student.id} className="border-b hover:bg-gray-50 text-[#6B7A99] text-sm">
                       <td className="py-4 px-6">{student.full_name || student.student_name || 'N/A'}</td>
+                      <td className="py-4 px-6 whitespace-nowrap">{formatEnrollmentDate(student.created_at)}</td>
                       <td className="py-4 px-6 capitalize">{student.gender || 'N/A'}</td>
                       <td className="py-4 px-6">
                         {(() => {
@@ -812,6 +811,8 @@ const paginatedStudents = filteredStudents.slice(
                           student.course_info?.duration || 'N/A'
                         }
                       </td>
+                      <td className="py-4 px-6">{formatEnrollmentDate(student.start_date ?? undefined)}</td>
+                      <td className="py-4 px-6">{formatEnrollmentDate(student.end_date ?? undefined)}</td>
                       <td className="py-4 px-6">{student.branch_info?.branch_name || 'Not assigned'}</td>
                       <td className="py-4 px-6">{student.phone || 'N/A'}</td>
                       <td className="py-4 px-6">
@@ -834,6 +835,7 @@ const paginatedStudents = filteredStudents.slice(
                           >
                             <Edit className="w-4 h-4 text-gray-600" />
                           </Button>
+                          {student.has_credentials === false ? (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -848,6 +850,7 @@ const paginatedStudents = filteredStudents.slice(
                               <Link2 className="w-4 h-4 text-green-600" />
                             )}
                           </Button>
+                          ) : null}
                           <Button
                             variant="ghost"
                             size="sm"

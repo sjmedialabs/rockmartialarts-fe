@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-
-const getApiUrl = (path: string) => getBackendApiUrl(path)
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -129,52 +127,14 @@ export default function StudentDetailPage() {
       setLoading(true)
       setError(null)
 
-      let token = TokenManager.getToken()
-
-      // For development: if no token found, try to get one from the backend
+      const token = TokenManager.getToken()
       if (!token) {
-        console.log("No token found, attempting to get development token...")
-        try {
-          const loginResponse = await fetch(getApiUrl('superadmin/login'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              email: 'admin@marshalats.com',
-              password: 'admin123'
-            })
-          })
-
-          if (loginResponse.ok) {
-            const loginData = await loginResponse.json()
-            token = loginData.data.token
-            console.log("✅ Development token obtained")
-
-            // Store the token for future use
-            TokenManager.storeAuthData({
-              access_token: token,
-              token_type: 'bearer',
-              expires_in: loginData.data.expires_in,
-              user: {
-                id: loginData.data.id,
-                full_name: loginData.data.full_name,
-                email: loginData.data.email,
-                role: 'superadmin'
-              }
-            })
-          } else {
-            throw new Error("Failed to get development token")
-          }
-        } catch (devTokenError) {
-          console.error("Failed to get development token:", devTokenError)
-          setError("Authentication required. Please login again.")
-          return
-        }
+        setError("Authentication required. Please login again.")
+        return
       }
 
       // Fetch student details
-      const studentResponse = await fetch(getApiUrl(`users/${studentId}`), {
+      const studentResponse = await fetch(getBackendApiUrl(`users/${studentId}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -211,7 +171,7 @@ export default function StudentDetailPage() {
   const fetchEnrollmentHistory = async (token: string) => {
     try {
       setEnrollmentsLoading(true)
-      const enrollmentResponse = await fetch(getApiUrl(`users/${studentId}/enrollments`), {
+      const enrollmentResponse = await fetch(getBackendApiUrl(`users/${studentId}/enrollments`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -249,7 +209,7 @@ export default function StudentDetailPage() {
   const fetchPaymentHistory = async (token: string) => {
     try {
       setPaymentsLoading(true)
-      const paymentResponse = await fetch(getApiUrl(`users/${studentId}/payments`), {
+      const paymentResponse = await fetch(getBackendApiUrl(`users/${studentId}/payments`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -287,7 +247,7 @@ export default function StudentDetailPage() {
   const fetchAchievements = async (token: string) => {
     try {
       setAchievementsLoading(true)
-      const res = await fetch(getApiUrl(`achievements/student/${studentId}`), {
+      const res = await fetch(getBackendApiUrl(`achievements/student/${studentId}`), {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
       })
       if (res.ok) {
@@ -303,29 +263,50 @@ export default function StudentDetailPage() {
 
   const fetchAttendanceRecords = async (token: string) => {
     try {
-      // Mock attendance data - in real app, this would be an API call
-      const mockAttendance: AttendanceRecord[] = [
-        {
-          date: '2024-01-20',
-          course_name: 'Karate Basics',
-          status: 'present',
-          duration_minutes: 60
+      const url = getBackendApiUrl(
+        `attendance/reports?student_id=${encodeURIComponent(studentId)}`
+      )
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        {
-          date: '2024-01-22',
-          course_name: 'Karate Basics',
-          status: 'present',
-          duration_minutes: 60
-        },
-        {
-          date: '2024-01-24',
-          course_name: 'Karate Basics',
-          status: 'absent'
+      })
+      if (!res.ok) {
+        setAttendanceRecords([])
+        return
+      }
+      const data = await res.json()
+      const records = data.attendance_records || []
+      const mapped: AttendanceRecord[] = records.map((r: Record<string, unknown>) => {
+        const dateRaw = (r.attendance_date ?? r.created_at ?? "") as string
+        const dateStr = typeof dateRaw === "string" ? dateRaw.split("T")[0] : ""
+        let status: "present" | "absent" | "late" = "absent"
+        if (r.is_present === true) status = "present"
+        else if (r.status === "late") status = "late"
+        let duration_minutes: number | undefined
+        if (r.check_in_time && r.check_out_time) {
+          try {
+            const inT = new Date(String(r.check_in_time)).getTime()
+            const outT = new Date(String(r.check_out_time)).getTime()
+            if (!Number.isNaN(inT) && !Number.isNaN(outT) && outT > inT) {
+              duration_minutes = Math.round((outT - inT) / 60000)
+            }
+          } catch {
+            /* ignore */
+          }
         }
-      ]
-      setAttendanceRecords(mockAttendance)
+        return {
+          date: dateStr || "-",
+          course_name: (r.course_name as string) || "Course",
+          status,
+          duration_minutes,
+        }
+      })
+      setAttendanceRecords(mapped)
     } catch (err) {
-      console.error('Error fetching attendance records:', err)
+      console.error("Error fetching attendance records:", err)
+      setAttendanceRecords([])
     }
   }
 

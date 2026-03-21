@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter, usePathname } from "next/navigation"
 import { useCMS } from "@/contexts/CMSContext"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import { useState, useEffect } from "react"
 import NotificationDropdown from "@/components/notification-dropdown"
 import { MobileSidebar } from "@/components/layout/responsive"
@@ -90,7 +91,11 @@ export default function Navbar({ role }: NavbarProps) {
         <div className="flex justify-between items-center gap-2 sm:gap-4 min-h-[48px] sm:min-h-[56px]">
           <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
             <div className="flex-shrink-0">
-              <img src={cms?.branding?.navbar_logo || "/logo.png"} alt="Logo" className="h-8 w-auto sm:h-9 xl:h-10 max-w-[95px] object-contain" />
+              <img
+                src={resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"}
+                alt="Logo"
+                className="h-8 w-auto sm:h-9 xl:h-10 max-w-[95px] object-contain"
+              />
             </div>
             <MobileSidebar role={role} onNavigate={handleMobileNav} open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen} />
           </div>

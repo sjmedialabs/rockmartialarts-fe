@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu, LogIn } from "lucide-react"
 import { BranchesNavDropdown } from "@/components/BranchesNavDropdown"
 import { CoursesNavDropdown } from "@/components/CoursesNavDropdown"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
 const navLinks = [
   { label: "Store", href: "/store" },
@@ -28,7 +29,7 @@ export function FixedTopNav() {
           <img
             src={navbarLogo}
             alt="Rock Martial Arts Academy"
-            className="w-[100px] h-[100px] object-contain"
+            className="h-12 w-auto max-h-14 max-w-[140px] object-contain sm:h-14 sm:max-h-16 sm:max-w-[160px]"
           />
         </Link>
 

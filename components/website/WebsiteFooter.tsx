@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toCourseSlug } from "@/lib/course-slug"
 import { useCMS } from "@/contexts/CMSContext"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
 const quickLinks = [
   { label: "Courses", href: "/courses" },
@@ -43,7 +44,7 @@ export function WebsiteFooter() {
     { href: footer?.social_youtube || "#", img: "/assets/img/yt.png", alt: "youtube" },
   ]
 
-  const footerLogo = branding?.footer_logo || "/logo.png"
+  const footerLogo = resolvePublicAssetUrl(branding?.footer_logo) || "/logo.png"
   const footerText = footer?.footer_text || "Kungfu @ ROCK has improved my physical and mental strength, stamina, and focus. Self-defense skills have given me confidence to travel alone fearlessly. It\u2019s a life skill that I highly recommend for discipline, self-esteem, and fitness. Thank you ROCK team for the support."
   const copyrightText = footer?.copyright_text || "\u00A9 Copyright 2025 | ROCK | All Rights Reserved."
   const address = footer?.address || "KJS Plaza, 4-39, Balaji Nagar Main Rd, Santoshi Nagar, Secunderabad, Telangana 500087"

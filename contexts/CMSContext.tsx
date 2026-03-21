@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
 interface SEOSettings {
   meta_title?: string
@@ -80,14 +81,15 @@ export function CMSProvider({ children }: { children: ReactNode }) {
         setCms(data)
 
         // Dynamic favicon
-        if (data.branding?.favicon) {
+        const favicon = resolvePublicAssetUrl(data.branding?.favicon)
+        if (favicon) {
           let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null
           if (!link) {
             link = document.createElement("link")
             link.rel = "icon"
             document.head.appendChild(link)
           }
-          link.href = data.branding.favicon
+          link.href = favicon
         }
       })
       .catch(() => {})

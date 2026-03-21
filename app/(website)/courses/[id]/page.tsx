@@ -23,6 +23,8 @@ import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 /* ------------------------------------------------------------------ */
 
 type CourseInfoSection = { title?: string; content?: string; bullet_points?: string[]; image?: string; layout?: "image_left" | "image_right" }
+type SectionHeading = { sub?: string; title?: string }
+
 type PageContent = {
   section_visibility?: Partial<Record<string, boolean>>
   hero_section?: { title?: string; subtitle?: string; description?: string; hero_image?: string; cta_text?: string; cta_link?: string }
@@ -45,6 +47,17 @@ type PageContent = {
   instructors?: { name: string; designation: string; bio?: string; photo?: string }[]
   testimonials?: { name: string; designation: string; text: string; photo?: string }[]
   pdf_attachments?: { title: string; file_url: string }[]
+  /** Optional headings for public page sections (set from admin / CMS JSON) */
+  section_headings?: Partial<{
+    benefits: SectionHeading
+    learning: SectionHeading
+    gallery: SectionHeading
+    instructors: SectionHeading
+    testimonials: SectionHeading
+    attachments: SectionHeading
+    course_content: SectionHeading
+  }>
+  cta_section?: { headline?: string }
 }
 
 type CourseData = {
@@ -69,12 +82,17 @@ type CourseData = {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function SectionLabel({ sub, title }: { sub: string; title: string }) {
+function SectionLabel({ sub, title }: { sub?: string; title?: string }) {
+  if (!sub?.trim() && !title?.trim()) return null
   return (
     <div className="text-center mb-10">
       <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
-      <p className="text-[#F73322] uppercase tracking-[0.25em] text-sm font-semibold mb-2">{sub}</p>
-      <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{title}</h2>
+      {sub?.trim() ? (
+        <p className="text-[#F73322] uppercase tracking-[0.25em] text-sm font-semibold mb-2">{sub}</p>
+      ) : null}
+      {title?.trim() ? (
+        <h2 className="text-3xl md:text-4xl font-extrabold text-white uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{title}</h2>
+      ) : null}
     </div>
   )
 }
@@ -145,9 +163,13 @@ export default function CourseDetailPage() {
   const enabled = (key: string) => visibility[key] !== false
   const courseContent = (course.course_content || {}) as { syllabus?: string; equipment_required?: string[] }
   const media = (course.media_resources || {}) as { course_image_url?: string; promo_video_url?: string }
+  const headings = (pc.section_headings || {}) as PageContent["section_headings"]
 
-  const courseTitle = hero.title || course.title || course.course_name || "Course"
-  const heroImg = hero.hero_image || course.media_resources?.course_image_url || "/assets/img/banner.jpg"
+  const displayTitle =
+    (hero.title || course.title || course.course_name || "").trim() ||
+    (typeof course.code === "string" ? course.code : "Course")
+  const rawHeroImg = (hero.hero_image || media.course_image_url || "").trim()
+  const heroImg = rawHeroImg ? resolveUploadUrl(rawHeroImg) : ""
   const aboutImage = resolveUploadUrl(about.image1 || about.image2 || "")
 
   const branches = (course.branch_assignments || []) as { branch_id: string; branch_name: string; location: string }[]
@@ -179,11 +201,18 @@ export default function CourseDetailPage() {
     <main className="min-h-screen bg-[#171A26] text-gray-300">
       {/* ============ 1. HERO ============ */}
       {enabled("hero") && (
-        <section className="relative min-h-[70vh] flex items-end overflow-hidden" style={{ backgroundImage: `url(${heroImg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+        <section
+          className={`relative min-h-[70vh] flex items-end overflow-hidden ${heroImg ? "" : "bg-gradient-to-br from-[#171A26] via-[#252a3d] to-black"}`}
+          style={
+            heroImg
+              ? { backgroundImage: `url(${heroImg})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : undefined
+          }
+        >
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
           <div className="container relative z-10 mx-auto px-4 max-w-7xl pb-16 pt-32">
             <h1 className="text-4xl md:text-6xl font-extrabold text-white uppercase leading-tight mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
-              {courseTitle}
+              {displayTitle}
             </h1>
             {hero.subtitle && <p className="text-lg md:text-xl text-gray-200 max-w-2xl mb-3">{hero.subtitle}</p>}
             {hero.description && <p className="text-gray-300 max-w-2xl mb-6">{hero.description}</p>}
@@ -293,7 +322,7 @@ export default function CourseDetailPage() {
             <div className="flex flex-col lg:flex-row items-start gap-8">
               {/* LEFT: text content (60%) */}
               <div className="w-full lg:w-[60%]">
-                <p className="text-[#F73322] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {courseTitle}</p>
+                <p className="text-[#F73322] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {displayTitle}</p>
                 <h2 className="text-3xl md:text-4xl font-extrabold text-[#171A26] uppercase mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
                   {aboutTitle || "Start Today and Change Your Life"}
                 </h2>
@@ -321,16 +350,20 @@ export default function CourseDetailPage() {
       {enabled("cta") && (
         <section className="py-12 bg-[#F73322]">
           <div className="container mx-auto px-4 max-w-7xl text-center">
-            <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
-              Ready to Start Your Journey?
-            </h2>
+            {pc.cta_section?.headline?.trim() ? (
+              <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+                {pc.cta_section.headline}
+              </h2>
+            ) : null}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                href={hero.cta_link || "/register"}
-                className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg"
-              >
-                {hero.cta_text || "Register Now"}
-              </Link>
+              {hero.cta_text?.trim() ? (
+                <Link
+                  href={hero.cta_link?.trim() || "/register"}
+                  className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg"
+                >
+                  {hero.cta_text}
+                </Link>
+              ) : null}
               <Link href="/courses" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
                 <ArrowLeft className="w-4 h-4" /> View All Courses
               </Link>
@@ -389,7 +422,11 @@ export default function CourseDetailPage() {
       {enabled("course_content") && (courseContent.syllabus || (courseContent.equipment_required && courseContent.equipment_required.length > 0)) && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="Course" title="Course Content" />
+            {headings?.course_content?.sub?.trim() || headings?.course_content?.title?.trim() ? (
+              <SectionLabel sub={headings?.course_content?.sub} title={headings?.course_content?.title} />
+            ) : (
+              <h2 className="sr-only">Syllabus and equipment — {displayTitle}</h2>
+            )}
             <div className="max-w-4xl mx-auto bg-[#171A26] border border-gray-800 rounded-xl p-6 md:p-8 space-y-6">
               {courseContent.syllabus && (
                 <div>
@@ -425,7 +462,11 @@ export default function CourseDetailPage() {
       {enabled("benefits") && benefits.length > 0 && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="Why Choose Us" title={`Benefits of ${courseTitle}`} />
+            {headings?.benefits?.sub?.trim() || headings?.benefits?.title?.trim() ? (
+              <SectionLabel sub={headings?.benefits?.sub} title={headings?.benefits?.title} />
+            ) : (
+              <h2 className="sr-only">Benefits — {displayTitle}</h2>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {benefits.map((b, i) => (
                 <div key={i} className="bg-[#171A26] border border-gray-800 rounded-xl p-6 hover:border-[#FFB70F] transition-colors text-center">
@@ -443,7 +484,14 @@ export default function CourseDetailPage() {
       {enabled("learning") && (learning.title || effectiveLearningVideo || learning.description) && (
         <section className="py-16 md:py-20">
           <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="Our Classes" title={learning.title || `What You Will Learn`} />
+            {headings?.learning?.sub?.trim() || headings?.learning?.title?.trim() || learning.title?.trim() ? (
+              <SectionLabel
+                sub={headings?.learning?.sub}
+                title={headings?.learning?.title?.trim() ? headings.learning.title : learning.title}
+              />
+            ) : (
+              <h2 className="sr-only">Classes and learning — {displayTitle}</h2>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div className="text-gray-400 leading-relaxed space-y-4">
                 {learning.description && learning.description.split("\n").map((p, i) => <p key={i}>{p}</p>)}
@@ -473,7 +521,11 @@ export default function CourseDetailPage() {
       {enabled("gallery") && gallery.length > 0 && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="Martial Style" title="Our Gallery" />
+            {headings?.gallery?.sub?.trim() || headings?.gallery?.title?.trim() ? (
+              <SectionLabel sub={headings?.gallery?.sub} title={headings?.gallery?.title} />
+            ) : (
+              <h2 className="sr-only">Gallery — {displayTitle}</h2>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {gallery.map((url, i) => (
                 <div key={i} className="overflow-hidden rounded-lg group">
@@ -489,7 +541,11 @@ export default function CourseDetailPage() {
       {enabled("instructors") && instructors.length > 0 && (
         <section className="py-16 md:py-20">
           <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="Our Team" title="Our Instructors" />
+            {headings?.instructors?.sub?.trim() || headings?.instructors?.title?.trim() ? (
+              <SectionLabel sub={headings?.instructors?.sub} title={headings?.instructors?.title} />
+            ) : (
+              <h2 className="sr-only">Instructors — {displayTitle}</h2>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {instructors.map((inst, i) => (
                 <div key={i} className="text-center group">
@@ -513,7 +569,11 @@ export default function CourseDetailPage() {
       {enabled("testimonials") && testimonials.length > 0 && (
         <section className="py-16 md:py-20 bg-[#1E2130]">
           <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="Testimonials" title="Success Stories" />
+            {headings?.testimonials?.sub?.trim() || headings?.testimonials?.title?.trim() ? (
+              <SectionLabel sub={headings?.testimonials?.sub} title={headings?.testimonials?.title} />
+            ) : (
+              <h2 className="sr-only">Testimonials — {displayTitle}</h2>
+            )}
             <div className="max-w-4xl mx-auto">
               {/* Active testimonial */}
               <div className="bg-[#171A26] border border-gray-800 rounded-xl p-8 md:p-10 text-center relative">
@@ -560,7 +620,11 @@ export default function CourseDetailPage() {
       {enabled("attachments") && attachments.length > 0 && (
         <section className="py-16 md:py-20">
           <div className="container mx-auto px-4 max-w-7xl">
-            <SectionLabel sub="Resources" title="Downloads" />
+            {headings?.attachments?.sub?.trim() || headings?.attachments?.title?.trim() ? (
+              <SectionLabel sub={headings?.attachments?.sub} title={headings?.attachments?.title} />
+            ) : (
+              <h2 className="sr-only">Downloads — {displayTitle}</h2>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
               {attachments.map((a, i) => (
                 <a key={i} href={a.file_url} target="_blank" rel="noopener noreferrer" download className="flex items-center gap-3 bg-[#1E2130] border border-gray-800 rounded-lg px-5 py-4 hover:border-[#FFB70F] transition-colors group">

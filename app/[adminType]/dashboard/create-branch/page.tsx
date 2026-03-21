@@ -53,6 +53,22 @@ interface Category {
   subcategories?: Category[]
 }
 
+/** Courses belong to a top-level category; include legacy rows where category_id is a sub-category id. */
+function filterCoursesForParentCategory(
+  allCourses: Course[],
+  parentCategoryId: string,
+  allCategories: Category[]
+): Course[] {
+  if (!parentCategoryId) return allCourses
+  const parent = allCategories.find((c) => c.id === parentCategoryId)
+  const subIds = new Set((parent?.subcategories || []).map((s) => s.id))
+  return allCourses.filter(
+    (course) =>
+      course.category_id === parentCategoryId ||
+      (!!course.category_id && subIds.has(course.category_id))
+  )
+}
+
 interface CourseBatch {
   id: string
   start_time: string
@@ -137,11 +153,8 @@ export default function CreateBranchPage() {
   const [banks, setBanks] = useState<DropdownOption[]>([])
   const [isLoadingBanks, setIsLoadingBanks] = useState(true)
 
-  // Category/Subcategory filtering state
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("")
-  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<string>("")
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
-  const [subCategories, setSubCategories] = useState<Category[]>([])
 
   // State for new timing form
   const [newTiming, setNewTiming] = useState({
@@ -378,26 +391,9 @@ export default function CreateBranchPage() {
     }
   }
 
-  // Handle category selection
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategoryId(categoryId)
-    setSelectedSubCategoryId("")
-    
-    const selectedCategory = categories.find(c => c.id === categoryId)
-    setSubCategories(selectedCategory?.subcategories || [])
-    
-    // Filter courses by category
-    const filtered = courses.filter(course => course.category_id === categoryId)
-    setFilteredCourses(filtered)
-  }
-
-  // Handle subcategory selection
-  const handleSubCategoryChange = (subCategoryId: string) => {
-    setSelectedSubCategoryId(subCategoryId)
-    
-    // Filter courses by subcategory
-    const filtered = courses.filter(course => course.category_id === subCategoryId)
-    setFilteredCourses(filtered)
+    setFilteredCourses(filterCoursesForParentCategory(courses, categoryId, categories))
   }
 
   // Handle course selection
@@ -1099,28 +1095,6 @@ export default function CreateBranchPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Sub-Category Selection */}
-              {subCategories.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Select Sub-Category</Label>
-                  <Select
-                    value={selectedSubCategoryId}
-                    onValueChange={handleSubCategoryChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select sub-category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subCategories.map((subCategory) => (
-                        <SelectItem key={subCategory.id} value={subCategory.id}>
-                          {subCategory.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               {/* Course List */}
               <div className="space-y-2 max-h-96 overflow-y-auto">

@@ -37,7 +37,6 @@ export default function EditCoursePage() {
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
   const [prerequisites, setPrerequisites] = useState<string[]>([])
   const [newPrerequisite, setNewPrerequisite] = useState("")
-  const [subCategories, setSubCategories] = useState<any[]>([])
   const [modules, setModules] = useState<any[]>([])
   const [branches, setBranches] = useState<any[]>([])
   const [difficultyLevels, setDifficultyLevels] = useState<any[]>([])
@@ -56,7 +55,6 @@ export default function EditCoursePage() {
     courseCode: "",
     description: "",
     category: "",
-    subCategory: "",
     difficultyLevel: "",
     duration: "",
     maxStudents: "",
@@ -155,7 +153,6 @@ export default function EditCoursePage() {
           courseCode: course.code || "",
           description: course.description || "",
           category: course.category_id || course.category || "",
-          subCategory: course.sub_category || "",
           difficultyLevel: course.difficulty_level || course.difficultyLevel || "",
           duration: durationRaw,
           maxStudents: course.max_students?.toString() || course.student_requirements?.max_students?.toString() || "",
@@ -338,20 +335,17 @@ export default function EditCoursePage() {
     }
     fetchDurations()
   }, [])
-  // Fetch subcategories when category changes
+  // Legacy: course may have category_id set to a sub-category row — normalize to parent for the single category dropdown
   useEffect(() => {
-    if (!formData.category) {
-      setSubCategories([])
-      return
-    }
-
-    // Filter from allCategories instead of making another API call
-    const subs = allCategories.filter((cat: any) => 
-      cat.parent_category_id === formData.category
-    )
-    setSubCategories(subs)
-  }, [formData.category, allCategories])
-
+    if (allCategories.length === 0) return
+    setFormData((prev) => {
+      const cid = prev.category
+      if (!cid) return prev
+      const cat = allCategories.find((c: any) => c.id === cid)
+      if (!cat?.parent_category_id) return prev
+      return { ...prev, category: cat.parent_category_id }
+    })
+  }, [allCategories, formData.category])
 
   // Auto-generate course code from title
   useEffect(() => {
@@ -537,6 +531,16 @@ export default function EditCoursePage() {
         return
       }
 
+      if (!formData.category) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a category.",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
       const hasAnyFee = addedTenures.some((id) => {
         const v = feeByDurationId[id]
         return v !== "" && v !== undefined && parseFloat(String(v)) > 0
@@ -567,9 +571,8 @@ export default function EditCoursePage() {
         description: formData.description,
         difficulty_level: formData.difficultyLevel,
         duration: formData.duration || undefined,
-        // Store parent category and sub-category separately so both persist
         category_id: formData.category,
-        sub_category: formData.subCategory || undefined,
+        sub_category: null,
         martial_art_style_id: 'style-default',
         instructor_id: user?.id && user.id.includes('instructor-') ? user.id : 'instructor-default',
         student_requirements: {
@@ -832,44 +835,21 @@ export default function EditCoursePage() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="category">Category *</Label>
-                        <Select
-                          value={formData.category}
-                          onValueChange={(value) => {
-                            setFormData({ ...formData, category: value, subCategory: "" })
-                            setSubCategories([])
-                          }}
-                        >
-                          <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder="Enter category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="subCategory">Sub Category</Label>
-                        <Select
-                          value={formData.subCategory}
-                          onValueChange={(value) => setFormData({ ...formData, subCategory: value })}
-                          disabled={!formData.category || subCategories.length === 0}
-                        >
-                          <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder="Enter subcategory" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {subCategories.map((subCat) => (
-                              <SelectItem key={subCat.id} value={subCat.id}>{subCat.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Category *</Label>
+                      <Select
+                        value={formData.category}
+                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                      >
+                        <SelectTrigger className="h-10 px-3 w-full">
+                          <SelectValue placeholder="Enter category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1639,12 +1619,6 @@ export default function EditCoursePage() {
                     <span className="text-gray-600">Category:</span>
                     <span className="font-medium">
                       {categories.find(cat => cat.id === formData.category)?.name || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Sub Category:</span>
-                    <span className="font-medium">
-                      {subCategories.find(cat => cat.id === formData.subCategory)?.name || '—'}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">

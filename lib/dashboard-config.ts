@@ -8,7 +8,6 @@ import {
   Building,
   Users,
   GraduationCap,
-  MessageSquare,
   BookOpen,
   CalendarCheck,
   BarChart,
@@ -51,7 +50,6 @@ const SUPER_ADMIN_MENU: NavItem[] = [
       { label: "Bulk Import", path: `${SUPER_ADMIN_BASE}/students/import`, icon: GraduationCap },
     ],
   },
-  { label: "Messages", path: `${SUPER_ADMIN_BASE}/messages`, icon: MessageSquare },
   { label: "Courses", path: `${SUPER_ADMIN_BASE}/courses`, icon: BookOpen },
   {
     label: "Attendance",
@@ -82,7 +80,6 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
   { label: "Dashboard", path: BRANCH_ADMIN_BASE, icon: LayoutDashboard },
   { label: "Coachs", path: `${BRANCH_ADMIN_BASE}/coaches`, icon: Users },
   { label: "Students", path: `${BRANCH_ADMIN_BASE}/students`, icon: GraduationCap },
-  { label: "Messages", path: `${BRANCH_ADMIN_BASE}/messages`, icon: MessageSquare },
   { label: "Courses", path: `${BRANCH_ADMIN_BASE}/courses`, icon: BookOpen },
   {
     label: "Attendance",

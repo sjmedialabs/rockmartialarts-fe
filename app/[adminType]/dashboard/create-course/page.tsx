@@ -35,7 +35,6 @@ export default function CreateCoursePage() {
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
   const [prerequisites, setPrerequisites] = useState<string[]>([])
   const [newPrerequisite, setNewPrerequisite] = useState("")
-  const [subCategories, setSubCategories] = useState<any[]>([])
   const [modules, setModules] = useState<any[]>([])
   const [branches, setBranches] = useState<any[]>([])
   const [difficultyLevels, setDifficultyLevels] = useState<any[]>([])
@@ -55,7 +54,6 @@ export default function CreateCoursePage() {
     courseCode: "",
     description: "",
     category: "",
-    subCategory: "",
     difficultyLevel: "",
     duration: "",
     maxStudents: "",
@@ -171,21 +169,6 @@ export default function CreateCoursePage() {
     fetchDifficultyLevels()
   }, [toast])
 
-  // Fetch subcategories when category changes
-  useEffect(() => {
-    if (!formData.category) {
-      setSubCategories([])
-      return
-    }
-
-    // Filter from allCategories instead of making another API call
-    const subs = allCategories.filter((cat: any) => 
-      cat.parent_category_id === formData.category
-    )
-    setSubCategories(subs)
-  }, [formData.category, allCategories])
-
-
   // Auto-generate course code from title
   useEffect(() => {
     if (formData.courseTitle) {
@@ -275,13 +258,22 @@ export default function CreateCoursePage() {
         return
       }
 
+      if (!formData.category) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a category.",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
       const apiData = {
         title: formData.courseTitle,
         code: formData.courseCode,
         description: formData.description,
         difficulty_level: formData.difficultyLevel,
-        // Ensure category_id has the correct prefix
-        category_id: formData.subCategory || formData.category,
+        category_id: formData.category,
         // Add required fields with default values
         martial_art_style_id: 'style-default', // Will be configurable later
         instructor_id: user?.id && user.id.includes('instructor-') ? user.id : 'instructor-default',
@@ -515,44 +507,21 @@ export default function CreateCoursePage() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="category">Category *</Label>
-                        <Select
-                          value={formData.category}
-                          onValueChange={(value) => {
-                            setFormData({ ...formData, category: value, subCategory: "" })
-                            setSubCategories([])
-                          }}
-                        >
-                          <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="subCategory">Sub Category</Label>
-                        <Select
-                          value={formData.subCategory}
-                          onValueChange={(value) => setFormData({ ...formData, subCategory: value })}
-                          disabled={!formData.category || subCategories.length === 0}
-                        >
-                          <SelectTrigger className="h-10 px-3 w-full">
-                            <SelectValue placeholder={subCategories.length === 0 ? "No subcategories" : "Select subcategory"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {subCategories.map((subCat) => (
-                              <SelectItem key={subCat.id} value={subCat.id}>{subCat.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Category *</Label>
+                      <Select
+                        value={formData.category}
+                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                      >
+                        <SelectTrigger className="h-10 px-3 w-full">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1195,12 +1164,6 @@ export default function CreateCoursePage() {
                     <span className="text-gray-600">Category:</span>
                     <span className="font-medium">
                       {categories.find(cat => cat.id === formData.category)?.name || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Sub Category:</span>
-                    <span className="font-medium">
-                      {subCategories.find(cat => cat.id === formData.subCategory)?.name || '—'}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">

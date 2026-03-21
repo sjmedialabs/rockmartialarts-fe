@@ -1,16 +1,44 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getWebsiteBackendBaseUrl } from "@/lib/serverBackendUrl"
 
-const BACKEND_URL =
-  process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:8003"
+export const runtime = "nodejs"
+
+/** Valid email for older APIs that still require `email` (e.g. EmailStr) on POST /api/leads */
+const DEFAULT_PLACEHOLDER_EMAIL =
+  process.env.LEAD_CAPTURE_PLACEHOLDER_EMAIL?.trim() || "website-popup@example.com"
+
+function normalizeLeadPayload(raw: unknown): Record<string, string | undefined> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Invalid JSON body")
+  }
+  const b = raw as Record<string, unknown>
+  const str = (v: unknown) => (v == null ? "" : String(v)).trim()
+  const opt = (v: unknown) => {
+    const s = str(v)
+    return s === "" ? undefined : s
+  }
+  let email = opt(b.email)
+  // Deployed backends without optional email reject the body with "Field required"
+  if (!email) {
+    email = DEFAULT_PLACEHOLDER_EMAIL
+  }
+  return {
+    name: str(b.name),
+    phone: str(b.phone),
+    email,
+    course: opt(b.course) ?? "",
+    source: opt(b.source) ?? "website_popup",
+    branch_id: opt(b.branch_id),
+    branch_name: opt(b.branch_name),
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const rawBody = await request.json()
+    const body = normalizeLeadPayload(rawBody)
 
-    const base = BACKEND_URL.replace(/\/$/, "")
+    const base = getWebsiteBackendBaseUrl()
     const res = await fetch(`${base}/api/leads`, {
       method: "POST",
       headers: {
@@ -30,6 +58,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!res.ok) {
+      if (process.env.NODE_ENV === "development" && res.status === 422) {
+        console.warn("[leads] backend 422 — forwarding detail. Backend URL:", base, data)
+      }
       return NextResponse.json(
         typeof data === "object" && data !== null ? data : { error: "Failed to create lead" },
         { status: res.status }
@@ -45,4 +76,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

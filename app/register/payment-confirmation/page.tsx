@@ -51,9 +51,9 @@ export default function PaymentConfirmationPage() {
   // Build payment info from registration context
   const durationLabel = registrationData.duration_name || `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? 's' : ''}`
 
-  const buildContextPaymentInfo = (): CoursePaymentInfo => {
+  const buildContextPaymentInfo = (registrationFeeAmount: number): CoursePaymentInfo => {
     const courseFee = registrationData.course_price || registrationData.amount || 0
-    const admissionFee = 500
+    const admissionFee = registrationFeeAmount
     return {
       course_id: registrationData.course_id || "",
       course_name: registrationData.course_name || "Selected Course",
@@ -73,9 +73,21 @@ export default function PaymentConfirmationPage() {
   // Fetch payment info on component mount
   useEffect(() => {
     const fetchPaymentInfo = async () => {
+      let registrationFeeAmount = 0
+      try {
+        const feeRes = await fetch("/api/backend/settings/public", { cache: "no-store" })
+        if (feeRes.ok) {
+          const feeJson = await feeRes.json()
+          if (typeof feeJson.registrationFee === "number" && !Number.isNaN(feeJson.registrationFee)) {
+            registrationFeeAmount = feeJson.registrationFee
+          }
+        }
+      } catch (e) {
+        console.error("[register/payment-confirmation] Failed to load registration fee:", e)
+      }
+
       if (!registrationData.course_id || !registrationData.branch_id) {
-        // Use context data if IDs are missing
-        setPaymentInfo(buildContextPaymentInfo())
+        setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
         setLoadingPaymentInfo(false)
         return
       }
@@ -95,11 +107,11 @@ export default function PaymentConfirmationPage() {
           setPaymentInfo(data)
         } else {
           console.warn('Failed to fetch payment info, using context data')
-          setPaymentInfo(buildContextPaymentInfo())
+          setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
         }
       } catch (error) {
         console.error('Error fetching payment info:', error)
-        setPaymentInfo(buildContextPaymentInfo())
+        setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
       } finally {
         setLoadingPaymentInfo(false)
       }

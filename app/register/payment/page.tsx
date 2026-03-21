@@ -65,7 +65,8 @@ export default function PaymentPage() {
     let cancelled = false
 
     const fetchPaymentInfo = async () => {
-      let registrationFeeAmount = 500
+      // Align with backend SettingsController default when public settings are unreachable
+      let registrationFeeAmount = 0
       try {
         const feeRes = await fetch("/api/backend/settings/public", { cache: "no-store" })
         if (feeRes.ok) {

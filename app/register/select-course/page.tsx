@@ -157,12 +157,15 @@ export default function SelectCoursePage() {
 
   // Categories that have at least one course at this branch (don't show 0-course categories).
   // If no category mapping exists but we have courses, fall back to a single "All Courses" option.
-  const categoryIdsWithCourses = Array.from(
-    new Set(branchCourses.map((c) => c.category_id).filter(Boolean))
-  ) as string[]
-  const categoriesWithBranchCourses = allCategories.filter((cat) =>
-    categoryIdsWithCourses.includes(cat.id)
+  const categoryIdsWithCourses = new Set(
+    branchCourses.map((c) => c.category_id).filter(Boolean) as string[]
   )
+  // Show parent category if any branch course uses that category or one of its sub-categories (legacy data).
+  const categoriesWithBranchCourses = allCategories.filter((cat) => {
+    if (categoryIdsWithCourses.has(cat.id)) return true
+    const subIds = new Set((cat.subcategories || []).map((s) => s.id))
+    return branchCourses.some((c) => c.category_id && subIds.has(c.category_id))
+  })
   const hasRealCategories = categoriesWithBranchCourses.length > 0
   const effectiveCategories: Category[] =
     hasRealCategories || branchCourses.length === 0
@@ -192,7 +195,13 @@ export default function SelectCoursePage() {
   const courses =
     !formData.category_id || formData.category_id === "all"
       ? branchCourses
-      : branchCourses.filter((c) => c.category_id === formData.category_id)
+      : branchCourses.filter((c) => {
+          const sel = formData.category_id
+          if (c.category_id === sel) return true
+          const parent = allCategories.find((cat) => cat.id === sel)
+          const subIds = new Set((parent?.subcategories || []).map((s) => s.id))
+          return !!(c.category_id && subIds.has(c.category_id))
+        })
 
   const selectedCategory = effectiveCategories.find((cat) => cat.id === formData.category_id)
   const selectedCourse = courses.find((course) => course.id === formData.course_id)

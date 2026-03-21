@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuPortal } from "@/components/ui/dropdown-menu"
-import { Menu, Home, BookOpen, User, Users, LogOut, Calendar, TrendingUp, MessageSquare, ChevronDown, MoreVertical, DollarSign, ClipboardCheck, BarChart3 } from "lucide-react"
+import { Menu, Home, BookOpen, User, Users, LogOut, Calendar, TrendingUp, ChevronDown, MoreVertical, DollarSign, ClipboardCheck, BarChart3 } from "lucide-react"
 
 interface CoachDashboardHeaderProps {
   currentPage?: string
@@ -251,13 +251,6 @@ export default function CoachDashboardHeader({
                     >
                       <BarChart3 className="w-4 h-4 mr-2" />
                       Progress Reports
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDesktopNavigation("/coach-dashboard/messages")}
-                      className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Messages
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenuPortal>

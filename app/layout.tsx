@@ -71,7 +71,7 @@ export default function RootLayout({
           </AuthProvider>
           <Toaster />
         </AccessibilityProvider>
-        <Analytics />
+        {process.env.VERCEL ? <Analytics /> : null}
       </body>
     </html>
   )

@@ -11,9 +11,10 @@ import { RefreshCw, Search } from "lucide-react"
 type LeadRow = {
   id: string
   name: string
-  email: string
   phone: string
   course: string
+  branch_name?: string | null
+  branch_id?: string | null
   created_at?: string
 }
 
@@ -112,7 +113,7 @@ export default function LeadsPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
-                  placeholder="Search name, email, phone, course…"
+                  placeholder="Search name, phone, course, branch…"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   className="pl-9"
@@ -135,7 +136,6 @@ export default function LeadsPage() {
                   <thead className="bg-gray-100 text-gray-700">
                     <tr>
                       <th className="px-3 py-2 font-semibold">Name</th>
-                      <th className="px-3 py-2 font-semibold">Email</th>
                       <th className="px-3 py-2 font-semibold">Phone</th>
                       <th className="px-3 py-2 font-semibold">Course</th>
                       <th className="px-3 py-2 font-semibold">Date</th>
@@ -145,9 +145,8 @@ export default function LeadsPage() {
                     {leads.map((row) => (
                       <tr key={row.id} className="border-t border-gray-200 hover:bg-gray-50/80">
                         <td className="px-3 py-2">{row.name}</td>
-                        <td className="px-3 py-2 break-all">{row.email}</td>
                         <td className="px-3 py-2 whitespace-nowrap">{row.phone}</td>
-                        <td className="px-3 py-2">{row.course || "—"}</td>
+                        <td className="px-3 py-2">{row.course?.trim() ? row.course : "—"}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-gray-600">{fmtDate(row.created_at)}</td>
                       </tr>
                     ))}

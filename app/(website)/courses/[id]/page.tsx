@@ -350,20 +350,16 @@ export default function CourseDetailPage() {
       {enabled("cta") && (
         <section className="py-12 bg-[#F73322]">
           <div className="container mx-auto px-4 max-w-7xl text-center">
-            {pc.cta_section?.headline?.trim() ? (
-              <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                {pc.cta_section.headline}
-              </h2>
-            ) : null}
+            <h2 className="text-2xl md:text-3xl font-extrabold text-white uppercase mb-4" style={{ fontFamily: "'Oswald', sans-serif" }}>
+              {pc.cta_section?.headline?.trim() || "Ready to Start Your Journey?"}
+            </h2>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              {hero.cta_text?.trim() ? (
-                <Link
-                  href={hero.cta_link?.trim() || "/register"}
-                  className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg"
-                >
-                  {hero.cta_text}
-                </Link>
-              ) : null}
+              <Link
+                href={(hero.cta_link && hero.cta_link.trim()) || "/register"}
+                className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-10 py-4 text-base font-bold text-black hover:bg-white transition-colors shadow-lg"
+              >
+                {hero.cta_text?.trim() || "Join Now"}
+              </Link>
               <Link href="/courses" className="inline-flex items-center gap-2 text-white font-semibold hover:text-[#FFB70F] transition-colors">
                 <ArrowLeft className="w-4 h-4" /> View All Courses
               </Link>

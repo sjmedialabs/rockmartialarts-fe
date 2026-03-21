@@ -23,13 +23,22 @@ import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 /* ------------------------------------------------------------------ */
 
 type CourseInfoSection = { title?: string; content?: string; bullet_points?: string[]; image?: string; layout?: "image_left" | "image_right" }
-type AboutContentBlock = { title?: string; description?: string; bullet_points?: string[]; image?: string }
-
 type PageContent = {
+  section_visibility?: Partial<Record<string, boolean>>
   hero_section?: { title?: string; subtitle?: string; description?: string; hero_image?: string; cta_text?: string; cta_link?: string }
   course_info?: { location?: string; duration?: string; price?: string; training_time?: string }
   course_info_sections?: CourseInfoSection[]
-  about_section?: { title?: string; description?: string; secondary_description?: string; image1?: string; image2?: string; content_blocks?: AboutContentBlock[] }
+  about_section?: {
+    title?: string
+    aboutTitle?: string
+    description?: string
+    aboutDescription?: string
+    secondary_description?: string
+    image1?: string
+    image2?: string
+    /** Legacy seeded data — not editable in admin; ignored on public page. */
+    content_blocks?: unknown[]
+  }
   benefits?: { title: string; description: string; icon?: string }[]
   learning_section?: { title?: string; description?: string; video_url?: string; thumbnail?: string }
   gallery_images?: string[]
@@ -43,7 +52,9 @@ type CourseData = {
   title?: string
   course_name?: string
   code?: string
-  description?: string
+  /** Explicit About section copy from public API (mirrors page_content.about_section) */
+  aboutTitle?: string
+  aboutDescription?: string
   difficulty_level?: string
   page_content?: PageContent
   course_content?: { syllabus?: string; equipment_required?: string[] }
@@ -119,6 +130,10 @@ export default function CourseDetailPage() {
   const hero = pc.hero_section || {}
   const info = pc.course_info || {}
   const about = pc.about_section || {}
+  const aboutTitle = String(course.aboutTitle ?? about.aboutTitle ?? about.title ?? "").trim()
+  const aboutDescription = String(
+    course.aboutDescription ?? about.aboutDescription ?? about.description ?? ""
+  ).trim()
   const benefits = pc.benefits || []
   const learning = pc.learning_section || {}
   const gallery = pc.gallery_images || []
@@ -267,7 +282,12 @@ export default function CourseDetailPage() {
       )}
 
       {/* ============ 3. ABOUT COURSE ============ */}
-      {enabled("about") && (about.title || about.description || about.secondary_description || course.description || (about.content_blocks && about.content_blocks.length > 0) || about.image1 || about.image2) && (
+      {enabled("about") &&
+        (aboutTitle ||
+          aboutDescription ||
+          about.secondary_description ||
+          about.image1 ||
+          about.image2) && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="flex flex-col lg:flex-row items-start gap-8">
@@ -275,32 +295,12 @@ export default function CourseDetailPage() {
               <div className="w-full lg:w-[60%]">
                 <p className="text-[#F73322] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {courseTitle}</p>
                 <h2 className="text-3xl md:text-4xl font-extrabold text-[#171A26] uppercase mb-6" style={{ fontFamily: "'Oswald', sans-serif" }}>
-                  {about.title || "Start Today and Change Your Life"}
+                  {aboutTitle || "Start Today and Change Your Life"}
                 </h2>
                 <div className="space-y-4 text-gray-700 leading-relaxed">
-                  {(about.description || course.description) && <p>{about.description || course.description}</p>}
+                  {aboutDescription && <p>{aboutDescription}</p>}
                   {about.secondary_description && <p>{about.secondary_description}</p>}
                 </div>
-                {(about.content_blocks || []).map((block: AboutContentBlock, idx: number) => (
-                  <div key={idx} className="mt-10">
-                    {block.title && (
-                      <h3 className="text-xl md:text-2xl font-bold text-[#171A26] mb-3" style={{ fontFamily: "'Oswald', sans-serif" }}>{block.title}</h3>
-                    )}
-                    {block.description && <p className="text-gray-700 leading-relaxed mb-3">{block.description}</p>}
-                    {block.bullet_points && block.bullet_points.length > 0 && (
-                      <ul className="list-none space-y-2 mb-4">
-                        {block.bullet_points.filter(Boolean).map((bp, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-[#FFB70F] font-bold shrink-0">&gt;&gt;</span>
-                            <span className="text-gray-700">{bp}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    
-                  </div>
-                ))}
-                
               </div>
               {/* RIGHT: image (40%) */}
               {aboutImage && (

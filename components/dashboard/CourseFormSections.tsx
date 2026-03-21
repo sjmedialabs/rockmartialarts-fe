@@ -78,10 +78,14 @@ export interface PageContent {
   }[]
   about_section?: {
     title?: string
+    aboutTitle?: string
     description?: string
+    aboutDescription?: string
     secondary_description?: string
     image1?: string
     image2?: string
+    /** Legacy demo blocks — stripped on course edit load; not shown on public site */
+    content_blocks?: unknown[]
   }
   benefits?: { title: string; description: string; icon?: string }[]
   learning_section?: {
@@ -186,7 +190,12 @@ export default function CourseFormSections({ value, onChange }: Props) {
 
   const hero = pc.hero_section || {}
   const courseInfoSections = pc.course_info_sections || []
-  const about = pc.about_section || {}
+  const rawAbout = pc.about_section || {}
+  const about = {
+    ...rawAbout,
+    title: rawAbout.title ?? rawAbout.aboutTitle ?? "",
+    description: rawAbout.description ?? rawAbout.aboutDescription ?? "",
+  }
   const benefits = pc.benefits || []
   const learning = pc.learning_section || {}
   const gallery = pc.gallery_images || []
@@ -276,15 +285,29 @@ export default function CourseFormSections({ value, onChange }: Props) {
         <AccordionContent className="space-y-3 pb-4">
           <div className="space-y-1">
             <Label>Section Title</Label>
-            <Input value={about.title || ""} onChange={(e) => set("about_section", { ...about, title: e.target.value })} placeholder="Start Today and Change Your Life" />
+            <Input
+              value={about.title || ""}
+              onChange={(e) => set("about_section", { ...rawAbout, title: e.target.value })}
+              placeholder="Start Today and Change Your Life"
+            />
           </div>
           <div className="space-y-1">
             <Label>Description</Label>
-            <Textarea value={about.description || ""} onChange={(e) => set("about_section", { ...about, description: e.target.value })} rows={4} placeholder="Main about text..." />
+            <Textarea
+              value={about.description || ""}
+              onChange={(e) => set("about_section", { ...rawAbout, description: e.target.value })}
+              rows={4}
+              placeholder="About course description (public page — not the main course description field)"
+            />
           </div>
           <div className="space-y-1">
             <Label>Secondary Description</Label>
-            <Textarea value={about.secondary_description || ""} onChange={(e) => set("about_section", { ...about, secondary_description: e.target.value })} rows={3} placeholder="Additional paragraph..." />
+            <Textarea
+              value={about.secondary_description || ""}
+              onChange={(e) => set("about_section", { ...rawAbout, secondary_description: e.target.value })}
+              rows={3}
+              placeholder="Additional paragraph..."
+            />
           </div>
           <div className="space-y-1">
             <Label>About Image (shown on right, 40%)</Label>
@@ -292,9 +315,7 @@ export default function CourseFormSections({ value, onChange }: Props) {
               accept="image/*"
               label="Upload About Image"
               currentUrl={about.image1 || about.image2}
-              onUploaded={(url) =>
-                set("about_section", { ...about, image1: url })
-              }
+              onUploaded={(url) => set("about_section", { ...rawAbout, image1: url })}
             />
           </div>
         </AccordionContent>

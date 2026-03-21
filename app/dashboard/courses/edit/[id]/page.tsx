@@ -177,7 +177,15 @@ export default function EditCoursePage() {
         setIsLoading(false)
         // Populate page content sections
         if (course.page_content) {
-          setPageContent(course.page_content)
+          const pc = { ...course.page_content } as PageContent
+          // Drop legacy about_section.content_blocks (not editable in CMS; caused old demo copy on public page)
+          if (pc.about_section && typeof pc.about_section === "object") {
+            const { content_blocks: _legacy, ...aboutRest } = pc.about_section as PageContent["about_section"] & {
+              content_blocks?: unknown
+            }
+            pc.about_section = aboutRest
+          }
+          setPageContent(pc)
         }
         if (course.seo) {
           setSeoData({

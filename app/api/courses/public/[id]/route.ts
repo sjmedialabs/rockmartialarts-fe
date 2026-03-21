@@ -39,6 +39,27 @@ async function fetchJson(url: string, options?: RequestInit): Promise<{ ok: bool
 }
 
 /**
+ * Public course detail: expose flat about fields and omit generic `description` (use aboutDescription + page_content only).
+ */
+function preparePublicCourseDetail(course: Record<string, unknown>): Record<string, unknown> {
+  const pageContent =
+    (course.page_content as Record<string, unknown> | null | undefined) || {}
+  const raw = pageContent.about_section
+  const about =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {}
+  const aboutTitle = String(about.title ?? about.aboutTitle ?? "").trim()
+  const aboutDescription = String(about.description ?? about.aboutDescription ?? "").trim()
+  const { description: _omitGenericCourseDescription, ...rest } = course
+  return {
+    ...rest,
+    aboutTitle,
+    aboutDescription,
+  }
+}
+
+/**
  * Public course by ID or slug. Tries backend GET /api/courses/:id first when param is UUID.
  * On 401/403/404 or when param is a slug, falls back to public list and finds by id or slug.
  */
@@ -96,21 +117,27 @@ async function enrichCourseWithDurations(
   base: string,
   course: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  const hasFees = course.fee_per_duration && typeof course.fee_per_duration === "object" && Object.keys(course.fee_per_duration as object).length > 0
-  const hasDurations = Array.isArray(course.durations) && (course.durations as unknown[]).length > 0
-  const hasAvailableDurations = Array.isArray(course.available_durations) && (course.available_durations as unknown[]).length > 0
+  const c = { ...course }
+  const hasFees =
+    c.fee_per_duration &&
+    typeof c.fee_per_duration === "object" &&
+    Object.keys(c.fee_per_duration as object).length > 0
+  const hasDurations = Array.isArray(c.durations) && (c.durations as unknown[]).length > 0
+  const hasAvailableDurations =
+    Array.isArray(c.available_durations) && (c.available_durations as unknown[]).length > 0
 
-  if (!hasFees || hasDurations || hasAvailableDurations) return course
+  if (hasFees && !hasDurations && !hasAvailableDurations) {
+    const durRes = await fetchJson(`${base}/api/durations/public/all`)
+    if (durRes.ok && typeof durRes.data === "object" && durRes.data !== null) {
+      const payload = durRes.data as { durations?: { id: string; name: string; duration_months?: number }[] }
+      const list = Array.isArray(payload.durations) ? payload.durations : []
+      c.available_durations = list.map((d) => ({
+        id: d.id,
+        name: d.name,
+        duration_months: d.duration_months,
+      }))
+    }
+  }
 
-  const durRes = await fetchJson(`${base}/api/durations/public/all`)
-  if (!durRes.ok || typeof durRes.data !== "object" || durRes.data === null) return course
-
-  const payload = durRes.data as { durations?: { id: string; name: string; duration_months?: number }[] }
-  const list = Array.isArray(payload.durations) ? payload.durations : []
-  course.available_durations = list.map((d) => ({
-    id: d.id,
-    name: d.name,
-    duration_months: d.duration_months,
-  }))
-  return course
+  return preparePublicCourseDetail(c)
 }

@@ -10,6 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRegistration } from "@/contexts/RegistrationContext"
 import { useCMS } from "@/contexts/CMSContext"
 import { toast } from "@/components/ui/use-toast"
+import {
+  type BranchCoursePricing,
+  formatCoursePriceLabel,
+} from "@/lib/registrationPricing"
 
 interface Course {
   id: string;
@@ -18,10 +22,7 @@ interface Course {
   description: string;
   difficulty_level: string;
   category_id?: string;
-  pricing: {
-    currency: string;
-    amount: number;
-  };
+  pricing: BranchCoursePricing;
   available_durations: Array<{
     id: string;
     name: string;
@@ -72,6 +73,7 @@ export default function SelectCoursePage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [masterDurations, setMasterDurations] = useState<DurationOption[] | null>(null)
   const [isLoadingDurations, setIsLoadingDurations] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Require branch to be selected first
   useEffect(() => {
@@ -228,7 +230,7 @@ export default function SelectCoursePage() {
     }
   }, [branchCourses, formData.course_id])
 
-  const handleNextStep = (e: React.FormEvent) => {
+  const handleNextStep = async (e: React.FormEvent) => {
     e.preventDefault()
     const newErrors: Record<string, string> = {}
     // Category is optional when we only have \"All Courses\"
@@ -246,23 +248,81 @@ export default function SelectCoursePage() {
       return
     }
     setFieldErrors({})
-    
-    // Get selected duration details
-    const selectedDuration = durationOptions.find(d => d.id === formData.duration)
 
-    // Update registration context with course data including pricing
-    updateRegistrationData({
-      category_id: formData.category_id,
-      course_id: formData.course_id,
-      duration: formData.duration,
-      duration_name: selectedDuration?.name || "",
-      duration_months: selectedDuration?.duration_months || 1,
-      course_name: selectedCourse?.title || "",
-      category_name: selectedCategory?.name || "",
-      course_price: selectedCourse?.pricing?.amount || 0,
-      course_currency: selectedCourse?.pricing?.currency || "INR",
-    })
-    router.push("/register/payment")
+    const selectedDuration = durationOptions.find((d) => d.id === formData.duration)
+    if (!branchId) {
+      toast({
+        title: "Branch required",
+        description: "Please select a branch first.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const durationParam = encodeURIComponent(formData.duration)
+      const payRes = await fetch(
+        getBackendApiUrl(
+          `courses/${encodeURIComponent(formData.course_id)}/payment-info?branch_id=${encodeURIComponent(branchId)}&duration=${durationParam}`
+        ),
+        { method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" }
+      )
+      const payJson = await payRes.json().catch(() => ({}))
+
+      if (!payRes.ok) {
+        const detail =
+          typeof payJson?.detail === "string"
+            ? payJson.detail
+            : "Could not load pricing for this course and branch."
+        toast({
+          title: "Pricing unavailable",
+          description: detail,
+          variant: "destructive",
+        })
+        return
+      }
+
+      const p = payJson?.pricing
+      if (
+        !p ||
+        typeof p.course_fee !== "number" ||
+        typeof p.total_amount !== "number" ||
+        Number.isNaN(p.course_fee) ||
+        Number.isNaN(p.total_amount)
+      ) {
+        toast({
+          title: "Invalid pricing response",
+          description: "Please try again or contact support.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      updateRegistrationData({
+        category_id: formData.category_id,
+        course_id: formData.course_id,
+        duration: formData.duration,
+        duration_name: selectedDuration?.name || payJson.duration || "",
+        duration_months: selectedDuration?.duration_months || 1,
+        course_name: selectedCourse?.title || payJson.course_name || "",
+        category_name: selectedCategory?.name || payJson.category_name || "",
+        branch_name: payJson.branch_name || registrationData.branch_name,
+        course_price: p.course_fee,
+        course_currency: p.currency || "INR",
+        amount: p.total_amount,
+      })
+      router.push("/register/payment")
+    } catch (err) {
+      console.error("[select-course] payment-info", err)
+      toast({
+        title: "Network error",
+        description: "Could not verify pricing. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleSelectChange = (field: string, value: string) => {
@@ -418,7 +478,7 @@ export default function SelectCoursePage() {
                           <span className="font-medium">{course.title}</span>
                           <span className="text-xs text-gray-500">{course.code} • {course.difficulty_level}</span>
                           <span className="text-[14px] font-semibold mt-1">
-                            {course.pricing?.currency ?? "INR"} {course.pricing?.amount ?? 0}
+                            {formatCoursePriceLabel(course.pricing)}
                           </span>
                         </div>
                       </SelectItem>
@@ -458,12 +518,31 @@ export default function SelectCoursePage() {
             </div>
 
             {/* Next Step Button */}
+            {formData.course_id && formData.duration && selectedCourse ? (
+              <p className="text-sm text-gray-600 text-center">
+                <span className="font-medium text-gray-800">Estimate: </span>
+                {formatCoursePriceLabel(selectedCourse.pricing, {
+                  durationId: formData.duration,
+                  durationCode: durationOptions.find((d) => d.id === formData.duration)?.code,
+                  multiplier: durationOptions.find((d) => d.id === formData.duration)?.pricing_multiplier,
+                })}
+                <span className="block text-xs text-gray-500 mt-1">
+                  Final amount (incl. registration fee) is confirmed on the payment step.
+                </span>
+              </p>
+            ) : null}
+
             <Button 
               type="submit" 
              className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-4 px-6 rounded-xl text-[12px] h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-8"
-              disabled={!formData.category_id || !formData.course_id || !formData.duration}
+              disabled={
+                !formData.category_id ||
+                !formData.course_id ||
+                !formData.duration ||
+                isSubmitting
+              }
             >
-              NEXT STEP
+              {isSubmitting ? "Verifying price…" : "NEXT STEP"}
             </Button>
           </form>
           )}

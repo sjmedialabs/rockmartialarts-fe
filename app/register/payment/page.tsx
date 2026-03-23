@@ -37,93 +37,114 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState("")
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Build fallback payment info from registration context data
-  const durationLabel = registrationData.duration_name || `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? 's' : ''}`
+  const durationLabel =
+    registrationData.duration_name ||
+    `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? "s" : ""}`
 
-  const buildContextPaymentInfo = (registrationFeeAmount: number): CoursePaymentInfo => {
-    const courseFee = registrationData.course_price || 0
-    const admissionFee = registrationFeeAmount
-    return {
-      course_id: registrationData.course_id || "",
-      course_name: registrationData.course_name || "Selected Course",
-      category_name: registrationData.category_name || "Martial Arts",
-      branch_name: registrationData.branch_name || "Selected Branch",
-      duration: durationLabel,
-      pricing: {
-        course_fee: courseFee,
-        admission_fee: admissionFee,
-        total_amount: courseFee + admissionFee,
-        currency: registrationData.course_currency || "INR",
-        duration_multiplier: 1.0
-      }
-    }
-  }
-
-  // Fetch public registration fee + payment information when component mounts
+  // Fetch payment breakdown from backend only (same source as Razorpay amount)
   useEffect(() => {
     let cancelled = false
 
     const fetchPaymentInfo = async () => {
-      // Align with backend SettingsController default when public settings are unreachable
-      let registrationFeeAmount = 0
-      try {
-        const feeRes = await fetch("/api/backend/settings/public", { cache: "no-store" })
-        if (feeRes.ok) {
-          const feeJson = await feeRes.json()
-          if (typeof feeJson.registrationFee === "number" && !Number.isNaN(feeJson.registrationFee)) {
-            registrationFeeAmount = feeJson.registrationFee
-          }
+      setLoadError(null)
+
+      if (!registrationData.course_id || !registrationData.branch_id || !registrationData.duration) {
+        if (!cancelled) {
+          setPaymentInfo(null)
+          setLoadError("Please complete course selection before payment.")
+          setLoading(false)
         }
-      } catch (e) {
-        console.error("[register/payment] Failed to load registration fee:", e)
-      }
-
-      if (cancelled) return
-
-      if (!registrationData.course_id || !registrationData.branch_id) {
-        setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
-        setLoading(false)
         return
       }
 
       try {
-        const selectedDuration = registrationData.duration || "1-month"
+        const durationQ = encodeURIComponent(registrationData.duration)
         const response = await fetch(
-          getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?branch_id=${registrationData.branch_id}&duration=${selectedDuration}`),
+          getBackendApiUrl(
+            `courses/${encodeURIComponent(registrationData.course_id)}/payment-info?branch_id=${encodeURIComponent(registrationData.branch_id)}&duration=${durationQ}`
+          ),
           {
             method: "GET",
             headers: { "Content-Type": "application/json" },
+            cache: "no-store",
           }
         )
 
-        if (response.ok) {
-          const data = await response.json()
-          if (!data.duration || data.duration === selectedDuration) {
-            data.duration = durationLabel
+        const data = await response.json().catch(() => ({}))
+
+        if (!response.ok) {
+          const detail =
+            typeof data?.detail === "string"
+              ? data.detail
+              : "Could not load payment details. Please go back and try again."
+          if (!cancelled) {
+            setPaymentInfo(null)
+            setLoadError(detail)
           }
-          if (!cancelled) setPaymentInfo(data)
-        } else {
-          console.warn("payment-info API failed, using context data")
-          if (!cancelled) setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
+          return
         }
-      } catch (error) {
-        console.error("Error fetching payment info:", error)
-        if (!cancelled) setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
+
+        const p = data?.pricing
+        if (
+          !p ||
+          typeof p.course_fee !== "number" ||
+          typeof p.total_amount !== "number" ||
+          typeof p.admission_fee !== "number"
+        ) {
+          if (!cancelled) {
+            setPaymentInfo(null)
+            setLoadError("Invalid pricing data from server.")
+          }
+          return
+        }
+
+        if (!data.duration || data.duration === registrationData.duration) {
+          data.duration = durationLabel
+        }
+        if (!cancelled) {
+          setPaymentInfo(data as CoursePaymentInfo)
+          updateRegistrationData({
+            course_price: p.course_fee,
+            amount: p.total_amount,
+            course_currency: p.currency || registrationData.course_currency || "INR",
+          })
+        }
+      } catch (err) {
+        console.error("Error fetching payment info:", err)
+        if (!cancelled) {
+          setPaymentInfo(null)
+          setLoadError("Network error loading payment details.")
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
 
+    setLoading(true)
     fetchPaymentInfo()
     return () => {
       cancelled = true
     }
-  }, [registrationData.course_id, registrationData.branch_id, registrationData.duration, registrationData.course_price])
+  }, [
+    registrationData.course_id,
+    registrationData.branch_id,
+    registrationData.duration,
+    registrationData.duration_name,
+    registrationData.duration_months,
+    registrationData.course_currency,
+  ])
 
   const handlePayment = async () => {
     if (!paymentInfo) {
       setError("Payment information not loaded")
+      return
+    }
+
+    const total = paymentInfo.pricing.total_amount
+    if (typeof total !== "number" || !Number.isFinite(total) || total <= 0) {
+      setError("Price unavailable for this selection. Please go back and choose again.")
       return
     }
 
@@ -142,7 +163,7 @@ export default function PaymentPage() {
       })
 
       await openRazorpayCheckout({
-        amount: paymentInfo.pricing.total_amount,
+        amount: total,
         currency: paymentInfo.pricing.currency,
         name: "Marshalats Academy",
         description: `${paymentInfo.course_name} - ${paymentInfo.duration}`,
@@ -157,7 +178,7 @@ export default function PaymentPage() {
             paymentId: response.razorpay_payment_id,
             paymentStatus: 'completed',
             paymentMethod: 'razorpay',
-            amount: paymentInfo.pricing.total_amount
+            amount: total
           })
 
           // Navigate to confirmation page
@@ -229,6 +250,18 @@ export default function PaymentPage() {
             <p className="text-gray-500 text-sm">Review your order and proceed with payment.</p>
           </div>
 
+          {loadError && !loading && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+              <p className="text-amber-900 text-sm font-medium">{loadError}</p>
+              <Link
+                href="/register/select-course"
+                className="inline-block text-sm font-semibold text-amber-800 underline"
+              >
+                Back to course selection
+              </Link>
+            </div>
+          )}
+
           {/* Error Display */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -242,7 +275,7 @@ export default function PaymentPage() {
           )}
 
           {/* Payment Summary Card */}
-          {paymentInfo && (
+          {paymentInfo && !loadError && (
             <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 space-y-6">
               {/* Course Information */}
               <div className="text-center border-b border-gray-200 pb-4">
@@ -315,7 +348,7 @@ export default function PaymentPage() {
           {/* Pay Now Button */}
           <Button
             onClick={handlePayment}
-            disabled={processing || !paymentInfo}
+            disabled={processing || !paymentInfo || !!loadError}
             className="w-full bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-4 px-6 rounded-xl text-sm h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {processing ? (

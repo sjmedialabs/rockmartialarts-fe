@@ -54,6 +54,12 @@ interface RegistrationContextType {
   updateRegistrationData: (data: Partial<RegistrationData>) => void
   clearRegistrationData: () => void
   getApiPayload: () => any
+  getEnrollmentData: () => {
+    course_id: string
+    branch_id: string
+    category_id: string
+    duration: string
+  } | null
 }
 
 const defaultRegistrationData: RegistrationData = {

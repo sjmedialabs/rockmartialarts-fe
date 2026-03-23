@@ -51,67 +51,40 @@ export default function PaymentConfirmationPage() {
   // Build payment info from registration context
   const durationLabel = registrationData.duration_name || `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? 's' : ''}`
 
-  const buildContextPaymentInfo = (registrationFeeAmount: number): CoursePaymentInfo => {
-    const courseFee = registrationData.course_price || registrationData.amount || 0
-    const admissionFee = registrationFeeAmount
-    return {
-      course_id: registrationData.course_id || "",
-      course_name: registrationData.course_name || "Selected Course",
-      category_name: registrationData.category_name || "Martial Arts",
-      branch_name: registrationData.branch_name || "Selected Branch",
-      duration: durationLabel,
-      pricing: {
-        course_fee: courseFee,
-        admission_fee: admissionFee,
-        total_amount: courseFee + admissionFee,
-        currency: registrationData.course_currency || "INR",
-        duration_multiplier: 1.0
-      }
-    }
-  }
-
-  // Fetch payment info on component mount
+  // Fetch payment info on component mount (same API as payment page)
   useEffect(() => {
     const fetchPaymentInfo = async () => {
-      let registrationFeeAmount = 0
-      try {
-        const feeRes = await fetch("/api/backend/settings/public", { cache: "no-store" })
-        if (feeRes.ok) {
-          const feeJson = await feeRes.json()
-          if (typeof feeJson.registrationFee === "number" && !Number.isNaN(feeJson.registrationFee)) {
-            registrationFeeAmount = feeJson.registrationFee
-          }
-        }
-      } catch (e) {
-        console.error("[register/payment-confirmation] Failed to load registration fee:", e)
-      }
-
-      if (!registrationData.course_id || !registrationData.branch_id) {
-        setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
+      if (!registrationData.course_id || !registrationData.branch_id || !registrationData.duration) {
+        setPaymentInfo(null)
         setLoadingPaymentInfo(false)
         return
       }
 
       try {
-        const duration = registrationData.duration || "1-month"
+        const durationQ = encodeURIComponent(registrationData.duration)
         const response = await fetch(
-          getBackendApiUrl(`courses/${registrationData.course_id}/payment-info?branch_id=${registrationData.branch_id}&duration=${duration}`),
+          getBackendApiUrl(
+            `courses/${encodeURIComponent(registrationData.course_id)}/payment-info?branch_id=${encodeURIComponent(registrationData.branch_id)}&duration=${durationQ}`
+          ),
           {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
           }
         )
 
         if (response.ok) {
           const data = await response.json()
-          setPaymentInfo(data)
+          if (!data.duration || data.duration === registrationData.duration) {
+            data.duration = durationLabel
+          }
+          setPaymentInfo(data as CoursePaymentInfo)
         } else {
-          console.warn('Failed to fetch payment info, using context data')
-          setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
+          setPaymentInfo(null)
         }
       } catch (error) {
-        console.error('Error fetching payment info:', error)
-        setPaymentInfo(buildContextPaymentInfo(registrationFeeAmount))
+        console.error("Error fetching payment info:", error)
+        setPaymentInfo(null)
       } finally {
         setLoadingPaymentInfo(false)
       }

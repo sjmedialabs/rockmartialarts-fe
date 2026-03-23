@@ -3,7 +3,7 @@
 import { getBackendApiUrl } from "@/lib/config"
 import type React from "react"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
@@ -16,16 +16,37 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { branchAPI } from "@/lib/branchAPI"
-import { courseAPI } from "@/lib/courseAPI"
 import { TokenManager } from "@/lib/tokenManager"
 import { dropdownAPI } from "@/lib/dropdownAPI"
+import { useToast } from "@/hooks/use-toast"
+
+const DEFAULT_DURATION_OPTIONS: Array<{ id: string; name: string; code?: string }> = [
+  { id: "1-month", name: "1 Month", code: "1-month" },
+  { id: "3-months", name: "3 Months", code: "3-months" },
+  { id: "6-months", name: "6 Months", code: "6-months" },
+  { id: "12-months", name: "12 Months", code: "12-months" },
+  { id: "lifetime", name: "Lifetime", code: "lifetime" },
+]
+
+function resolveDurationSelectValue(
+  raw: string,
+  options: Array<{ id: string; name?: string; code?: string }>
+): string {
+  if (!raw) return ""
+  if (options.some((o) => o.id === raw)) return raw
+  const byCode = options.find((o) => o.code === raw)
+  if (byCode) return byCode.id
+  const lower = raw.toLowerCase()
+  const byName = options.find((o) => (o.name || "").toLowerCase() === lower)
+  if (byName) return byName.id
+  return raw
+}
 
 interface Branch {
   id: string
   name: string
   code?: string
-  address?: string
+  address?: string | { city?: string; state?: string }
   phone?: string
   email?: string
   location?: string
@@ -66,6 +87,10 @@ export default function EditStudent() {
   const [locations, setLocations] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
+  const [durationOptions, setDurationOptions] =
+    useState<Array<{ id: string; name: string; code?: string }>>(DEFAULT_DURATION_OPTIONS)
+
+  const { toast } = useToast()
 
   // API Loading states
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
@@ -112,15 +137,6 @@ export default function EditStudent() {
     emergencyContactRelation: "",
   })
 
-  // Dynamic data will be loaded from APIs
-  const durations = [
-    { id: "1-month", name: "1 Month" },
-    { id: "3-months", name: "3 Months" },
-    { id: "6-months", name: "6 Months" },
-    { id: "12-months", name: "12 Months" },
-    { id: "lifetime", name: "Lifetime" }
-  ]
-
   // Fetch student, branches and courses data
   useEffect(() => {
     const fetchData = async () => {
@@ -143,10 +159,14 @@ export default function EditStudent() {
         }
         const studentResponseData = await studentResponse.json()
         const studentData = studentResponseData.user || studentResponseData
+        const enrollmentList: any[] = Array.isArray(studentResponseData.enrollments)
+          ? studentResponseData.enrollments
+          : []
+        const primaryEnrollment =
+          enrollmentList.find((e) => e && e.is_active !== false) || enrollmentList[0] || null
 
-        // Load dynamic data from APIs
-        const [locationsData, branchesData, coursesData, categoriesData] = await Promise.all([
-          // Load locations: try locations API first, then master data (dropdown) so Hyderabad etc. show
+        // Load locations, courses, categories, durations (branch list loaded after we know location)
+        const [locationsData, coursesData, categoriesData, durationsRaw] = await Promise.all([
           (async () => {
             try {
               setIsLoadingLocations(true)
@@ -181,13 +201,6 @@ export default function EditStudent() {
             }
           })(),
 
-          // Branches will be loaded dynamically when location is selected
-          (async () => {
-            setIsLoadingBranches(false)
-            return []
-          })(),
-
-          // Load courses
           (async () => {
             try {
               setIsLoadingCourses(true)
@@ -208,7 +221,6 @@ export default function EditStudent() {
             }
           })(),
 
-          // Load categories
           (async () => {
             try {
               setIsLoadingCategories(true)
@@ -226,36 +238,144 @@ export default function EditStudent() {
             } finally {
               setIsLoadingCategories(false)
             }
-          })()
+          })(),
+
+          (async () => {
+            try {
+              const durRes = await fetch(getBackendApiUrl('durations/public/all'))
+              if (!durRes.ok) return []
+              const dj = await durRes.json()
+              const list = dj.durations || []
+              return list.map((d: { id: string; name: string; code?: string }) => ({
+                id: d.id,
+                name: d.name,
+                code: d.code,
+              }))
+            } catch {
+              return []
+            }
+          })(),
         ])
 
-        // Helper function to find matching option by name/code using the loaded data
-        const findOptionByIdentifier = (options: any[], identifier: string, searchFields: string[] = ['name', 'code', 'title']) => {
+        const durationList =
+          durationsRaw.length > 0 ? durationsRaw : DEFAULT_DURATION_OPTIONS
+        setDurationOptions(durationList)
+
+        const findOptionByIdentifier = (
+          options: any[],
+          identifier: string,
+          searchFields: string[] = ['name', 'code', 'title']
+        ) => {
           if (!identifier || !options.length) return ""
-
-          // First try exact ID match
-          const exactMatch = options.find(option => option.id === identifier)
+          const exactMatch = options.find((option) => option.id === identifier)
           if (exactMatch) return exactMatch.id
-
-          // Then try matching by name, code, or title (case-insensitive)
-          const fieldMatch = options.find(option =>
-            searchFields.some(field =>
-              option[field]?.toLowerCase() === identifier.toLowerCase()
-            )
+          const fieldMatch = options.find((option) =>
+            searchFields.some((field) => option[field]?.toLowerCase() === identifier.toLowerCase())
           )
           if (fieldMatch) return fieldMatch.id
-
-          // Finally try partial matching
-          const partialMatch = options.find(option =>
-            searchFields.some(field =>
-              option[field]?.toLowerCase().includes(identifier.toLowerCase()) ||
-              identifier.toLowerCase().includes(option[field]?.toLowerCase())
+          const partialMatch = options.find((option) =>
+            searchFields.some(
+              (field) =>
+                option[field]?.toLowerCase().includes(identifier.toLowerCase()) ||
+                identifier.toLowerCase().includes(option[field]?.toLowerCase())
             )
           )
           return partialMatch ? partialMatch.id : ""
         }
 
-        // Map student data to form data with proper ID resolution using the loaded data
+        let branchId =
+          studentData.branch?.branch_id ||
+          studentData.branch_id ||
+          primaryEnrollment?.branch_id ||
+          ""
+        let locationId =
+          studentData.branch?.location_id ||
+          studentData.location_id ||
+          ""
+
+        if (branchId && !locationId) {
+          try {
+            let brRes = await fetch(getBackendApiUrl(`branches/${encodeURIComponent(branchId)}`), {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!brRes.ok) {
+              brRes = await fetch(getBackendApiUrl(`branches/public/${encodeURIComponent(branchId)}`))
+            }
+            if (brRes.ok) {
+              const bj = await brRes.json()
+              locationId = bj.location_id || locationId
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+
+        let branchesForLocation: Branch[] = []
+        if (locationId) {
+          try {
+            setIsLoadingBranches(true)
+            const brRes = await fetch(
+              getBackendApiUrl(`branches/public/by-location/${encodeURIComponent(locationId)}?active_only=true`)
+            )
+            if (brRes.ok) {
+              const bd = await brRes.json()
+              branchesForLocation = bd.branches || []
+            }
+            if (branchesForLocation.length === 0 && branchId) {
+              let oneRes = await fetch(getBackendApiUrl(`branches/${encodeURIComponent(branchId)}`), {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+              if (!oneRes.ok) {
+                oneRes = await fetch(getBackendApiUrl(`branches/public/${encodeURIComponent(branchId)}`))
+              }
+              if (oneRes.ok) {
+                const b = await oneRes.json()
+                const addr = b.branch?.address || {}
+                branchesForLocation = [
+                  {
+                    id: b.id || branchId,
+                    name: b.branch?.name || b.name || "Branch",
+                    code: b.branch?.code,
+                    address: {
+                      city: addr.city,
+                      state: addr.state,
+                    },
+                  },
+                ]
+              }
+            }
+            setBranches(branchesForLocation)
+          } catch {
+            setBranches([])
+          } finally {
+            setIsLoadingBranches(false)
+          }
+        } else {
+          setIsLoadingBranches(false)
+          setBranches([])
+        }
+
+        const courseId =
+          studentData.course?.course_id ||
+          studentData.course_id ||
+          primaryEnrollment?.course_id ||
+          ""
+        const categoryId =
+          studentData.course?.category_id ||
+          studentData.course_category_id ||
+          primaryEnrollment?.course_details?.category_id ||
+          ""
+        const durationRaw =
+          studentData.course?.duration ||
+          studentData.course_duration ||
+          primaryEnrollment?.duration_id ||
+          ""
+
+        const branchSelectValue =
+          branchId && branchesForLocation.some((b) => b.id === branchId)
+            ? branchId
+            : findOptionByIdentifier(branchesForLocation, branchId, ['name', 'code'])
+
         const mappedFormData = {
           firstName: studentData.first_name || "",
           lastName: studentData.last_name || "",
@@ -264,7 +384,7 @@ export default function EditStudent() {
           countryCode: studentData.country_code || "+91",
           gender: studentData.gender || "",
           dob: studentData.date_of_birth ? format(new Date(studentData.date_of_birth), "yyyy-MM-dd") : "",
-          password: "", // Password should not be pre-filled
+          password: "",
           biometricId: studentData.biometric_id || "",
           address: studentData.address?.line1 || "",
           area: studentData.address?.area || "",
@@ -272,22 +392,15 @@ export default function EditStudent() {
           state: studentData.address?.state || "",
           zipCode: studentData.address?.pincode || "",
           country: studentData.address?.country || "India",
-          location: findOptionByIdentifier(locationsData, studentData.branch?.location_id || ""),
-          branch: findOptionByIdentifier(branchesData, studentData.branch?.branch_id || ""),
-          category: findOptionByIdentifier(categoriesData, studentData.course?.category_id || ""),
-          course: findOptionByIdentifier(coursesData, studentData.course?.course_id || "", ['title', 'code', 'name']),
-          duration: studentData.course?.duration || "",
+          location: findOptionByIdentifier(locationsData, locationId),
+          branch: branchSelectValue || branchId,
+          category: findOptionByIdentifier(categoriesData, categoryId),
+          course: findOptionByIdentifier(coursesData, courseId, ['title', 'code', 'name']),
+          duration: resolveDurationSelectValue(durationRaw, durationList),
           emergencyContactName: studentData.emergency_contact?.name || "",
           emergencyContactPhone: studentData.emergency_contact?.phone || "",
           emergencyContactRelation: studentData.emergency_contact?.relationship || "",
         }
-
-        console.log("Student data:", studentData)
-        console.log("Available locations:", locationsData)
-        console.log("Available branches:", branchesData)
-        console.log("Available categories:", categoriesData)
-        console.log("Available courses:", coursesData)
-        console.log("Mapped form data:", mappedFormData)
 
         setFormData(mappedFormData)
 
@@ -692,7 +805,11 @@ export default function EditStudent() {
                           <SelectValue placeholder="Select Duration" />
                         </SelectTrigger>
                         <SelectContent>
-                          {durations.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                          {durationOptions.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

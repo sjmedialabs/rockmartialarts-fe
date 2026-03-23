@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
+import { formatPaymentSourceLabel } from "@/lib/formatPaymentSourceLabel"
 
 interface StudentDetails {
   id: string
@@ -90,6 +91,8 @@ interface PaymentRecord {
   payment_method: string
   status: 'completed' | 'pending' | 'failed'
   description: string
+  notes?: string
+  transaction_id?: string
 }
 
 interface AttendanceRecord {
@@ -260,7 +263,9 @@ export default function StudentDetailPage() {
           payment_method: payment.payment_method || 'Unknown',
           status: payment.payment_status === 'paid' ? 'completed' as const :
                   payment.payment_status === 'pending' ? 'pending' as const : 'failed' as const,
-          description: payment.description || `${payment.course_name || 'Course'} - ${payment.payment_type || 'Payment'}`
+          description: payment.description || `${payment.course_name || 'Course'} - ${payment.payment_type || 'Payment'}`,
+          notes: payment.notes,
+          transaction_id: payment.transaction_id,
         }))
 
         setPaymentHistory(history)
@@ -861,7 +866,7 @@ export default function StudentDetailPage() {
                                 day: 'numeric'
                               })}
                             </span>
-                            <span>💳 {payment.payment_method}</span>
+                            <span>💳 {formatPaymentSourceLabel(payment)}</span>
                           </div>
                         </div>
                       </div>

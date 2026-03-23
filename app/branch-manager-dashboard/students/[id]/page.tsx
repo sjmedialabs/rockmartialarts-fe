@@ -28,6 +28,7 @@ import {
 import Header from "@/components/layout/Header"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { formatPaymentSourceLabel } from "@/lib/formatPaymentSourceLabel"
 
 interface StudentDetails {
   id: string
@@ -88,6 +89,8 @@ interface PaymentRecord {
   payment_method: string
   status: 'completed' | 'pending' | 'failed'
   description: string
+  notes?: string
+  transaction_id?: string
 }
 
 interface AttendanceRecord {
@@ -239,7 +242,9 @@ export default function BranchManagerStudentDetailPage() {
           payment_date: payment.payment_date || payment.created_at,
           payment_method: payment.payment_method || "Unknown",
           status: payment.status || 'pending',
-          description: payment.description || `Payment for ${payment.course_name || 'Course'}`
+          description: payment.description || `Payment for ${payment.course_name || 'Course'}`,
+          notes: payment.notes,
+          transaction_id: payment.transaction_id,
         })) || []
 
         // Calculate outstanding balance from pending payments
@@ -708,7 +713,7 @@ export default function BranchManagerStudentDetailPage() {
                         <p className="font-medium text-gray-900">{formatCurrency(payment.amount)}</p>
                         <p className="text-sm text-gray-600">{payment.description}</p>
                         <p className="text-xs text-gray-500">
-                          {formatDate(payment.payment_date)} • {payment.payment_method}
+                          {formatDate(payment.payment_date)} • {formatPaymentSourceLabel(payment)}
                         </p>
                       </div>
                       <Badge className={getStatusColor(payment.status)}>

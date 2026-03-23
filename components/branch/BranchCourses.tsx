@@ -200,7 +200,7 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
                     <span>{formatPrice(course)}</span>
                   </div>
                   <Link
-                    href={`/courses/${course.id}`}
+                    href={`/courses/${encodeURIComponent(course.id)}?branchId=${encodeURIComponent(branch.id)}`}
                     className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-2 text-sm font-semibold text-[#171A26] hover:bg-[#FFB70F]/90 transition-colors"
                   >
                     Enroll

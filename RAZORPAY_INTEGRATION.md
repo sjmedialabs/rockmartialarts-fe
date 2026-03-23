@@ -34,8 +34,8 @@ Complete Razorpay payment gateway integration for course enrollments with receip
 ## Environment Variables
 Add to `.env.local`:
 ```
-NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_live_...   # or rzp_test_... for test mode
+RAZORPAY_KEY_SECRET=your_key_secret       # server-only; also accepts RAZORPAY_SECRET
 ```
 
 ## Production Setup

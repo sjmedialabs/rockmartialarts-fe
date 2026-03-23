@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
 
     // If signature verification is needed (when using order_id)
     if (razorpay_order_id && razorpay_signature) {
-      const secret = process.env.RAZORPAY_KEY_SECRET
+      const secret =
+        process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET
 
       if (!secret) {
         console.error('Razorpay secret not configured')

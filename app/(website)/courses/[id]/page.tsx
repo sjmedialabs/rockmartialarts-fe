@@ -1,8 +1,8 @@
 "use client"
 
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 import {
   ArrowLeft,
   Loader2,
@@ -109,13 +109,38 @@ function resolveUploadUrl(url?: string): string {
   return `/api/backend/uploads/${encodeURIComponent(url)}`
 }
 
+const LAST_BRANCH_STORAGE_KEY = "rock_course_detail_branch_id"
+
+type BranchPricingInfo = {
+  branch_id: string
+  branch_name?: string
+  duration?: string
+  price_display?: string
+  timings?: string
+  fee_per_duration?: Record<string, number | string> | null
+}
+
+function normalizeFeeMap(raw: Record<string, number | string> | null | undefined): Record<string, number> | null {
+  if (!raw || typeof raw !== "object") return null
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === "number" && !Number.isNaN(v)) out[k] = v
+    else if (typeof v === "string") {
+      const n = parseFloat(v.replace(/[^\d.-]/g, ""))
+      if (!Number.isNaN(n)) out[k] = n
+    }
+  }
+  return Object.keys(out).length ? out : null
+}
+
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
-export default function CourseDetailPage() {
+function CourseDetailPageInner() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const slug = params.id as string
   const [course, setCourse] = useState<CourseData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -123,6 +148,13 @@ export default function CourseDetailPage() {
   const [testimonialIdx, setTestimonialIdx] = useState(0)
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
   const [selectedDurationKey, setSelectedDurationKey] = useState<string | null>(null)
+  const [branchPricingInfo, setBranchPricingInfo] = useState<BranchPricingInfo | null>(null)
+  const [branchPricingLoading, setBranchPricingLoading] = useState(false)
+  const branchInitDoneRef = useRef(false)
+
+  useEffect(() => {
+    branchInitDoneRef.current = false
+  }, [slug])
 
   useEffect(() => {
     if (!slug) return
@@ -133,6 +165,89 @@ export default function CourseDetailPage() {
       .catch((e) => { setError(e.message); setCourse(null) })
       .finally(() => setLoading(false))
   }, [slug])
+
+  /* After course loads: pick branch from ?branchId, localStorage, or first assignment */
+  useEffect(() => {
+    if (loading || !course) return
+    const branches = (course.branch_assignments || []) as { branch_id: string }[]
+    if (branches.length === 0) {
+      branchInitDoneRef.current = true
+      return
+    }
+    if (branchInitDoneRef.current) return
+
+    const q = searchParams.get("branchId")
+    let pick: string | null = null
+    if (q && branches.some((b) => b.branch_id === q)) pick = q
+    else {
+      try {
+        const last = typeof window !== "undefined" ? localStorage.getItem(LAST_BRANCH_STORAGE_KEY) : null
+        if (last && branches.some((b) => b.branch_id === last)) pick = last
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!pick) pick = branches[0].branch_id
+    setSelectedLocationId(pick)
+
+    const currentQ = searchParams.get("branchId")
+    if (pick && pick !== currentQ) {
+      router.replace(`/courses/${encodeURIComponent(slug)}?branchId=${encodeURIComponent(pick)}`, { scroll: false })
+    }
+    branchInitDoneRef.current = true
+  }, [loading, course, slug, searchParams, router])
+
+  const persistBranchAndUrl = useCallback(
+    (branchId: string | null) => {
+      setSelectedLocationId(branchId)
+      if (!branchId) return
+      try {
+        localStorage.setItem(LAST_BRANCH_STORAGE_KEY, branchId)
+      } catch {
+        /* ignore */
+      }
+      router.replace(`/courses/${encodeURIComponent(slug)}?branchId=${encodeURIComponent(branchId)}`, { scroll: false })
+    },
+    [router, slug]
+  )
+
+  const branchesForFetch = (course?.branch_assignments || []) as { branch_id: string }[]
+  const effectiveLocationForFetch =
+    selectedLocationId ?? (branchesForFetch[0]?.branch_id ?? null)
+
+  useEffect(() => {
+    if (loading || !course?.id || !effectiveLocationForFetch) {
+      if (!loading && (!course?.id || !effectiveLocationForFetch)) {
+        setBranchPricingInfo(null)
+      }
+      if (loading) setBranchPricingLoading(false)
+      return
+    }
+    let cancelled = false
+    setBranchPricingLoading(true)
+    fetch(
+      `/api/backend/courses/public/detail/${encodeURIComponent(course.id)}/branch-info?branch_id=${encodeURIComponent(effectiveLocationForFetch)}`,
+      { headers: { "Content-Type": "application/json" }, cache: "no-store" }
+    )
+      .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) }))
+      .then(({ ok, data }) => {
+        if (cancelled) return
+        if (!ok) {
+          setBranchPricingInfo(null)
+          return
+        }
+        setBranchPricingInfo(data as BranchPricingInfo)
+      })
+      .catch(() => {
+        if (!cancelled) setBranchPricingInfo(null)
+      })
+      .finally(() => {
+        if (!cancelled) setBranchPricingLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [loading, course?.id, effectiveLocationForFetch])
 
   /* Loading / Error */
   if (loading) return <main className="min-h-screen bg-[#171A26] flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" /></main>
@@ -181,19 +296,52 @@ export default function CourseDetailPage() {
 
   const selectedBranch = branches.find((b) => b.branch_id === effectiveLocationId) || branches[0]
 
-  let priceDisplay = info.price ? stripUuidFromPriceDisplay(info.price) : ""
-  if (effectiveDurationKey && feePerDuration) {
+  const branchApplies =
+    !!branchPricingInfo && branchPricingInfo.branch_id === effectiveLocationId
+
+  const branchFeeMap = normalizeFeeMap(branchPricingInfo?.fee_per_duration || undefined)
+  const mergedFeePerDuration =
+    branchApplies && branchFeeMap && Object.keys(branchFeeMap).length > 0
+      ? branchFeeMap
+      : feePerDuration
+
+  let priceDisplay = ""
+  if (effectiveDurationKey && mergedFeePerDuration && Object.keys(mergedFeePerDuration).length > 0) {
+    const direct = mergedFeePerDuration[effectiveDurationKey]
+    const dur = durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)
+    const byId = dur?.id ? mergedFeePerDuration[dur.id] : undefined
+    const amount = direct ?? byId
+    if (typeof amount === "number" && !Number.isNaN(amount)) {
+      priceDisplay = `₹ ${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+    }
+  }
+  if (
+    !priceDisplay &&
+    branchApplies &&
+    branchPricingInfo?.price_display &&
+    branchPricingInfo.price_display !== "—"
+  ) {
+    priceDisplay = stripUuidFromPriceDisplay(branchPricingInfo.price_display)
+  }
+  /* Avoid global CMS / default fees when branch-specific pricing is active */
+  if (!priceDisplay && !branchApplies && info.price) {
+    priceDisplay = stripUuidFromPriceDisplay(info.price)
+  }
+  if (!priceDisplay && !branchApplies && effectiveDurationKey && feePerDuration) {
     const direct = feePerDuration[effectiveDurationKey]
-    const byCode =
-      durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)?.id &&
-      feePerDuration[durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)!.id]
-    const amount = direct ?? byCode
+    const dur = durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)
+    const byId = dur?.id ? feePerDuration[dur.id] : undefined
+    const amount = direct ?? byId
     if (typeof amount === "number" && !Number.isNaN(amount)) {
       priceDisplay = `₹ ${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
     }
   }
 
   const timingLine = (info.training_time || "").split(/\r?\n|[;,]/)[0]?.trim() || ""
+  const timingDisplay =
+    branchApplies && branchPricingInfo?.timings && branchPricingInfo.timings !== "—"
+      ? branchPricingInfo.timings
+      : timingLine
   const promoVideoUrl = media.promo_video_url || ""
   const effectiveLearningVideo = learning.video_url || promoVideoUrl
 
@@ -227,7 +375,11 @@ export default function CourseDetailPage() {
 
       {/* ============ 2. INFO BAR (location / duration / price / timings) ============ */}
       {enabled("info_bar") && (info.location || durations.length > 0 || info.price || info.training_time) && (
-        <section className="bg-[#F73322]">
+        <section
+          className={`bg-[#F73322] transition-opacity duration-300 ${
+            branchPricingLoading && branches.length > 0 ? "opacity-[0.88]" : "opacity-100"
+          }`}
+        >
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/20">
               {/* Location selector */}
@@ -240,7 +392,7 @@ export default function CourseDetailPage() {
                       <select
                         className="mt-0.5 w-full bg-transparent text-[12px] font-semibold outline-none border-none focus:ring-0"
                         value={effectiveLocationId ?? ""}
-                        onChange={(e) => setSelectedLocationId(e.target.value || null)}
+                        onChange={(e) => persistBranchAndUrl(e.target.value || null)}
                       >
                         {branches.map((b) => (
                           <option key={b.branch_id} value={b.branch_id} className="text-black">
@@ -283,25 +435,34 @@ export default function CourseDetailPage() {
               )}
 
               {/* Price details for selected duration */}
-              {(priceDisplay || info.price) && (
+              {(priceDisplay || info.price || branchApplies) && (
                 <div className="flex items-center gap-3 py-5 px-4 text-white">
                   <IndianRupee className="w-7 h-7 flex-shrink-0 opacity-90" />
                   <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-wider text-white/80">Price Details</p>
-                    <p className="text-[12px] font-semibold truncate">
-                      {priceDisplay || (info.price ? stripUuidFromPriceDisplay(info.price) : "")}
+                    <p className="text-[12px] font-semibold truncate flex items-center gap-1">
+                      {branchPricingLoading && branches.length > 0 ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                          <span>Updating…</span>
+                        </>
+                      ) : (
+                        priceDisplay ||
+                        (info.price ? stripUuidFromPriceDisplay(info.price) : "") ||
+                        (branchApplies ? "Contact branch for fees" : "")
+                      )}
                     </p>
                   </div>
                 </div>
               )}
 
               {/* Timings - always single line */}
-              {timingLine && (
+              {(timingDisplay || timingLine) && (
                 <div className="flex items-center gap-3 py-5 px-4 text-white">
                   <Clock className="w-7 h-7 flex-shrink-0 opacity-90" />
                   <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-wider text-white/80">Timings</p>
-                    <p className="text-[12px] font-semibold truncate">{timingLine}</p>
+                    <p className="text-[12px] font-semibold truncate">{timingDisplay || timingLine}</p>
                   </div>
                 </div>
               )}
@@ -633,5 +794,19 @@ export default function CourseDetailPage() {
         </section>
       )}
     </main>
+  )
+}
+
+export default function CourseDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#171A26] flex items-center justify-center">
+          <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
+        </main>
+      }
+    >
+      <CourseDetailPageInner />
+    </Suspense>
   )
 }

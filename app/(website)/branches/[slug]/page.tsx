@@ -8,9 +8,6 @@ import AOS from "aos"
 import {
   BranchHero,
   BranchInfoCards,
-  BranchAbout,
-  BranchGallery,
-  BranchAchievements,
   BranchMap,
   BranchContact,
   BranchFacilities,
@@ -103,16 +100,11 @@ export default function BranchDetailPage() {
 
   const coverImage =
     (branch as BranchData & { gallery_images?: string[] }).gallery_images?.[0] ?? null
-  const aboutImage =
-    (branch as BranchData & { gallery_images?: string[] }).gallery_images?.[1] ?? coverImage
 
   return (
     <main className="min-h-screen bg-[#171A26]">
       <BranchHero branch={branch} coverImageUrl={coverImage} />
       <BranchCourses branch={branch} />
-      <BranchAbout branch={branch} aboutImageUrl={aboutImage} />
-      <BranchGallery branch={branch} />
-      {branch.id && <BranchAchievements branchId={branch.id} />}
       <BranchFacilities branch={branch} />
       <BranchInfoCards branch={branch} />
       <BranchMap branch={branch} />

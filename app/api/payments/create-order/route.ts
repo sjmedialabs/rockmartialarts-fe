@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       order,
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_mock_key'
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || ''
     })
 
   } catch (error) {

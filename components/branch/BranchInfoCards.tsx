@@ -1,7 +1,7 @@
 "use client"
 
 import { MapPin, Phone, Mail, Clock, ExternalLink } from "lucide-react"
-import { BranchData, formatAddress } from "./types"
+import { BranchData, formatAddress, formatOperationalTimingsForDisplay } from "./types"
 
 interface BranchInfoCardsProps {
   branch: BranchData
@@ -29,6 +29,7 @@ export function BranchInfoCards({ branch }: BranchInfoCardsProps) {
   const phone = branch.branch?.phone
   const email = branch.branch?.email
   const timings = branch.operational_details?.timings ?? []
+  const hoursText = formatOperationalTimingsForDisplay(timings)
   const mapUrl = buildMapsUrl(branch.branch)
 
   const cards = [
@@ -40,10 +41,10 @@ export function BranchInfoCards({ branch }: BranchInfoCardsProps) {
     },
     phone && { icon: Phone, label: "Phone", value: phone, href: `tel:${phone}` },
     email && { icon: Mail, label: "Email", value: email, href: `mailto:${email}` },
-    timings.length > 0 && {
+    hoursText && {
       icon: Clock,
       label: "Working Hours",
-      value: timings.map((t) => `${t.day}: ${t.open} – ${t.close}`).join(" • "),
+      value: hoursText,
       href: undefined,
     },
     mapUrl && {

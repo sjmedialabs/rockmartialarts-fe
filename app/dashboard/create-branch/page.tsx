@@ -17,6 +17,8 @@ import Header from "@/components/layout/Header"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
 import { dropdownAPI, DropdownOption } from "@/lib/dropdownAPI"
+import { WEEKDAY_CHECKLIST_ORDER, formatWeekdayRanges } from "@/lib/formatWeekdayRanges"
+import { buildCourseSchedulePayload, BATCH_COACH_UNASSIGNED } from "@/lib/branchCourseSchedule"
 
 // Interfaces for form data
 interface Course {
@@ -57,6 +59,7 @@ interface CourseBatch {
   start_time: string
   end_time: string
   coach_id: string
+  days: string[]
 }
 
 interface SelectedCourse {
@@ -423,7 +426,8 @@ export default function CreateBranchPage() {
                 id: `batch-${Date.now()}`,
                 start_time: "",
                 end_time: "",
-                coach_id: ""
+                coach_id: "",
+                days: [],
               }]
             }
           ]
@@ -448,7 +452,8 @@ export default function CreateBranchPage() {
                     id: `batch-${Date.now()}`,
                     start_time: "",
                     end_time: "",
-                    coach_id: ""
+                    coach_id: "",
+                    days: [],
                   }
                 ]
               }
@@ -493,6 +498,31 @@ export default function CreateBranchPage() {
             : c
         )
       }
+    })
+  }
+
+  const toggleBatchDay = (courseId: string, batchId: string, day: string) => {
+    setFormData({
+      ...formData,
+      assignments: {
+        ...formData.assignments,
+        courses: formData.assignments.courses.map((c) =>
+          c.course_id === courseId
+            ? {
+                ...c,
+                batches: c.batches.map((b) => {
+                  if (b.id !== batchId) return b
+                  const current = b.days || []
+                  const has = current.includes(day)
+                  return {
+                    ...b,
+                    days: has ? current.filter((d) => d !== day) : [...current, day],
+                  }
+                }),
+              }
+            : c
+        ),
+      },
     })
   }
 
@@ -635,7 +665,8 @@ export default function CreateBranchPage() {
         assignments: {
           accessories_available: formData.assignments.accessories_available,
           courses: formData.assignments.courses.map(course => course.course_id),
-          branch_admins: formData.assignments.branch_admins
+          branch_admins: formData.assignments.branch_admins,
+          course_schedule: buildCourseSchedulePayload(formData.assignments.courses),
         },
         bank_details: formData.bank_details
       }
@@ -1143,45 +1174,95 @@ export default function CreateBranchPage() {
                         {isSelected && selectedCourse && (
                           <div className="ml-6 space-y-2">
                             <Label className="text-sm">Batches</Label>
-                            {selectedCourse.batches.map((batch, index) => (
-                              <div key={batch.id} className="grid grid-cols-4 gap-2 items-center bg-gray-50 p-2 rounded">
-                                <Input
-                                  type="time"
-                                  placeholder="Start"
-                                  value={batch.start_time}
-                                  onChange={(e) => updateBatch(course.id, batch.id, 'start_time', e.target.value)}
-                                />
-                                <Input
-                                  type="time"
-                                  placeholder="End"
-                                  value={batch.end_time}
-                                  onChange={(e) => updateBatch(course.id, batch.id, 'end_time', e.target.value)}
-                                />
-                                <Select
-                                  value={batch.coach_id}
-                                  onValueChange={(value) => updateBatch(course.id, batch.id, 'coach_id', value)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Coach" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {coaches.map((coach) => (
-                                      <SelectItem key={coach.id} value={coach.id}>
-                                        {coach.name}
-                                      </SelectItem>
+                            {selectedCourse.batches.map((batch) => (
+                              <div
+                                key={batch.id}
+                                className="space-y-2 bg-gray-50 p-3 rounded border border-gray-200"
+                              >
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-gray-600">Available days</Label>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-2">
+                                    {WEEKDAY_CHECKLIST_ORDER.map((day) => (
+                                      <label
+                                        key={day}
+                                        className="flex items-center gap-1.5 text-xs cursor-pointer text-gray-800"
+                                      >
+                                        <Checkbox
+                                          checked={(batch.days || []).includes(day)}
+                                          onCheckedChange={() => toggleBatchDay(course.id, batch.id, day)}
+                                        />
+                                        <span>{day}</span>
+                                      </label>
                                     ))}
-                                  </SelectContent>
-                                </Select>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeBatchFromCourse(course.id, batch.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                  </div>
+                                </div>
+                                {(batch.days || []).length > 0 && (
+                                  <p className="text-xs font-medium text-[#4F5077]">
+                                    {formatWeekdayRanges(batch.days || [])}
+                                    {batch.start_time || batch.end_time
+                                      ? ` · ${batch.start_time || "—"} – ${batch.end_time || "—"}`
+                                      : ""}
+                                  </p>
+                                )}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
+                                  <Input
+                                    type="time"
+                                    placeholder="Start"
+                                    value={batch.start_time}
+                                    onChange={(e) =>
+                                      updateBatch(course.id, batch.id, "start_time", e.target.value)
+                                    }
+                                  />
+                                  <Input
+                                    type="time"
+                                    placeholder="End"
+                                    value={batch.end_time}
+                                    onChange={(e) =>
+                                      updateBatch(course.id, batch.id, "end_time", e.target.value)
+                                    }
+                                  />
+                                  <Select
+                                    value={
+                                      (batch.coach_id || "").trim()
+                                        ? batch.coach_id
+                                        : BATCH_COACH_UNASSIGNED
+                                    }
+                                    onValueChange={(value) =>
+                                      updateBatch(
+                                        course.id,
+                                        batch.id,
+                                        "coach_id",
+                                        value === BATCH_COACH_UNASSIGNED ? "" : value
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Coach" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value={BATCH_COACH_UNASSIGNED}>
+                                        No coach assigned
+                                      </SelectItem>
+                                      {coaches.map((coach) => (
+                                        <SelectItem key={coach.id} value={coach.id}>
+                                          {coach.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    type="button"
+                                    onClick={() => removeBatchFromCourse(course.id, batch.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                             ))}
                             <Button
+                              type="button"
                               size="sm"
                               variant="outline"
                               onClick={() => addBatchToCourse(course.id)}

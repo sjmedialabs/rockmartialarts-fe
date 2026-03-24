@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
+import { formatOperationalTimingsForDisplay } from "@/components/branch/types"
+import type { BranchCourseScheduleEntry } from "@/components/branch/types"
+import { formatCourseBatchesForModal } from "@/lib/formatCourseBatchSchedule"
 
 export type CourseInfoModalCourse = {
   id: string
@@ -55,12 +58,18 @@ export function CourseInfoModal({
   course,
   branchId,
   branchDisplayName,
+  branchTimings,
+  courseSchedule,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   course: CourseInfoModalCourse | null
   branchId: string
   branchDisplayName: string
+  /** From branch page `operational_details.timings` when API omits timings string. */
+  branchTimings?: Parameters<typeof formatOperationalTimingsForDisplay>[0]
+  /** From `assignments.course_schedule` (per-course batch days & times). */
+  courseSchedule?: BranchCourseScheduleEntry[] | null
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -161,7 +170,20 @@ export function CourseInfoModal({
     return rows
   }, [branchInfo?.fee_per_duration, durationLabelMap])
 
-  const timingsText = (branchInfo?.timings ?? "").trim()
+  const batchScheduleText = useMemo(
+    () => formatCourseBatchesForModal(courseSchedule ?? null, courseId).trim(),
+    [courseSchedule, courseId]
+  )
+
+  const apiTimings = (branchInfo?.timings ?? "").trim()
+  const fromBranch = formatOperationalTimingsForDisplay(branchTimings ?? null).trim()
+
+  const timingsText = useMemo(() => {
+    if (batchScheduleText) return batchScheduleText
+    if (apiTimings && apiTimings !== "—") return apiTimings
+    return fromBranch.replace(/\s*•\s*/g, "\n")
+  }, [batchScheduleText, apiTimings, fromBranch])
+
   const showTimingsPlaceholder =
     !loading && !error && (!timingsText || timingsText === "—")
 

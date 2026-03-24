@@ -25,16 +25,61 @@ export interface OperationalTiming {
   close: string
 }
 
+/** Normalize timing rows from API (supports alternate keys) for public display. */
+export function formatOperationalTimingsForDisplay(
+  timings: Array<Partial<OperationalTiming> & Record<string, unknown>> | undefined | null
+): string {
+  if (!timings?.length) return ""
+  const pick = (t: Record<string, unknown>, keys: string[]): string => {
+    for (const k of keys) {
+      const v = t[k]
+      if (v == null) continue
+      const s = String(v).trim()
+      if (s) return s
+    }
+    return ""
+  }
+  const parts: string[] = []
+  for (const raw of timings) {
+    if (!raw || typeof raw !== "object") continue
+    const t = raw as Record<string, unknown>
+    const open = pick(t, ["open", "open_time", "start", "from"])
+    const close = pick(t, ["close", "close_time", "end", "to"])
+    const day = pick(t, ["day", "weekday"])
+    if (open && close) {
+      parts.push(day ? `${day}: ${open} – ${close}` : `${open} – ${close}`)
+    } else if (open || close) {
+      const slot = open && close ? `${open} – ${close}` : open || close
+      parts.push(day ? `${day}: ${slot}` : slot)
+    }
+  }
+  return parts.join(" • ")
+}
+
 export interface OperationalDetails {
   timings?: OperationalTiming[]
   holidays?: string[]
   courses_offered?: string[]
 }
 
+/** Saved from branch edit: per-course batches (days, times, coach). */
+export interface BranchCourseScheduleBatch {
+  days?: string[]
+  start_time?: string
+  end_time?: string
+  coach_id?: string
+}
+
+export interface BranchCourseScheduleEntry {
+  course_id: string
+  batches?: BranchCourseScheduleBatch[]
+}
+
 export interface BranchAssignments {
   accessories_available?: boolean
   courses?: string[]
   branch_admins?: string[]
+  course_schedule?: BranchCourseScheduleEntry[]
 }
 
 export interface BranchData {

@@ -137,6 +137,8 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
         course={modalCourse}
         branchId={branch.id}
         branchDisplayName={getBranchName(branch)}
+        branchTimings={branch.operational_details?.timings}
+        courseSchedule={branch.assignments?.course_schedule}
       />
 
       <div className="container mx-auto px-4 max-w-7xl">

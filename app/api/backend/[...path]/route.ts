@@ -4,11 +4,51 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BACKEND_URL =
-  process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://127.0.0.1:8003";
+function trimBase(v: string | undefined): string {
+  return (v ?? "").trim().replace(/\/$/, "");
+}
+
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname === "localhost" || u.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Base URL for server-side `/api/backend/*` proxy only.
+ * - Set `NEXT_SERVER_BACKEND_URL` to force any host (e.g. staging) for both dev and prod.
+ * - In **development**, defaults to `http://127.0.0.1:8003` when env points at a remote
+ *   host (common cause of `ConnectTimeoutError` to :8003 on a domain that is firewalled).
+ * - In **production**, uses API_BASE_URL → NEXT_PUBLIC_API_BASE_URL → NEXT_PUBLIC_BACKEND_URL.
+ */
+function getBackendProxyBaseUrl(): string {
+  const serverOnly = trimBase(process.env.NEXT_SERVER_BACKEND_URL);
+  if (serverOnly) return serverOnly;
+
+  const apiBase = trimBase(process.env.API_BASE_URL);
+  const pubApi = trimBase(process.env.NEXT_PUBLIC_API_BASE_URL);
+  const pubBackend = trimBase(process.env.NEXT_PUBLIC_BACKEND_URL);
+  const isDev = process.env.NODE_ENV !== "production";
+
+  if (isDev) {
+    if (apiBase && isLocalhostUrl(apiBase)) return apiBase;
+    if (pubBackend && isLocalhostUrl(pubBackend)) return pubBackend;
+    if (pubApi && isLocalhostUrl(pubApi)) return pubApi;
+    return "http://127.0.0.1:8003";
+  }
+
+  return (
+    apiBase ||
+    pubApi ||
+    pubBackend ||
+    "http://127.0.0.1:8003"
+  );
+}
+
+const BACKEND_URL = getBackendProxyBaseUrl();
 
 /**
  * Proxy to the backend so the browser only talks to the same origin (avoids

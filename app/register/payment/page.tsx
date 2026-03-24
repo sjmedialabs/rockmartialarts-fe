@@ -165,7 +165,7 @@ export default function PaymentPage() {
       await openRazorpayCheckout({
         amount: total,
         currency: paymentInfo.pricing.currency,
-        name: "Marshalats Academy",
+        name: "Rock Martial Arts Academy",
         description: `${paymentInfo.course_name} - ${paymentInfo.duration}`,
         customerName: registrationData.fullName || registrationData.name,
         customerEmail: registrationData.email,

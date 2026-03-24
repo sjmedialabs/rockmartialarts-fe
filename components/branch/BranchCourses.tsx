@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react"
 import { BookOpen, IndianRupee, Loader2 } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
-import { BranchData } from "./types"
+import { BranchData, getBranchName } from "./types"
+import { CourseInfoModal, type CourseInfoModalCourse } from "@/components/common/CourseInfoModal"
 
-/** Course from /api/backend/courses/public/all (supports branch_id, branchId, branch?.id, branch_assignments) */
+/** Course from GET /api/courses/by-branch/:branchId (same shape as public by-branch) */
 export interface BranchCourseItem {
   id: string
   title?: string
@@ -23,7 +23,6 @@ export interface BranchCourseItem {
     fee_3_months?: number
     fee_6_months?: number
     fee_1_year?: number
-    /** Keys may be duration UUIDs; only numeric values are used for display (IDs never shown). */
     fee_per_duration?: Record<string, number | string>
   }
   branch_id?: string
@@ -65,27 +64,19 @@ function formatPrice(course: BranchCourseItem): string {
   return stripUuidFromPriceDisplay(out)
 }
 
-function belongsToBranch(course: BranchCourseItem, branchId: string): boolean {
-  if (!branchId) return false
-  if (course.branch_id === branchId) return true
-  if (course.branchId === branchId) return true
-  if (course.branch?.id === branchId) return true
-  const assignments = course.branch_assignments
-  if (Array.isArray(assignments) && assignments.some((b) => b.branch_id === branchId)) return true
-  return false
-}
-
 function getCourseName(course: BranchCourseItem): string {
   return course.title ?? course.name ?? course.code ?? "Course"
 }
 
 /**
- * Courses at this branch: fetches /api/backend/courses/public/all and filters by branch.id.
+ * Courses at this branch: fetches /api/courses/by-branch/:id (branch-specific list and pricing).
  */
 export function BranchCourses({ branch }: { branch: BranchData }) {
-  const [allCourses, setAllCourses] = useState<BranchCourseItem[]>([])
+  const [branchCourses, setBranchCourses] = useState<BranchCourseItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [modalCourse, setModalCourse] = useState<CourseInfoModalCourse | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
     if (!branch?.id) {
@@ -95,19 +86,19 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
     let cancelled = false
     setLoading(true)
     setError(false)
-    fetch("/api/backend/courses/public/all", {
+    fetch(`/api/courses/by-branch/${encodeURIComponent(branch.id)}`, {
       headers: { "Content-Type": "application/json" },
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to fetch"))))
       .then((data: { courses?: BranchCourseItem[] }) => {
         if (cancelled) return
         const list = Array.isArray(data?.courses) ? data.courses : []
-        setAllCourses(list)
+        setBranchCourses(list)
       })
       .catch(() => {
         if (!cancelled) {
           setError(true)
-          setAllCourses([])
+          setBranchCourses([])
         }
       })
       .finally(() => {
@@ -118,7 +109,17 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
     }
   }, [branch?.id])
 
-  const branchCourses = allCourses.filter((course) => belongsToBranch(course, branch?.id ?? ""))
+  function openModal(course: BranchCourseItem) {
+    setModalCourse({
+      id: course.id,
+      title: course.title,
+      name: course.name,
+      code: course.code,
+      description: course.description,
+      difficulty_level: course.difficulty_level,
+    })
+    setModalOpen(true)
+  }
 
   return (
     <section
@@ -127,6 +128,17 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
       data-aos-duration="600"
       data-aos-once="true"
     >
+      <CourseInfoModal
+        open={modalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open)
+          if (!open) setModalCourse(null)
+        }}
+        course={modalCourse}
+        branchId={branch.id}
+        branchDisplayName={getBranchName(branch)}
+      />
+
       <div className="container mx-auto px-4 max-w-7xl">
         <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-10 text-center">
           Courses Available at This Branch
@@ -155,7 +167,9 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
 
         {!loading && branchCourses.length === 0 && (
           <p className="text-center text-gray-400 py-12">
-            No courses currently available at this branch.
+            {error
+              ? "Could not load courses for this branch. Please try again later."
+              : "No courses currently available at this branch."}
           </p>
         )}
 
@@ -199,12 +213,13 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
                     <IndianRupee className="w-4 h-4 flex-shrink-0 text-[#FFB70F]" />
                     <span>{formatPrice(course)}</span>
                   </div>
-                  <Link
-                    href={`/courses/${encodeURIComponent(course.id)}?branchId=${encodeURIComponent(branch.id)}`}
+                  <button
+                    type="button"
+                    onClick={() => openModal(course)}
                     className="inline-flex items-center justify-center rounded-lg bg-[#FFB70F] px-4 py-2 text-sm font-semibold text-[#171A26] hover:bg-[#FFB70F]/90 transition-colors"
                   >
-                    Enroll
-                  </Link>
+                    More Info
+                  </button>
                 </div>
               </div>
             ))}

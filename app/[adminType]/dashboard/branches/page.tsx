@@ -7,7 +7,7 @@ import { Search, Edit, X, Eye } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useRouter, usePathname } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
@@ -78,6 +78,8 @@ export default function BranchesList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
+  const [managerPhones, setManagerPhones] = useState<Record<string, string>>({})
+  const fetchedManagerIdsRef = useRef<Set<string>>(new Set())
 
   // Modal states
   const [coaches, setCoaches] = useState<any[]>([])
@@ -149,6 +151,62 @@ const itemsPerPage = 5
 
     fetchBranches()
   }, [])
+
+  // Resolve branch manager phone numbers for list display (API list does not embed manager contact).
+  useEffect(() => {
+    const loadManagerPhones = async () => {
+      const token = TokenManager.getToken()
+      if (!token || branches.length === 0) return
+
+      const ids = [
+        ...new Set(
+          branches
+            .map((b) => b.manager_id)
+            .filter((id): id is string => Boolean(id && typeof id === "string"))
+        ),
+      ]
+      const missing = ids.filter((id) => !fetchedManagerIdsRef.current.has(id))
+      if (missing.length === 0) return
+
+      const results = await Promise.all(
+        missing.map(async (userId) => {
+          try {
+            const res = await fetch(getBackendApiUrl(`users/${userId}`), {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            })
+            if (!res.ok) return { userId, phone: "" }
+            const data = await res.json()
+            const user = data.user ?? data
+            const phone =
+              user?.contact_info?.phone ||
+              user?.phone ||
+              user?.mobile ||
+              ""
+            return { userId, phone: typeof phone === "string" ? phone : "" }
+          } catch {
+            return { userId, phone: "" }
+          }
+        })
+      )
+
+      for (const { userId } of results) {
+        fetchedManagerIdsRef.current.add(userId)
+      }
+
+      setManagerPhones((prev) => {
+        const next = { ...prev }
+        for (const { userId, phone } of results) {
+          next[userId] = phone || ""
+        }
+        return next
+      })
+    }
+
+    loadManagerPhones()
+  }, [branches])
 
   // Fetch statistics for branches that don't have them
   const fetchBranchStatistics = async (branchesWithoutStats: Branch[], token: string) => {
@@ -476,7 +534,7 @@ const paginatedBranches = filteredBranches.slice(
                             Loading...
                           </div>
                         ) : (
-                          <span className="inline-flex items-center text-xstext-[#6B7A99]">
+                          <span className="inline-flex items-center text-xs text-[#6B7A99]">
                             {branch.statistics?.course_count ?? branch.operational_details?.courses_offered?.length ?? 0} 
                           </span>
                         )}
@@ -503,12 +561,21 @@ const paginatedBranches = filteredBranches.slice(
                         )}
                       </div>
                     </td>
+                    <td className="px-2 py-4 text-xs text-[#6B7A99] max-w-[200px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span>
+                          <span className="text-gray-500">Branch: </span>
+                          {branch.branch?.phone?.trim() || "—"}
+                        </span>
+                        {branch.manager_id ? (
+                          <span>
+                            <span className="text-gray-500">Manager: </span>
+                            {managerPhones[branch.manager_id]?.trim() || "—"}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
                     <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
-                      {branch.assignments?.accessories_available ? 'Yes' : 'No'}
-                    {/* <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
-                      {branch.assignments?.accessories_available ? 'Yes' : 'No'}
-                    </td> */}
-                    {/* <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">{branch.branch?.email || 'N/A'}</td> */}
                       <div className="flex items-center space-x-2">
                         <button
                           className="text-blue-400 hover:text-blue-600"

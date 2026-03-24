@@ -404,7 +404,10 @@ export default function StudentCoursesPage() {
 
       if (response.ok) {
         const data = await response.json().catch(() => ({}))
-        alert(data.message || "Branch change request submitted successfully! Your request will be sent to the branch admin for approval. You will be notified once the request is processed.")
+        alert(
+          data.message ||
+            "Branch change request submitted successfully! Your request will be sent to the super admin for approval. Once approved, your branch will be updated."
+        )
         setShowBranchChangeDialog(false)
         setChangingEnrollment(null)
         setNewBranchId("")
@@ -839,8 +842,8 @@ export default function StudentCoursesPage() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Your request will be sent to the branch admin for approval. 
-                You will be notified once the request is processed.
+                Your request will be sent to the super admin for approval. Once approved, your enrollment branch
+                will be updated.
               </AlertDescription>
             </Alert>
           </div>

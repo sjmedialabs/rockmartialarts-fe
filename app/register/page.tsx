@@ -12,6 +12,7 @@ import { useCMS } from "@/contexts/CMSContext"
 import { Calendar } from "lucide-react"
 import Link from "next/link"
 import { submitLead } from "@/lib/submitLead"
+import { RegPhoneOtpSection } from "@/components/register/RegPhoneOtpSection"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -78,6 +79,15 @@ export default function RegisterPage() {
     }
     if (!formData.dob) {
       newErrors.dob = "Date of birth is required"
+    }
+    const mobileNorm = formData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10)
+    const ctxNorm = registrationData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10)
+    const tokenOk =
+      !!registrationData.phoneVerificationToken?.trim() &&
+      mobileNorm.length === 10 &&
+      mobileNorm === ctxNorm
+    if (!tokenOk) {
+      newErrors.phoneOtp = "Verify your mobile number with the OTP sent to your phone."
     }
 
     setErrors(newErrors)
@@ -238,12 +248,42 @@ export default function RegisterPage() {
   }
 
   const handleInputChange = (field: string, value: string) => {
+    if (field === "mobile" && registrationData.phoneVerificationToken) {
+      const newNorm = value.replace(/\D/g, "").replace(/^91/, "").slice(-10)
+      const storedNorm = registrationData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10)
+      if (newNorm !== storedNorm) {
+        updateRegistrationData({ phoneVerificationToken: "" })
+      }
+    }
     setFormData((prev) => ({ ...prev, [field]: value }))
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }))
     }
+    if (field === "mobile" && errors.phoneOtp) {
+      setErrors((prev) => ({ ...prev, phoneOtp: "" }))
+    }
   }
+
+  const handlePhoneOtpVerified = (token: string) => {
+    updateRegistrationData({
+      phoneVerificationToken: token,
+      mobile: formData.mobile,
+    })
+    setErrors((prev) => ({ ...prev, phoneOtp: "" }))
+  }
+
+  const readyForPhoneOtp =
+    normalizedMobile.length === 10 &&
+    /^[6-9]/.test(normalizedMobile) &&
+    !phoneExists &&
+    !checkingPhone &&
+    !errors.mobile
+
+  const storedMobileNorm = registrationData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10)
+  const phoneOtpVerified =
+    !!registrationData.phoneVerificationToken?.trim() &&
+    normalizedMobile.length === 10 &&
+    normalizedMobile === storedMobileNorm
 
   const registrationMediaUrl = cms?.homepage?.registration_media_url
   const registrationMediaType = cms?.homepage?.registration_media_type || "auto"
@@ -349,6 +389,17 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            <RegPhoneOtpSection
+              phone={formData.mobile}
+              normalizedMobile={normalizedMobile}
+              readyForOtp={readyForPhoneOtp}
+              isVerified={phoneOtpVerified}
+              onVerified={handlePhoneOtpVerified}
+            />
+            {errors.phoneOtp && (
+              <p className="text-red-500 text-xs ml-1">{errors.phoneOtp}</p>
+            )}
+
             {/* Password Field */}
             <div>
               <PasswordInput
@@ -391,7 +442,7 @@ export default function RegisterPage() {
             {/* Next Step Button */}
             <Button
               type="submit"
-              disabled={submitting || emailExists || phoneExists}
+              disabled={submitting || emailExists || phoneExists || !phoneOtpVerified}
               className="w-full bg-yellow-400 hover:bg-yellow-500 text-[#ffffff] font-bold py-4 px-6 rounded-xl text-[12px] h-14 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl mt-8 disabled:opacity-70"
             >
               {submitting ? "Verifying email & phone..." : "NEXT STEP"}

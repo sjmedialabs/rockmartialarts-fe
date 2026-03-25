@@ -10,12 +10,13 @@ import { FixedTopNavWrapper } from '@/components/FixedTopNavWrapper'
 import { TopNavSpacer } from '@/components/TopNavSpacer'
 import './globals.css'
 
-// Load Poppins for general text (only font preloaded to reduce console warnings)
+// Poppins: preload false — multiple weights each get a preload hint; unused weights spam the console.
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-poppins',
   display: 'swap',
+  preload: false,
 })
 
 // Load Roboto for monospace/code (preload: false to avoid "preloaded but not used" console warnings)

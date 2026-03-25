@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     const base = getBackendProxyBaseUrl().replace(/\/$/, "")
 
-    const checkRes = await fetch(`${base}/api/students/check-phone`, {
+    const checkRes = await fetch(`${base}/api/auth/check-phone`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone: raw }),

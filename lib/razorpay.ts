@@ -84,7 +84,10 @@ export const initializeRazorpay = async (
  */
 export const openRazorpayCheckout = async (
   paymentDetails: {
+    /** Amount in rupees (used when amountPaise is not set). */
     amount: number
+    /** If set, passed to Razorpay as-is (already in paise). */
+    amountPaise?: number
     currency?: string
     name: string
     description: string
@@ -102,9 +105,14 @@ export const openRazorpayCheckout = async (
     throw new Error('Razorpay Key ID not configured')
   }
 
+  const amountPaise =
+    typeof paymentDetails.amountPaise === "number"
+      ? Math.round(paymentDetails.amountPaise)
+      : Math.round(paymentDetails.amount * 100)
+
   const options: RazorpayOptions = {
     key: keyId,
-    amount: Math.round(paymentDetails.amount * 100), // Convert to paise
+    amount: amountPaise,
     currency: paymentDetails.currency || 'INR',
     name: paymentDetails.name,
     description: paymentDetails.description,

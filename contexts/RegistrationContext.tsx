@@ -47,6 +47,9 @@ interface RegistrationData {
   password?: string
   biometric_id?: string
   branch_details?: { name: string; address: { city: string; state: string } } | null
+
+  /** JWT from POST /api/reg-checkout/verify-otp (phone verified before Pay Now). */
+  phoneVerificationToken?: string
 }
 
 interface RegistrationContextType {
@@ -91,6 +94,7 @@ const defaultRegistrationData: RegistrationData = {
   expiryDate: '',
   cvv: '',
   nameOnCard: '',
+  phoneVerificationToken: '',
 }
 
 const RegistrationContext = createContext<RegistrationContextType | undefined>(undefined)

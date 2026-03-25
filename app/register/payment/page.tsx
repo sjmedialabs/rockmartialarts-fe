@@ -136,6 +136,20 @@ export default function PaymentPage() {
     registrationData.course_currency,
   ])
 
+  useEffect(() => {
+    if (loading) return
+    if (!registrationData.mobile?.trim()) return
+    if (!registrationData.phoneVerificationToken?.trim()) {
+      router.replace("/otp-verification?next=" + encodeURIComponent("/register/payment"))
+    }
+  }, [loading, registrationData.mobile, registrationData.phoneVerificationToken, router])
+
+  const subscriptionEndISO = (months: number) => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + Math.max(1, Math.floor(months)))
+    return d.toISOString()
+  }
+
   const handlePayment = async () => {
     if (!paymentInfo) {
       setError("Payment information not loaded")
@@ -145,6 +159,15 @@ export default function PaymentPage() {
     const total = paymentInfo.pricing.total_amount
     if (typeof total !== "number" || !Number.isFinite(total) || total <= 0) {
       setError("Price unavailable for this selection. Please go back and choose again.")
+      return
+    }
+
+    if (!registrationData.mobile?.trim()) {
+      setError("Mobile number is required. Go back and complete your profile.")
+      return
+    }
+    if (!registrationData.phoneVerificationToken?.trim()) {
+      router.replace("/otp-verification?next=" + encodeURIComponent("/register/payment"))
       return
     }
 
@@ -162,35 +185,96 @@ export default function PaymentPage() {
         source: "registration_payment",
       })
 
+      const orderRes = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: registrationData.mobile,
+          amount: total,
+          name: fullName,
+          course_name: paymentInfo.course_name,
+          duration: paymentInfo.duration,
+          verification_token: registrationData.phoneVerificationToken,
+        }),
+      })
+      const orderJson = await orderRes.json().catch(() => ({}))
+      if (!orderRes.ok) {
+        const detail =
+          typeof orderJson?.detail === "string"
+            ? orderJson.detail
+            : "Could not start payment. Check Razorpay keys on the server."
+        throw new Error(detail)
+      }
+      const orderId = orderJson.order_id as string | undefined
+      const amountPaise = orderJson.amount as number | undefined
+      if (!orderId || typeof amountPaise !== "number") {
+        throw new Error("Invalid order response from server.")
+      }
+
       await openRazorpayCheckout({
         amount: total,
+        amountPaise,
         currency: paymentInfo.pricing.currency,
         name: "Rock Martial Arts Academy",
         description: `${paymentInfo.course_name} - ${paymentInfo.duration}`,
-        customerName: registrationData.fullName || registrationData.name,
+        orderId,
+        customerName: registrationData.fullName || fullName,
         customerEmail: registrationData.email,
-        customerContact: registrationData.phone,
+        customerContact: registrationData.mobile,
         onSuccess: async (response: RazorpayPaymentResponse) => {
-          console.log('Payment successful:', response)
-          
-          // Save payment details to registration context
-          updateRegistrationData({
-            paymentId: response.razorpay_payment_id,
-            paymentStatus: 'completed',
-            paymentMethod: 'razorpay',
-            amount: total
-          })
-
-          // Navigate to confirmation page
-          router.push('/register/payment-confirmation')
+          try {
+            if (!response.razorpay_order_id || !response.razorpay_payment_id || !response.razorpay_signature) {
+              throw new Error("Incomplete payment response from Razorpay.")
+            }
+            const verifyRes = await fetch("/api/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                phone: registrationData.mobile,
+                name: fullName,
+                course_name: paymentInfo.course_name,
+                duration: paymentInfo.duration,
+                end_date: subscriptionEndISO(registrationData.duration_months || 1),
+                amount: total,
+                verification_token: registrationData.phoneVerificationToken,
+              }),
+            })
+            const verifyJson = await verifyRes.json().catch(() => ({}))
+            if (!verifyRes.ok) {
+              const detail =
+                typeof verifyJson?.detail === "string"
+                  ? verifyJson.detail
+                  : "Payment verification failed."
+              throw new Error(detail)
+            }
+            if (verifyJson?.status === "failed") {
+              throw new Error(verifyJson?.detail || "Payment verification failed.")
+            }
+            updateRegistrationData({
+              paymentId: response.razorpay_payment_id,
+              paymentStatus: "completed",
+              paymentMethod: "razorpay",
+              amount: total,
+              orderId: response.razorpay_order_id,
+            })
+            router.push("/register/payment-confirmation")
+          } catch (e) {
+            console.error(e)
+            setError(e instanceof Error ? e.message : "Verification failed")
+          } finally {
+            setProcessing(false)
+          }
         },
         onDismiss: () => {
           setProcessing(false)
           setError("Payment cancelled by user")
-        }
+        },
       })
     } catch (err) {
-      console.error('Payment error:', err)
+      console.error("Payment error:", err)
       setError(err instanceof Error ? err.message : "Failed to initialize payment")
       setProcessing(false)
     }

@@ -76,30 +76,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Load auth data from localStorage on mount
   useEffect(() => {
-    console.log('🔄 AuthContext useEffect - Loading auth data...')
-    console.log('🌍 NODE_ENV:', process.env.NODE_ENV)
-    
     try {
       const storedAuth = localStorage.getItem('auth_data')
-      console.log('💾 Stored auth from localStorage:', storedAuth ? 'Found' : 'Not found')
-      
+
       if (storedAuth) {
         const parsedAuth = JSON.parse(storedAuth)
-        console.log('✅ Using stored auth data')
         setAuthState({
           ...parsedAuth,
           isAuthenticated: !!parsedAuth.access_token,
           isLoading: false
         })
       } else if (process.env.NODE_ENV === 'development') {
-        console.log('🔧 Development mode - using mock auth data')
         setAuthState({
           ...MOCK_AUTH_DATA,
           isAuthenticated: true,
           isLoading: false
         })
         localStorage.setItem('auth_data', JSON.stringify(MOCK_AUTH_DATA))
-        console.log('💾 Mock auth data saved to localStorage')
       } else {
         setAuthState({
           access_token: null,
@@ -110,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
       }
     } catch (error) {
-      console.error('❌ Error loading auth data:', error)
+      console.error('Error loading auth data:', error)
       setAuthState(prev => ({ ...prev, isLoading: false }))
     }
   }, [])

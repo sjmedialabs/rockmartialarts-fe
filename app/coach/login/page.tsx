@@ -124,7 +124,13 @@ function CoachLoginFormContent() {
       console.log("Coach login response:", data);
       
       if (!res.ok) {
-        setError(data.message || `Login failed (${res.status})`);
+        const errMsg =
+          typeof data.detail === "string"
+            ? data.detail
+            : Array.isArray(data.detail)
+              ? data.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join(", ")
+            : data.detail?.message || data.message || `Login failed (${res.status})`
+        setError(errMsg)
         if (isEnabled) {
           resetRecaptcha();
         }

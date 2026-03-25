@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const BACKEND_URL =
-  (process.env.API_BASE_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    'http://127.0.0.1:8003'
-  ).replace(/\/$/, '')
+import { getBackendProxyBaseUrl } from '@/lib/serverBackendUrl'
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -25,6 +20,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const BACKEND_URL = getBackendProxyBaseUrl().replace(/\/$/, '')
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {

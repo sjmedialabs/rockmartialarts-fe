@@ -33,7 +33,7 @@ export function CoursesNavDropdown({ variant = "desktop", onNavigate }: CoursesN
     if (courses.length > 0) return
     setLoading(true)
     try {
-      const res = await fetch("/api/courses/public/all", { headers: { "Content-Type": "application/json" } })
+      const res = await fetch("/api/backend/courses/public/all", { headers: { "Content-Type": "application/json" } })
       const data = await res.json().catch(() => ({}))
       const list = data.courses ?? data ?? []
       setCourses(Array.isArray(list) ? list : [])

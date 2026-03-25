@@ -181,7 +181,7 @@ export default function SuperAdminStudentAttendancePage() {
       if (!SuperAdminAuth.isAuthenticated()) return
 
       const headers = SuperAdminAuth.getAuthHeaders()
-      const response = await fetch('http://31.97.224.169:8003/api/branches', {
+      const response = await fetch('/api/backend/branches', {
         method: 'GET',
         headers
       })
@@ -205,7 +205,7 @@ export default function SuperAdminStudentAttendancePage() {
       if (!SuperAdminAuth.isAuthenticated()) return
 
       const headers = SuperAdminAuth.getAuthHeaders()
-      const response = await fetch('http://31.97.224.169:8003/api/courses', {
+      const response = await fetch('/api/backend/courses', {
         method: 'GET',
         headers
       })
@@ -240,7 +240,7 @@ export default function SuperAdminStudentAttendancePage() {
       console.log(`🔄 Superadmin fetching attendance data for date: ${dateStr}`)
 
       // Use the unified attendance endpoint
-      const response = await fetch(`http://31.97.224.169:8003/api/attendance/students?date=${dateStr}`, {
+      const response = await fetch(`/api/backend/attendance/students?date=${dateStr}`, {
         method: 'GET',
         headers
       })
@@ -365,7 +365,7 @@ export default function SuperAdminStudentAttendancePage() {
       console.log(`💾 Saving attendance for ${record.student_name} with status: ${status}`)
       console.log("📤 Attendance data:", attendanceData)
 
-      const response = await fetch(`http://31.97.224.169:8003/api/attendance/mark`, {
+      const response = await fetch(`/api/backend/attendance/mark`, {
         method: 'POST',
         headers,
         body: JSON.stringify(attendanceData)

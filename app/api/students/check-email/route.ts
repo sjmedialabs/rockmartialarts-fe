@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-
-const BACKEND_URL =
-  process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://127.0.0.1:8003"
+import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
 
 /**
  * Check if a student with this email already exists (for registration validation).
@@ -20,7 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ exists: false })
     }
 
-    const base = BACKEND_URL.replace(/\/$/, "")
+    const base = getBackendProxyBaseUrl().replace(/\/$/, "")
 
     // Prefer backend auth check-user (returns { exists: boolean })
     const authRes = await fetch(`${base}/api/auth/check-user`, {

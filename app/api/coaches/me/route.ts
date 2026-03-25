@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+import { getBackendProxyBaseUrl } from '@/lib/serverBackendUrl'
 
 export async function GET(request: NextRequest) {
+  const BACKEND_URL = getBackendProxyBaseUrl().replace(/\/$/, '')
   try {
     // Get the authorization header
     const authHeader = request.headers.get('Authorization')
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const BACKEND_URL = getBackendProxyBaseUrl().replace(/\/$/, '')
   try {
     // Get the authorization header
     const authHeader = request.headers.get('Authorization')

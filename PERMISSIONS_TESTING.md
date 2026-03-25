@@ -110,7 +110,7 @@ The permissions management system now **actively enforces** permission settings 
 4. Check if you're testing in the same browser (permissions are per-browser)
 
 ### Testing in Development
-If using `http://31.97.224.169:3022`:
+If using local dev on port 3022 (`http://localhost:3022`):
 - Make sure localStorage is not blocked
 - Test in a regular browser window first
 - Then test in incognito to verify clean state

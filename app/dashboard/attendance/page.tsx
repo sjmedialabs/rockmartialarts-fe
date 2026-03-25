@@ -130,25 +130,25 @@ export default function AttendanceOverviewPage() {
       console.log(`🔄 Fetching attendance overview for date: ${dateStr}`)
 
       // Fetch attendance statistics from the dedicated endpoint with date filtering
-      const statsResponse = await fetch(`http://31.97.224.169:8003/api/attendance/stats?date=${dateStr}`, {
+      const statsResponse = await fetch(`/api/backend/attendance/stats?date=${dateStr}`, {
         method: 'GET',
         headers
       })
 
       // Fetch students attendance data
-      const studentsResponse = await fetch(`http://31.97.224.169:8003/api/attendance/students?date=${dateStr}`, {
+      const studentsResponse = await fetch(`/api/backend/attendance/students?date=${dateStr}`, {
         method: 'GET',
         headers
       })
 
       // Fetch coaches attendance data
-      const coachesResponse = await fetch(`http://31.97.224.169:8003/api/attendance/coaches?date=${dateStr}`, {
+      const coachesResponse = await fetch(`/api/backend/attendance/coaches?date=${dateStr}`, {
         method: 'GET',
         headers
       })
 
       // Fetch branches data for branch-wise statistics
-      const branchesResponse = await fetch('http://31.97.224.169:8003/api/branches', {
+      const branchesResponse = await fetch('/api/backend/branches', {
         method: 'GET',
         headers
       })

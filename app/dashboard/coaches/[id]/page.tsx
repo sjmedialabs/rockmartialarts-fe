@@ -107,7 +107,7 @@ export default function CoachDetailPage() {
       }
 
       // Fetch coach details
-      const coachResponse = await fetch(`http://31.97.224.169:8003/api/coaches/${coachId}`, {
+      const coachResponse = await fetch(`/api/backend/coaches/${coachId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -142,7 +142,7 @@ export default function CoachDetailPage() {
   const fetchCourseAssignments = async (token: string) => {
     try {
       setCoursesLoading(true)
-      const response = await fetch(`http://31.97.224.169:8003/api/coaches/${coachId}/courses`, {
+      const response = await fetch(`/api/backend/coaches/${coachId}/courses`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -180,7 +180,7 @@ export default function CoachDetailPage() {
   const fetchStudentAssignments = async (token: string) => {
     try {
       setStudentsLoading(true)
-      const response = await fetch(`http://31.97.224.169:8003/api/coaches/${coachId}/students`, {
+      const response = await fetch(`/api/backend/coaches/${coachId}/students`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

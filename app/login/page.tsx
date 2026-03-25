@@ -132,8 +132,9 @@ function LoginFormContent() {
         return;
       }
 
-      // Verify that the user is actually a student
-      if (data.user?.role !== "student") {
+      // Verify student portal access (DB may store role with different casing)
+      const roleNorm = String(data.user?.role ?? "student").toLowerCase().replace(/-/g, "_")
+      if (roleNorm !== "student") {
         setError("Access denied. Student credentials required.");
         if (isEnabled) {
           resetRecaptcha();

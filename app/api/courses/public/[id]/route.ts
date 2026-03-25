@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-
-const BACKEND_URL =
-  process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://127.0.0.1:8003"
+import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
 
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
 
@@ -139,7 +134,7 @@ export async function GET(
     return NextResponse.json({ error: "Course ID or slug required" }, { status: 400 })
   }
 
-  const base = BACKEND_URL.replace(/\/$/, "")
+  const base = getBackendProxyBaseUrl().replace(/\/$/, "")
 
   // 1) If it looks like a UUID, try to get course by id from backend (may 401 if auth required)
   if (isUuid(slugOrId)) {

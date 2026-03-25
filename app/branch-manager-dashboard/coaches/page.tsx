@@ -215,7 +215,7 @@ export default function BranchManagerCoachesList() {
       }
 
       // Get branch manager profile
-      const profileResponse = await fetch(`http://31.97.224.169:8003/api/branch-managers/me`, {
+      const profileResponse = await fetch(`/api/backend/branch-managers/me`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -236,7 +236,7 @@ export default function BranchManagerCoachesList() {
       }
 
       // Fetch fresh coaches data
-      const coachesResponse = await fetch(`http://31.97.224.169:8003/api/coaches`, {
+      const coachesResponse = await fetch(`/api/backend/coaches`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -297,7 +297,7 @@ export default function BranchManagerCoachesList() {
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(`http://31.97.224.169:8003/api/coaches/${coachToDelete}`, {
+        const response = await fetch(`/api/backend/coaches/${coachToDelete}`, {
           method: 'DELETE',
           headers: authHeaders
         })

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-
-const BACKEND_URL =
-  process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://127.0.0.1:8003"
+import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
 
 /** Normalize phone for comparison: digits only, strip +91/0 prefix for Indian numbers */
 function normalizePhone(phone: string): string {
@@ -29,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ exists: false })
     }
 
-    const base = BACKEND_URL.replace(/\/$/, "")
+    const base = getBackendProxyBaseUrl().replace(/\/$/, "")
 
     const checkRes = await fetch(`${base}/api/students/check-phone`, {
       method: "POST",

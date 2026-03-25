@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server"
-
-const BACKEND_BASE =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://rockmartialartsacademy.com:8003"
+import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
 
 // Same rules as lib/branch-slug.ts
 function branchNameToSlug(name: unknown): string {
@@ -34,7 +29,7 @@ export async function GET(
       )
     }
 
-    const base = BACKEND_BASE.replace(/\/$/, "")
+    const base = getBackendProxyBaseUrl().replace(/\/$/, "")
     const backendUrl = `${base}/api/branches/public/all`
 
     console.log("[branch-by-slug] Fetching all branches:", backendUrl)

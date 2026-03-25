@@ -148,7 +148,7 @@ export default function SuperAdminCoachAttendancePage() {
       if (!authResult.isAuthenticated) return
 
       const headers = getAuthHeaders()
-      const response = await fetch('http://31.97.224.169:8003/api/branches', {
+      const response = await fetch('/api/backend/branches', {
         method: 'GET',
         headers
       })
@@ -184,7 +184,7 @@ export default function SuperAdminCoachAttendancePage() {
       console.log(`🔄 Superadmin fetching coach attendance data for date: ${dateStr}`)
 
       // Fetch all coaches first
-      const coachesResponse = await fetch('http://31.97.224.169:8003/api/coaches', {
+      const coachesResponse = await fetch('/api/backend/coaches', {
         method: 'GET',
         headers
       })
@@ -214,7 +214,7 @@ export default function SuperAdminCoachAttendancePage() {
 
         // Now try to fetch actual attendance data for coaches
         try {
-          const attendanceResponse = await fetch(`http://31.97.224.169:8003/api/attendance/coaches?date=${dateStr}`, {
+          const attendanceResponse = await fetch(`/api/backend/attendance/coaches?date=${dateStr}`, {
             method: 'GET',
             headers
           })
@@ -333,7 +333,7 @@ export default function SuperAdminCoachAttendancePage() {
 
       console.log(`💾 Saving coach attendance for ${record.coach_name} with status: ${status}`)
 
-      const response = await fetch(`http://31.97.224.169:8003/api/attendance/mark`, {
+      const response = await fetch(`/api/backend/attendance/mark`, {
         method: 'POST',
         headers,
         body: JSON.stringify(attendanceData)

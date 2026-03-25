@@ -56,7 +56,7 @@ export default function CreateCoursePage() {
     tags: [] as string[]
   })
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8003'
 
 
   // Fetch categories on mount

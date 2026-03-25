@@ -102,7 +102,7 @@ export default function BranchDetailPage() {
       }
 
       // Fetch branch details
-      const branchResponse = await fetch(`http://31.97.224.169:8003/api/branches/${branchId}`, {
+      const branchResponse = await fetch(`/api/backend/branches/${branchId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -136,7 +136,7 @@ export default function BranchDetailPage() {
 
   const fetchBranchCourses = async (token: string) => {
     try {
-      const response = await fetch(`http://31.97.224.169:8003/api/courses/by-branch/${branchId}`, {
+      const response = await fetch(`/api/backend/courses/by-branch/${branchId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -156,7 +156,7 @@ export default function BranchDetailPage() {
 
   const fetchBranchCoaches = async (token: string) => {
     try {
-      const response = await fetch(`http://31.97.224.169:8003/api/coaches?branch_id=${branchId}`, {
+      const response = await fetch(`/api/backend/coaches?branch_id=${branchId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

@@ -87,9 +87,9 @@ export default function BranchManagerAttendanceReportsPage() {
 
       // Load students, courses, and branches for filtering
       const [studentsRes, coursesRes, branchesRes] = await Promise.all([
-        fetch('http://31.97.224.169:8003/api/students/search', { headers }),
-        fetch('http://31.97.224.169:8003/api/courses', { headers }),
-        fetch('http://31.97.224.169:8003/api/branches', { headers })
+        fetch('/api/backend/students/search', { headers }),
+        fetch('/api/backend/courses', { headers }),
+        fetch('/api/backend/branches', { headers })
       ])
 
       if (studentsRes.ok) {
@@ -135,7 +135,7 @@ export default function BranchManagerAttendanceReportsPage() {
 
       console.log(`🔄 Fetching attendance reports with filters:`, filters)
 
-      const response = await fetch(`http://31.97.224.169:8003/api/attendance/reports?${params.toString()}`, {
+      const response = await fetch(`/api/backend/attendance/reports?${params.toString()}`, {
         method: 'GET',
         headers
       })

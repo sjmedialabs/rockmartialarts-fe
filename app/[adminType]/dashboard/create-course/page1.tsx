@@ -79,7 +79,7 @@ export default function CreateCoursePage() {
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true)
-        const response = await fetch('http://31.97.224.169:8003/api/categories/public/details?active_only=true')
+        const response = await fetch('/api/backend/categories/public/details?active_only=true')
 
         if (!response.ok) {
           throw new Error('Failed to fetch categories')
@@ -187,7 +187,7 @@ export default function CreateCoursePage() {
       console.log('🎯 Full URL being called:', `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/courses`)
 
       // Call backend API directly
-      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+      const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8003'
       const response = await fetch(`${apiUrl}/api/courses`, {
         method: 'POST',
         headers: {

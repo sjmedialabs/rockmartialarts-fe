@@ -1,54 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl";
 
 /* Allow up to 120 MB bodies (video uploads) */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function trimBase(v: string | undefined): string {
-  return (v ?? "").trim().replace(/\/$/, "");
-}
-
-function isLocalhostUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    return u.hostname === "localhost" || u.hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Base URL for server-side `/api/backend/*` proxy only.
- * - Set `NEXT_SERVER_BACKEND_URL` to force any host (e.g. staging) for both dev and prod.
- * - In **development**, defaults to `http://127.0.0.1:8003` when env points at a remote
- *   host (common cause of `ConnectTimeoutError` to :8003 on a domain that is firewalled).
- * - In **production**, uses API_BASE_URL → NEXT_PUBLIC_API_BASE_URL → NEXT_PUBLIC_BACKEND_URL.
- */
-function getBackendProxyBaseUrl(): string {
-  const serverOnly = trimBase(process.env.NEXT_SERVER_BACKEND_URL);
-  if (serverOnly) return serverOnly;
-
-  const apiBase = trimBase(process.env.API_BASE_URL);
-  const pubApi = trimBase(process.env.NEXT_PUBLIC_API_BASE_URL);
-  const pubBackend = trimBase(process.env.NEXT_PUBLIC_BACKEND_URL);
-  const isDev = process.env.NODE_ENV !== "production";
-
-  if (isDev) {
-    if (apiBase && isLocalhostUrl(apiBase)) return apiBase;
-    if (pubBackend && isLocalhostUrl(pubBackend)) return pubBackend;
-    if (pubApi && isLocalhostUrl(pubApi)) return pubApi;
-    return "http://127.0.0.1:8003";
-  }
-
-  return (
-    apiBase ||
-    pubApi ||
-    pubBackend ||
-    "http://127.0.0.1:8003"
-  );
-}
-
-const BACKEND_URL = getBackendProxyBaseUrl();
 
 /**
  * Proxy to the backend so the browser only talks to the same origin (avoids
@@ -56,6 +11,7 @@ const BACKEND_URL = getBackendProxyBaseUrl();
  * Request to /api/backend/auth/login -> BACKEND_URL/api/auth/login
  */
 async function proxy(request: NextRequest, pathSegments: string[]) {
+  const BACKEND_URL = getBackendProxyBaseUrl();
   const path = pathSegments.join("/");
   const search = request.nextUrl.search; // preserve query string (?key=val&…)
   const url = `${BACKEND_URL.replace(/\/$/, "")}/api/${path}${search}`;
@@ -96,6 +52,30 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
     });
 
     const contentType = res.headers.get("content-type") || "";
+    const isHtml = contentType.includes("text/html");
+
+    // Upstream sometimes returns Next.js/HTML 404 when BACKEND_URL is the website, not FastAPI.
+    if (isHtml) {
+      const snippet = await res.text();
+      const looksLikeNext =
+        snippet.includes("<!DOCTYPE") || snippet.includes("__NEXT_DATA__");
+      console.error(
+        "[backend proxy] Non-JSON response",
+        res.status,
+        method,
+        url,
+        looksLikeNext ? "(HTML/Next.js page — wrong API host?)" : ""
+      );
+      return NextResponse.json(
+        {
+          detail:
+            res.status === 404
+              ? "No API at this URL (got a web page instead of JSON). Set NEXT_SERVER_BACKEND_URL to your FastAPI origin (e.g. http://127.0.0.1:8003 when running uvicorn locally). The public site hostname often does not expose POST /api/auth/login."
+              : "Unexpected non-JSON response from upstream. Check NEXT_SERVER_BACKEND_URL.",
+        },
+        { status: 502 }
+      );
+    }
 
     if (contentType.includes("application/json")) {
       const text = await res.text();

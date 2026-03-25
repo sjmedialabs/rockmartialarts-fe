@@ -84,7 +84,7 @@ export default function CoachPaymentTrackingPage() {
         })
 
         // Use the correct API base URL from environment
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8003'
 
         // Fetch payment stats and payments in parallel using coach-accessible endpoints
         const [statsResponse, paymentsResponse] = await Promise.all([
@@ -212,7 +212,7 @@ export default function CoachPaymentTrackingPage() {
       }
 
       // Use the correct API base URL from environment
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://31.97.224.169:8003'
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8003'
 
       // Fetch fresh payment data
       const [statsResponse, paymentsResponse] = await Promise.all([

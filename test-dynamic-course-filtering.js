@@ -23,7 +23,7 @@ async function testAPIEndpoint() {
     // Get token from localStorage (assuming it's stored there)
     const token = localStorage.getItem('token') || 'test-token';
     
-    const response = await fetch('http://31.97.224.169:8003/api/branches-with-courses', {
+    const response = await fetch('/api/backend/branches-with-courses', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

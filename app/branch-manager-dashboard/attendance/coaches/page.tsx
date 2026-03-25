@@ -82,7 +82,7 @@ export default function BranchManagerCoachAttendancePage() {
       console.log(`🔄 Fetching coach attendance data for date: ${dateStr}`)
 
       // Fetch coaches in branch manager's branches using unified endpoint
-      const response = await fetch(`http://31.97.224.169:8003/api/attendance/coaches?date=${dateStr}`, {
+      const response = await fetch(`/api/backend/attendance/coaches?date=${dateStr}`, {
         method: 'GET',
         headers
       })
@@ -214,7 +214,7 @@ export default function BranchManagerCoachAttendancePage() {
 
       console.log(`💾 Saving coach attendance for ${record.coach_name} with status: ${status}`)
 
-      const response = await fetch(`http://31.97.224.169:8003/api/attendance/mark`, {
+      const response = await fetch(`/api/backend/attendance/mark`, {
         method: 'POST',
         headers,
         body: JSON.stringify(attendanceData)

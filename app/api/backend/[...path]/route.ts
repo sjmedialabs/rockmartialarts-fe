@@ -49,6 +49,7 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
       method,
       headers,
       body,
+      cache: "no-store",
     });
 
     const contentType = res.headers.get("content-type") || "";

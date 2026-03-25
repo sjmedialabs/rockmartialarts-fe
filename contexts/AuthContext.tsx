@@ -91,8 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAuthenticated: !!parsedAuth.access_token,
           isLoading: false
         })
-      } else {
-        // For development, use mock data
+      } else if (process.env.NODE_ENV === 'development') {
         console.log('🔧 Development mode - using mock auth data')
         setAuthState({
           ...MOCK_AUTH_DATA,
@@ -101,6 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
         localStorage.setItem('auth_data', JSON.stringify(MOCK_AUTH_DATA))
         console.log('💾 Mock auth data saved to localStorage')
+      } else {
+        setAuthState({
+          access_token: null,
+          token_type: 'bearer',
+          user: null,
+          isAuthenticated: false,
+          isLoading: false
+        })
       }
     } catch (error) {
       console.error('❌ Error loading auth data:', error)

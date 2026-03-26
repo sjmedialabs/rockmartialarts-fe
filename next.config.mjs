@@ -16,6 +16,8 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Browsers request /favicon.ico by default; we ship SVG only.
+      { source: "/favicon.ico", destination: "/favicon.svg", permanent: false },
       { source: "/branch-manager-dashboard", destination: "/dashboard", permanent: true },
       { source: "/branch-manager-dashboard/:path*", destination: "/dashboard/:path*", permanent: true },
       // Static HTML → Next.js website routes

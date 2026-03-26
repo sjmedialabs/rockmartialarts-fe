@@ -60,6 +60,8 @@ interface CourseBatch {
   end_time: string
   coach_id: string
   days: string[]
+  batch_name?: string
+  batch_fee?: string
 }
 
 interface SelectedCourse {
@@ -428,6 +430,8 @@ export default function CreateBranchPage() {
                 end_time: "",
                 coach_id: "",
                 days: [],
+                batch_name: "",
+                batch_fee: "",
               }]
             }
           ]
@@ -454,6 +458,8 @@ export default function CreateBranchPage() {
                     end_time: "",
                     coach_id: "",
                     days: [],
+                    batch_name: "",
+                    batch_fee: "",
                   }
                 ]
               }
@@ -1204,6 +1210,31 @@ export default function CreateBranchPage() {
                                       : ""}
                                   </p>
                                 )}
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-gray-600">Batch name (optional)</Label>
+                                  <Input
+                                    type="text"
+                                    placeholder="e.g. Morning batch"
+                                    value={batch.batch_name ?? ""}
+                                    onChange={(e) =>
+                                      updateBatch(course.id, batch.id, "batch_name", e.target.value)
+                                    }
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-gray-600">Batch course fee (₹)</Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="Optional — overrides tenure-based course fee for this batch"
+                                    value={batch.batch_fee ?? ""}
+                                    onChange={(e) =>
+                                      updateBatch(course.id, batch.id, "batch_fee", e.target.value)
+                                    }
+                                    className="h-9"
+                                  />
+                                </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
                                   <Input
                                     type="time"

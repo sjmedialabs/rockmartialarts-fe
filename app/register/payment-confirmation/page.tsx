@@ -62,9 +62,13 @@ export default function PaymentConfirmationPage() {
 
       try {
         const durationQ = encodeURIComponent(registrationData.duration)
+        const batchQ =
+          registrationData.batch_ref?.trim()
+            ? `&batch_ref=${encodeURIComponent(registrationData.batch_ref.trim())}`
+            : ""
         const response = await fetch(
           getBackendApiUrl(
-            `courses/${encodeURIComponent(registrationData.course_id)}/payment-info?branch_id=${encodeURIComponent(registrationData.branch_id)}&duration=${durationQ}`
+            `courses/${encodeURIComponent(registrationData.course_id)}/payment-info?branch_id=${encodeURIComponent(registrationData.branch_id)}&duration=${durationQ}${batchQ}`
           ),
           {
             method: "GET",
@@ -91,7 +95,7 @@ export default function PaymentConfirmationPage() {
     }
 
     fetchPaymentInfo()
-  }, [registrationData.course_id, registrationData.branch_id, registrationData.duration])
+  }, [registrationData.course_id, registrationData.branch_id, registrationData.duration, registrationData.batch_ref])
 
   const handleResendLink = () => {
     // Handle resend link logic
@@ -116,6 +120,7 @@ export default function PaymentConfirmationPage() {
         duration_id: registrationData.duration || undefined,
         duration_months: registrationData.duration_months || undefined,
         duration_name: registrationData.duration_name || undefined,
+        batch_ref: registrationData.batch_ref?.trim() || undefined,
         payment_method: 'digital_wallet',
         payment_id: registrationData.paymentId,
         order_id: registrationData.orderId,

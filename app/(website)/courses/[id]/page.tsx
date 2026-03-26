@@ -480,7 +480,7 @@ function CourseDetailPageInner() {
           about.image2) && (
         <section className="py-16 md:py-20 bg-white text-[#171A26]">
           <div className="container mx-auto px-4 max-w-7xl">
-            <div className="flex flex-col lg:flex-row items-start gap-8">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-8">
               {/* LEFT: text content (60%) */}
               <div className="w-full lg:w-[60%]">
                 <p className="text-[#F73322] uppercase tracking-[0.2em] text-sm font-semibold mb-2">About {displayTitle}</p>

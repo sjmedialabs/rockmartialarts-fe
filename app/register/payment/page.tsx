@@ -61,9 +61,13 @@ export default function PaymentPage() {
 
       try {
         const durationQ = encodeURIComponent(registrationData.duration)
+        const batchQ =
+          registrationData.batch_ref?.trim()
+            ? `&batch_ref=${encodeURIComponent(registrationData.batch_ref.trim())}`
+            : ""
         const response = await fetch(
           getBackendApiUrl(
-            `courses/${encodeURIComponent(registrationData.course_id)}/payment-info?branch_id=${encodeURIComponent(registrationData.branch_id)}&duration=${durationQ}`
+            `courses/${encodeURIComponent(registrationData.course_id)}/payment-info?branch_id=${encodeURIComponent(registrationData.branch_id)}&duration=${durationQ}${batchQ}`
           ),
           {
             method: "GET",
@@ -131,6 +135,7 @@ export default function PaymentPage() {
     registrationData.course_id,
     registrationData.branch_id,
     registrationData.duration,
+    registrationData.batch_ref,
     registrationData.duration_name,
     registrationData.duration_months,
     registrationData.course_currency,

@@ -46,6 +46,10 @@ export const metadata: Metadata = {
   description: 'Student dashboard for martial arts training, progress tracking, and course management',
   keywords: 'martial arts, karate, training, student portal, academy',
   generator: 'v0.app',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({

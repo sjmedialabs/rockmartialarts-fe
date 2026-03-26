@@ -15,6 +15,8 @@ interface RegistrationData {
   category_id: string
   course_id: string
   duration: string
+  /** Branch course_schedule batch (batch_ref from public API / payment-info) */
+  batch_ref: string
   
   // Course Display Info
   course_name: string
@@ -75,6 +77,7 @@ const defaultRegistrationData: RegistrationData = {
   category_id: '',
   course_id: '',
   duration: '',
+  batch_ref: '',
   course_name: '',
   category_name: '',
   course_price: 0,

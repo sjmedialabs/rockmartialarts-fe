@@ -175,9 +175,16 @@ class PaymentAPI extends BaseAPI {
   /**
    * Get payment course info
    */
-  async getCoursePaymentInfo(courseId: string, branchId: string, duration: string): Promise<any> {
+  async getCoursePaymentInfo(
+    courseId: string,
+    branchId: string,
+    duration: string,
+    batchRef?: string
+  ): Promise<any> {
+    const batchQ =
+      batchRef?.trim() ? `&batch_ref=${encodeURIComponent(batchRef.trim())}` : ""
     return await this.makeRequest(
-      `/api/courses/${courseId}/payment-info?branch_id=${branchId}&duration=${duration}`,
+      `/api/courses/${courseId}/payment-info?branch_id=${branchId}&duration=${duration}${batchQ}`,
       {
         method: 'GET'
       }

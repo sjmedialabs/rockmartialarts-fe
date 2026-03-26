@@ -15,6 +15,17 @@ import {
   formatCoursePriceLabel,
 } from "@/lib/registrationPricing"
 
+interface BranchBatchOption {
+  batch_ref: string
+  /** Optional admin-defined name (e.g. Morning batch) */
+  name?: string | null
+  label: string
+  batch_fee: number | null
+  days?: string[]
+  start_time?: string
+  end_time?: string
+}
+
 interface Course {
   id: string;
   title: string;
@@ -23,6 +34,7 @@ interface Course {
   difficulty_level: string;
   category_id?: string;
   pricing: BranchCoursePricing;
+  branch_batches?: BranchBatchOption[];
   available_durations: Array<{
     id: string;
     name: string;
@@ -65,6 +77,7 @@ export default function SelectCoursePage() {
     category_id: registrationData.category_id || "",
     course_id: registrationData.course_id || "",
     duration: registrationData.duration || "",
+    batch_ref: registrationData.batch_ref || "",
   })
   const [allCategories, setAllCategories] = useState<Category[]>([])
   const [branchCourses, setBranchCourses] = useState<Course[]>([])
@@ -207,6 +220,7 @@ export default function SelectCoursePage() {
 
   const selectedCategory = effectiveCategories.find((cat) => cat.id === formData.category_id)
   const selectedCourse = courses.find((course) => course.id === formData.course_id)
+  const branchBatches = selectedCourse?.branch_batches ?? []
   const durationOptions: DurationOption[] =
     (selectedCourse?.available_durations as DurationOption[] | undefined)?.length
       ? (selectedCourse.available_durations as unknown as DurationOption[])
@@ -226,9 +240,22 @@ export default function SelectCoursePage() {
     if (!formData.course_id || branchCourses.length === 0) return
     const branchCourseIds = new Set(branchCourses.map((c) => c.id))
     if (!branchCourseIds.has(formData.course_id)) {
-      setFormData((prev) => ({ ...prev, course_id: "", duration: "" }))
+      setFormData((prev) => ({ ...prev, course_id: "", duration: "", batch_ref: "" }))
     }
   }, [branchCourses, formData.course_id])
+
+  // Single batch at this branch: pre-select batch_ref
+  useEffect(() => {
+    if (!selectedCourse?.id) return
+    const bb = selectedCourse.branch_batches
+    if (!bb?.length) return
+    if (bb.length === 1) {
+      const only = bb[0].batch_ref
+      setFormData((prev) =>
+        prev.batch_ref === only ? prev : { ...prev, batch_ref: only }
+      )
+    }
+  }, [selectedCourse?.id, selectedCourse?.branch_batches])
 
   const handleNextStep = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -242,6 +269,9 @@ export default function SelectCoursePage() {
     }
     if (!formData.duration) {
       newErrors.duration = "Please select a tenure"
+    }
+    if (branchBatches.length > 0 && !formData.batch_ref.trim()) {
+      newErrors.batch_ref = "Please select a batch"
     }
     if (Object.keys(newErrors).length > 0) {
       setFieldErrors(newErrors)
@@ -262,9 +292,13 @@ export default function SelectCoursePage() {
     setIsSubmitting(true)
     try {
       const durationParam = encodeURIComponent(formData.duration)
+      const batchQ =
+        formData.batch_ref.trim().length > 0
+          ? `&batch_ref=${encodeURIComponent(formData.batch_ref.trim())}`
+          : ""
       const payRes = await fetch(
         getBackendApiUrl(
-          `courses/${encodeURIComponent(formData.course_id)}/payment-info?branch_id=${encodeURIComponent(branchId)}&duration=${durationParam}`
+          `courses/${encodeURIComponent(formData.course_id)}/payment-info?branch_id=${encodeURIComponent(branchId)}&duration=${durationParam}${batchQ}`
         ),
         { method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" }
       )
@@ -303,6 +337,7 @@ export default function SelectCoursePage() {
         category_id: formData.category_id,
         course_id: formData.course_id,
         duration: formData.duration,
+        batch_ref: formData.batch_ref.trim(),
         duration_name: selectedDuration?.name || payJson.duration || "",
         duration_months: selectedDuration?.duration_months || 1,
         course_name: selectedCourse?.title || payJson.course_name || "",
@@ -336,14 +371,16 @@ export default function SelectCoursePage() {
         ...prev,
         category_id: value,
         course_id: "",
-        duration: ""
+        duration: "",
+        batch_ref: "",
       }))
     } else if (field === 'course_id') {
       // Reset duration when course changes
       setFormData(prev => ({
         ...prev,
         course_id: value,
-        duration: ""
+        duration: "",
+        batch_ref: "",
       }))
     } else {
       setFormData(prev => ({ ...prev, [field]: value }))
@@ -489,6 +526,48 @@ export default function SelectCoursePage() {
               {fieldErrors.course_id && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.course_id}</p>}
             </div>
 
+            {/* Select batch (when branch defines course batches) */}
+            {branchBatches.length > 0 && (
+              <div>
+                <Select
+                  value={formData.batch_ref}
+                  onValueChange={(value) => handleSelectChange("batch_ref", value)}
+                  disabled={!formData.course_id}
+                >
+                  <SelectTrigger
+                    className={`w-full !h-[60px] pl-6 pr-10 bg-[#F9F8FF] rounded-xl border-0 py-6 text-[16px] data-[placeholder]:text-black ${fieldErrors.batch_ref ? "!border !border-red-500" : ""}`}
+                  >
+                    <SelectValue placeholder="Select a batch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branchBatches.map((b) => {
+                      const title =
+                        (b.name && String(b.name).trim()) || b.label
+                      const priceStr =
+                        b.batch_fee != null && !Number.isNaN(b.batch_fee)
+                          ? `₹${b.batch_fee.toLocaleString("en-IN")}`
+                          : "Tenure-based fee"
+                      return (
+                      <SelectItem key={b.batch_ref} value={b.batch_ref}>
+                        <div className="flex flex-col text-left">
+                          <span className="font-medium">
+                            {title} — {priceStr}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {(b.name && String(b.name).trim()) ? `${b.label} · ` : ""}
+                            Admission fee is added on the payment step.
+                          </span>
+                        </div>
+                      </SelectItem>
+                    )})}
+                  </SelectContent>
+                </Select>
+                {fieldErrors.batch_ref && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.batch_ref}</p>
+                )}
+              </div>
+            )}
+
             {/* Select Tenure */}
             <div>
               <Select
@@ -539,6 +618,7 @@ export default function SelectCoursePage() {
                 !formData.category_id ||
                 !formData.course_id ||
                 !formData.duration ||
+                (branchBatches.length > 0 && !formData.batch_ref.trim()) ||
                 isSubmitting
               }
             >

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +39,7 @@ interface StudentDetails {
   phone: string
   date_of_birth?: string
   gender?: string
+  student_level?: string | null
   address?: {
     line1?: string
     area?: string
@@ -79,6 +81,8 @@ interface EnrollmentHistory {
   id: string
   course_name: string
   enrollment_date: string
+  start_date?: string
+  end_date?: string
   completion_date?: string
   status: string
   progress: number
@@ -190,6 +194,8 @@ export default function StudentDetailPage() {
           id: enrollment.id || `enrollment-${Date.now()}`,
           course_name: enrollment.course_name || 'Unknown Course',
           enrollment_date: enrollment.enrollment_date || enrollment.created_at || new Date().toISOString(),
+          start_date: enrollment.start_date,
+          end_date: enrollment.end_date,
           completion_date: enrollment.completion_date,
           status: enrollment.status || 'active',
           progress: enrollment.progress || 0,
@@ -532,6 +538,15 @@ export default function StudentDetailPage() {
                       <p className="text-sm  capitalize">{student.gender}</p>
                     </div>
                   )}
+
+                  {adminType === "super-admin" && student.student_level ? (
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Student level</h3>
+                      <Badge variant="outline" className="text-sm font-medium border-[#4F5077]/40 text-[#4F5077]">
+                        {student.student_level}
+                      </Badge>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Address */}
@@ -578,13 +593,9 @@ export default function StudentDetailPage() {
                 {/* Timestamps */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                   <div>
-                    <h3 className="text-sm font-medium  mb-1">Enrolled</h3>
+                    <h3 className="text-sm font-medium  mb-1">Enrolled (registered)</h3>
                     <p className="text-sm ">
-                      {new Date(student.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {formatRegisteredDateTime(student.created_at)}
                     </p>
                   </div>
 
@@ -665,6 +676,32 @@ export default function StudentDetailPage() {
                               day: 'numeric'
                             })}</span>
                           </div>
+                          {enrollment.start_date && (
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4" />
+                              <span className="font-medium">Start:</span>
+                              <span>
+                                {new Date(enrollment.start_date).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </span>
+                            </div>
+                          )}
+                          {enrollment.end_date && (
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4" />
+                              <span className="font-medium">End:</span>
+                              <span>
+                                {new Date(enrollment.end_date).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </span>
+                            </div>
+                          )}
                           {enrollment.completion_date && (
                             <div className="flex items-center space-x-1">
                               <CheckCircle className="w-4 h-4 text-green-600" />

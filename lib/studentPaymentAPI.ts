@@ -9,6 +9,12 @@ export interface PaymentRecord {
   id: string
   student_id: string
   enrollment_id?: string
+  /** Top-level from list API aggregation (preferred over course_details). */
+  course_name?: string
+  /** Razorpay method key when stored (e.g. upi, card, netbanking). */
+  gateway_method?: string
+  /** Human-readable label from gateway (e.g. UPI, Card (VISA ••••1234)). */
+  gateway_payment_label?: string
   amount: number
   payment_type: 'admission_fee' | 'course_fee' | 'monthly_fee' | 'registration_fee'
   payment_method: 'credit_card' | 'debit_card' | 'upi' | 'net_banking' | 'digital_wallet' | 'cash' | 'bank_transfer'

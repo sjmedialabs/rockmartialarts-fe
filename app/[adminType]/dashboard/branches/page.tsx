@@ -7,7 +7,7 @@ import { Search, Edit, X, Eye } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useRouter, usePathname } from "next/navigation"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
@@ -28,7 +28,7 @@ interface Branch {
       country: string
     }
   }
-  manager_id: string
+  manager_id?: string | null
   is_active?: boolean
   operational_details: {
     courses_offered: string[]
@@ -72,23 +72,31 @@ export default function BranchesList() {
     }
   }, [pathname, router])
   const [selectedBranch, setSelectedBranch] = useState("")
-  const [selectedCoach, setSelectedCoach] = useState("")
+  const [selectedManagerId, setSelectedManagerId] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
-  const [managerPhones, setManagerPhones] = useState<Record<string, string>>({})
-  const fetchedManagerIdsRef = useRef<Set<string>>(new Set())
+  /** branch_manager.id → display info */
+  const [branchManagerById, setBranchManagerById] = useState<
+    Record<string, { full_name: string; phone: string }>
+  >({})
+  /** Legacy manager_id (e.g. coach user) not in branch_managers */
+  const [legacyManagerById, setLegacyManagerById] = useState<
+    Record<string, { full_name: string; phone: string }>
+  >({})
+  /** First coach phone per branch (for contact fallback) */
+  const [coachPhoneByBranchId, setCoachPhoneByBranchId] = useState<Record<string, string>>({})
 
   // Modal states
-  const [coaches, setCoaches] = useState<any[]>([])
-  const [loadingCoaches, setLoadingCoaches] = useState(false)
+  const [branchManagersForAssign, setBranchManagersForAssign] = useState<any[]>([])
+  const [loadingBranchManagers, setLoadingBranchManagers] = useState(false)
   const [assignmentLoading, setAssignmentLoading] = useState(false)
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
   // Add state for pagination
 const [currentPage, setCurrentPage] = useState(1)
-const itemsPerPage = 5
+const itemsPerPage = 15
 
   // Fetch branches from API
   useEffect(() => {
@@ -152,60 +160,105 @@ const itemsPerPage = 5
     fetchBranches()
   }, [])
 
-  // Resolve branch manager phone numbers for list display (API list does not embed manager contact).
+  // Resolve branch manager names/phones + coach contact fallback for list display.
   useEffect(() => {
-    const loadManagerPhones = async () => {
+    const loadManagerAndCoachContacts = async () => {
       const token = TokenManager.getToken()
       if (!token || branches.length === 0) return
 
-      const ids = [
+      const authHeaders = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      }
+
+      const bmList: any[] = []
+      for (let skip = 0; skip < 1000; skip += 100) {
+        const res = await fetch(
+          getBackendApiUrl(`branch-managers?active_only=true&limit=100&skip=${skip}`),
+          { headers: authHeaders }
+        )
+        if (!res.ok) break
+        const data = await res.json()
+        const batch = data.branch_managers || []
+        bmList.push(...batch)
+        if (batch.length < 100) break
+      }
+
+      const bmMap: Record<string, { full_name: string; phone: string }> = {}
+      for (const bm of bmList) {
+        const phone = bm.contact_info?.phone ?? bm.phone ?? ""
+        bmMap[bm.id] = {
+          full_name: (bm.full_name as string) || "",
+          phone: typeof phone === "string" ? phone : String(phone || ""),
+        }
+      }
+      setBranchManagerById(bmMap)
+
+      const coachesList: any[] = []
+      for (let skip = 0; skip < 1000; skip += 100) {
+        const res = await fetch(
+          getBackendApiUrl(`coaches?active_only=true&limit=100&skip=${skip}`),
+          { headers: authHeaders }
+        )
+        if (!res.ok) break
+        const data = await res.json()
+        const batch = data.coaches || []
+        coachesList.push(...batch)
+        if (batch.length < 100) break
+      }
+
+      const coachPhones: Record<string, string> = {}
+      for (const c of coachesList) {
+        const bid = c.branch_id as string | undefined
+        if (!bid || coachPhones[bid]) continue
+        const phone = c.contact_info?.phone ?? c.phone ?? ""
+        const s = typeof phone === "string" ? phone : String(phone || "")
+        if (s.trim()) coachPhones[bid] = s.trim()
+      }
+      setCoachPhoneByBranchId(coachPhones)
+
+      const managerIds = [
         ...new Set(
           branches
             .map((b) => b.manager_id)
             .filter((id): id is string => Boolean(id && typeof id === "string"))
         ),
       ]
-      const missing = ids.filter((id) => !fetchedManagerIdsRef.current.has(id))
-      if (missing.length === 0) return
+      const missingForUsers = managerIds.filter((id) => !bmMap[id])
+      if (missingForUsers.length === 0) {
+        setLegacyManagerById({})
+        return
+      }
 
       const results = await Promise.all(
-        missing.map(async (userId) => {
+        missingForUsers.map(async (userId) => {
           try {
-            const res = await fetch(getBackendApiUrl(`users/${userId}`), {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            })
-            if (!res.ok) return { userId, phone: "" }
+            const res = await fetch(getBackendApiUrl(`users/${userId}`), { headers: authHeaders })
+            if (!res.ok) return { userId, full_name: "", phone: "" }
             const data = await res.json()
             const user = data.user ?? data
             const phone =
-              user?.contact_info?.phone ||
-              user?.phone ||
-              user?.mobile ||
-              ""
-            return { userId, phone: typeof phone === "string" ? phone : "" }
+              user?.contact_info?.phone || user?.phone || user?.mobile || ""
+            const fn = user?.full_name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim()
+            return {
+              userId,
+              full_name: typeof fn === "string" ? fn : "",
+              phone: typeof phone === "string" ? phone : "",
+            }
           } catch {
-            return { userId, phone: "" }
+            return { userId, full_name: "", phone: "" }
           }
         })
       )
 
-      for (const { userId } of results) {
-        fetchedManagerIdsRef.current.add(userId)
+      const leg: Record<string, { full_name: string; phone: string }> = {}
+      for (const r of results) {
+        leg[r.userId] = { full_name: r.full_name, phone: r.phone }
       }
-
-      setManagerPhones((prev) => {
-        const next = { ...prev }
-        for (const { userId, phone } of results) {
-          next[userId] = phone || ""
-        }
-        return next
-      })
+      setLegacyManagerById(leg)
     }
 
-    loadManagerPhones()
+    loadManagerAndCoachContacts()
   }, [branches])
 
   // Fetch statistics for branches that don't have them
@@ -256,10 +309,10 @@ const itemsPerPage = 5
     }
   }
 
-  // Fetch coaches for assignment modal
-  const fetchCoaches = async () => {
+  // Branch `manager_id` must be a branch_manager id (see branch_manager auth), not a coach document id.
+  const fetchBranchManagersForModal = async () => {
     try {
-      setLoadingCoaches(true)
+      setLoadingBranchManagers(true)
       setAssignmentError(null)
 
       const token = TokenManager.getToken()
@@ -267,37 +320,44 @@ const itemsPerPage = 5
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      const response = await fetch(getBackendApiUrl("coaches?active_only=true&limit=100"), {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      const all: any[] = []
+      for (let skip = 0; skip < 1000; skip += 100) {
+        const response = await fetch(
+          getBackendApiUrl(`branch-managers?active_only=true&limit=100&skip=${skip}`),
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        )
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || errorData.message || `Failed to fetch coaches (${response.status})`)
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(
+            errorData.detail || errorData.message || `Failed to fetch branch managers (${response.status})`
+          )
+        }
+
+        const data = await response.json()
+        const batch = data.branch_managers || []
+        all.push(...batch)
+        if (batch.length < 100) break
       }
 
-      const data = await response.json()
-      console.log("Coaches fetched successfully:", data)
-
-      // Handle different response formats
-      const coachesData = data.coaches || data || []
-      setCoaches(coachesData)
-
+      setBranchManagersForAssign(all)
     } catch (error) {
-      console.error("Error fetching coaches:", error)
-      setAssignmentError(error instanceof Error ? error.message : 'Failed to fetch coaches')
+      console.error("Error fetching branch managers:", error)
+      setAssignmentError(error instanceof Error ? error.message : "Failed to fetch branch managers")
     } finally {
-      setLoadingCoaches(false)
+      setLoadingBranchManagers(false)
     }
   }
 
   const handleAssign = async () => {
-    if (!selectedBranch || !selectedCoach) {
-      setAssignmentError("Please select both a branch and a coach")
+    if (!selectedBranch || !selectedManagerId) {
+      setAssignmentError("Please select both a branch and a branch manager")
       return
     }
 
@@ -318,7 +378,7 @@ const itemsPerPage = 5
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          manager_id: selectedCoach
+          manager_id: selectedManagerId
         })
       })
 
@@ -334,14 +394,14 @@ const itemsPerPage = 5
       setBranches(prevBranches =>
         prevBranches.map(branch =>
           branch.id === selectedBranch
-            ? { ...branch, manager_id: selectedCoach }
+            ? { ...branch, manager_id: selectedManagerId }
             : branch
         )
       )
 
       // Reset form and close modal
       setSelectedBranch("")
-      setSelectedCoach("")
+      setSelectedManagerId("")
       setShowAssignPopup(false)
 
       // Show success message
@@ -367,8 +427,27 @@ const itemsPerPage = 5
     setShowAssignPopup(true)
     setAssignmentError(null)
     setSelectedBranch("")
-    setSelectedCoach("")
-    fetchCoaches() // Fetch coaches when modal opens
+    setSelectedManagerId("")
+    fetchBranchManagersForModal()
+  }
+
+  const getManagerDisplayName = (branch: Branch) => {
+    const mid = branch.manager_id
+    if (!mid) return "—"
+    const bm = branchManagerById[mid]
+    if (bm?.full_name?.trim()) return bm.full_name.trim()
+    const leg = legacyManagerById[mid]
+    if (leg?.full_name?.trim()) return leg.full_name.trim()
+    return "—"
+  }
+
+  /** Branch phone first; if missing, first assigned coach phone for that branch. */
+  const getBranchContactDisplay = (branch: Branch) => {
+    const branchPhone = branch.branch?.phone?.trim()
+    if (branchPhone) return branchPhone
+    const coachPh = coachPhoneByBranchId[branch.id]
+    if (coachPh?.trim()) return coachPh.trim()
+    return "—"
   }
 
   // Enhanced search functionality - filter branches based on search term
@@ -470,6 +549,9 @@ const paginatedBranches = filteredBranches.slice(
                     <div className="w-2 h-2 bg-purple-500 rounded-full ml-2"></div>
                   </div>
                 </th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
+                  Branch manager
+                </th>
                 {/* <th className="px-2 py-3 text-left text-xs font-medium text-gray-500  ">
                   Accessories Available
                 </th> */}
@@ -487,19 +569,19 @@ const paginatedBranches = filteredBranches.slice(
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-8 px-6 text-center text-gray-500">
+                  <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
                     Loading branches...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="py-8 px-6 text-center text-red-500">
+                  <td colSpan={8} className="py-8 px-6 text-center text-red-500">
                     Error: {error}
                   </td>
                 </tr>
               ) : filteredBranches.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 px-6 text-center text-gray-500">
+                  <td colSpan={8} className="py-8 px-6 text-center text-gray-500">
                     {searchTerm ? `No branches found matching "${searchTerm}"` : 'No branches found'}
                   </td>
                 </tr>
@@ -561,19 +643,11 @@ const paginatedBranches = filteredBranches.slice(
                         )}
                       </div>
                     </td>
+                    <td className="px-2 py-4 text-xs text-[#6B7A99] max-w-[180px]">
+                      {getManagerDisplayName(branch)}
+                    </td>
                     <td className="px-2 py-4 text-xs text-[#6B7A99] max-w-[200px]">
-                      <div className="flex flex-col gap-0.5">
-                        <span>
-                          <span className="text-gray-500">Branch: </span>
-                          {branch.branch?.phone?.trim() || "—"}
-                        </span>
-                        {branch.manager_id ? (
-                          <span>
-                            <span className="text-gray-500">Manager: </span>
-                            {managerPhones[branch.manager_id]?.trim() || "—"}
-                          </span>
-                        ) : null}
-                      </div>
+                      {getBranchContactDisplay(branch)}
                     </td>
                     <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
                       <div className="flex items-center space-x-2">
@@ -707,35 +781,36 @@ const paginatedBranches = filteredBranches.slice(
                 </Select>
               </div>
 
-              {/* Coach Selection */}
+              {/* Branch manager selection (manager_id references branch_managers collection) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Coach as Manager <span className="text-red-500">*</span>
+                  Select branch manager <span className="text-red-500">*</span>
                 </label>
-                {loadingCoaches ? (
+                {loadingBranchManagers ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="text-gray-500">Loading coaches...</div>
+                    <div className="text-gray-500">Loading branch managers...</div>
                   </div>
                 ) : (
-                  <Select value={selectedCoach} onValueChange={setSelectedCoach} disabled={assignmentLoading}>
+                  <Select value={selectedManagerId} onValueChange={setSelectedManagerId} disabled={assignmentLoading}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose a coach to assign as manager" />
+                      <SelectValue placeholder="Choose a branch manager to assign" />
                     </SelectTrigger>
                     <SelectContent>
-                      {coaches.length > 0 ? (
-                        coaches.map((coach) => (
-                          <SelectItem key={coach.id} value={coach.id}>
+                      {branchManagersForAssign.length > 0 ? (
+                        branchManagersForAssign.map((bm) => (
+                          <SelectItem key={bm.id} value={bm.id}>
                             <div className="flex flex-col">
-                              <span className="font-medium">{coach.full_name}</span>
+                              <span className="font-medium">{bm.full_name}</span>
                               <span className="text-xs text-gray-500">
-                                {coach.contact_info?.email} • {coach.areas_of_expertise?.join(', ')}
+                                {bm.contact_info?.email}
+                                {bm.contact_info?.phone ? ` • ${bm.contact_info.phone}` : ""}
                               </span>
                             </div>
                           </SelectItem>
                         ))
                       ) : (
-                        <SelectItem value="" disabled>
-                          No active coaches available
+                        <SelectItem value="none" disabled>
+                          No active branch managers available
                         </SelectItem>
                       )}
                     </SelectContent>
@@ -757,7 +832,7 @@ const paginatedBranches = filteredBranches.slice(
               <Button
                 onClick={handleAssign}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-6"
-                disabled={!selectedBranch || !selectedCoach || assignmentLoading || loadingCoaches}
+                disabled={!selectedBranch || !selectedManagerId || assignmentLoading || loadingBranchManagers}
               >
                 {assignmentLoading ? (
                   <>

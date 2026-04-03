@@ -635,7 +635,7 @@ class ReportsAPI extends BaseAPI {
       const params = this.buildParams(filters)
 
       // Map to appropriate API endpoint based on category with validation
-      const validCategories = ['student', 'course', 'coach', 'branch', 'financial', 'coach']
+      const validCategories = ['student', 'course', 'coach', 'branch', 'financial']
       if (!validCategories.includes(sanitizedCategoryId)) {
         throw new Error(`Invalid category: ${sanitizedCategoryId}`)
       }
@@ -658,9 +658,6 @@ class ReportsAPI extends BaseAPI {
           break
         case 'financial':
           endpoint = `/api/reports/financial${queryString}`
-          break
-        case 'coach':
-          endpoint = `/api/reports/coachs${queryString}`
           break
       }
 
@@ -880,18 +877,24 @@ class ReportsAPI extends BaseAPI {
       })
     }
 
-    const endpoint = `/api/reports/coachs${params.toString() ? `?${params.toString()}` : ''}`
-    return await this.makeRequest(endpoint, {
+    const endpoint = `/api/reports/masters${params.toString() ? `?${params.toString()}` : ''}`
+    const raw = await this.makeRequest(endpoint, {
       method: 'GET',
       token
     })
+    return {
+      coachs: raw.masters ?? [],
+      pagination: raw.pagination ?? { total: 0, skip: 0, limit: 50, has_more: false },
+      filters_applied: raw.filters_applied ?? {},
+      generated_at: raw.generated_at ?? new Date().toISOString(),
+    }
   }
 
   /**
    * Get available filter options for coach reports
    */
   async getCoachReportFilters(token: string): Promise<CoachReportFiltersResponse> {
-    return await this.makeRequest('/api/reports/coachs/filters', {
+    return await this.makeRequest('/api/reports/masters/filters', {
       method: 'GET',
       token
     })

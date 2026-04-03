@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Save, Globe, FileText, Image, Home, Search, Plus, X } from "lucide-react"
+import { Loader2, Save, Globe, FileText, Image, Home, Search } from "lucide-react"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 
@@ -19,13 +18,6 @@ interface SEOSettings {
   meta_description?: string
   meta_keywords?: string
   og_image?: string
-}
-
-interface TestimonialItem {
-  name: string
-  role: string
-  quote?: string
-  image?: string
 }
 
 interface HomepageSection {
@@ -40,7 +32,6 @@ interface HomepageSection {
   courses_subtitle?: string
   testimonials_title?: string
   testimonials_subtitle?: string
-  testimonials?: TestimonialItem[]
   cta_title?: string
   cta_subtitle?: string
   bottom_cta_title?: string
@@ -55,6 +46,7 @@ interface FooterContent {
   address?: string
   phone?: string
   email?: string
+  whatsapp_number?: string
   social_facebook?: string
   social_instagram?: string
   social_twitter?: string
@@ -65,6 +57,7 @@ interface BrandingSettings {
   navbar_logo?: string
   footer_logo?: string
   favicon?: string
+  site_loader_image?: string
 }
 
 const SEO_PAGES = [
@@ -77,7 +70,6 @@ const SEO_PAGES = [
 ]
 
 export default function CMSPage() {
-  const params = useParams()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -87,6 +79,13 @@ export default function CMSPage() {
   const [footer, setFooter] = useState<FooterContent>({})
   const [branding, setBranding] = useState<BrandingSettings>({})
   const [pageSeo, setPageSeo] = useState<Record<string, SEOSettings>>({})
+  const [homepageAbout, setHomepageAbout] = useState({
+    title: "",
+    subtitle: "",
+    content: "",
+    image: "",
+  })
+  const [savingAbout, setSavingAbout] = useState(false)
 
   useEffect(() => {
     fetchCMSContent()
@@ -96,15 +95,28 @@ export default function CMSPage() {
     try {
       setLoading(true)
       const token = TokenManager.getToken()
-      const res = await fetch(getBackendApiUrl("cms"), {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      })
-      if (!res.ok) throw new Error("Failed to fetch CMS content")
-      const data = await res.json()
+      const [cmsRes, aboutRes] = await Promise.all([
+        fetch(getBackendApiUrl("cms"), {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        }),
+        fetch(getBackendApiUrl("homepage/public")),
+      ])
+      if (!cmsRes.ok) throw new Error("Failed to fetch CMS content")
+      const data = await cmsRes.json()
       setHomepage(data.homepage || {})
       setFooter(data.footer || {})
       setBranding(data.branding || {})
       setPageSeo(data.page_seo || {})
+      if (aboutRes.ok) {
+        const aj = await aboutRes.json().catch(() => ({}))
+        const a = aj.about || {}
+        setHomepageAbout({
+          title: a.title ?? "",
+          subtitle: a.subtitle ?? "",
+          content: a.content ?? "",
+          image: a.image ?? "",
+        })
+      }
     } catch (error) {
       console.error("Error fetching CMS content:", error)
       toast({ title: "Error", description: "Failed to load CMS content", variant: "destructive" })
@@ -113,14 +125,73 @@ export default function CMSPage() {
     }
   }
 
+  const handleSaveHomepageAbout = async () => {
+    try {
+      setSavingAbout(true)
+      const token = TokenManager.getToken()
+      if (!token) throw new Error("Not authenticated")
+      const res = await fetch(getBackendApiUrl("homepage/about"), {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: homepageAbout.title,
+          subtitle: homepageAbout.subtitle,
+          content: homepageAbout.content,
+          image: homepageAbout.image,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || err.message || "Save failed")
+      }
+      toast({ title: "Saved", description: "Homepage about section updated" })
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Could not save about section",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingAbout(false)
+    }
+  }
+
+  const handleAboutImageUpload = async (file: File) => {
+    try {
+      const token = TokenManager.getToken()
+      const formData = new FormData()
+      formData.append("file", file)
+      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      if (!uploadRes.ok) throw new Error("Upload failed")
+      const uploadData = await uploadRes.json()
+      const url = uploadData.url || uploadData.file_url || uploadData.image_url || ""
+      setHomepageAbout((prev) => ({ ...prev, image: url }))
+      toast({ title: "Uploaded", description: "About image uploaded" })
+    } catch {
+      toast({ title: "Error", description: "Upload failed", variant: "destructive" })
+    }
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true)
       const token = TokenManager.getToken()
+      const homepageForSave = { ...homepage } as Record<string, unknown>
+      delete homepageForSave.testimonials
       const res = await fetch(getBackendApiUrl("cms"), {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ homepage, footer, branding, page_seo: pageSeo }),
+        body: JSON.stringify({
+          homepage: homepageForSave as HomepageSection,
+          footer,
+          branding,
+          page_seo: pageSeo,
+        }),
       })
       if (!res.ok) throw new Error("Failed to save CMS content")
       const data = await res.json()
@@ -166,7 +237,26 @@ export default function CMSPage() {
     }
   }
 
-  const handleImageUpload = async (field: "navbar_logo" | "footer_logo" | "favicon", file: File) => {
+  const handleImageUpload = async (
+    field: "navbar_logo" | "footer_logo" | "favicon" | "site_loader_image",
+    file: File
+  ) => {
+    if (field === "site_loader_image") {
+      const okTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+      const extOk = /\.(jpe?g|png|webp|gif)$/i.test(file.name)
+      if (!okTypes.includes(file.type) && !extOk) {
+        toast({
+          title: "Invalid file",
+          description: "Loader must be JPG, PNG, WEBP, or GIF (max 2MB).",
+          variant: "destructive",
+        })
+        return
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        toast({ title: "File too large", description: "Loader must be 2MB or smaller.", variant: "destructive" })
+        return
+      }
+    }
     try {
       const token = TokenManager.getToken()
       const formData = new FormData()
@@ -180,31 +270,7 @@ export default function CMSPage() {
       const uploadData = await uploadRes.json()
       const imageUrl = uploadData.url || uploadData.file_url || uploadData.image_url || ""
       setBranding((prev) => ({ ...prev, [field]: imageUrl }))
-      toast({ title: "Uploaded", description: `${field.replace("_", " ")} uploaded successfully` })
-    } catch (error) {
-      console.error("Upload error:", error)
-      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
-    }
-  }
-
-  const handleTestimonialImageUpload = async (index: number, file: File) => {
-    try {
-      const token = TokenManager.getToken()
-      const formData = new FormData()
-      formData.append("file", file)
-      const uploadRes = await fetch(getBackendApiUrl("uploads"), {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      })
-      if (!uploadRes.ok) throw new Error("Upload failed")
-      const uploadData = await uploadRes.json()
-      const imageUrl = uploadData.url || uploadData.file_url || uploadData.image_url || ""
-      const list = [...(homepage.testimonials || [])]
-      if (!list[index]) list[index] = { name: "", role: "" }
-      list[index] = { ...list[index], image: imageUrl }
-      setHomepage((prev) => ({ ...prev, testimonials: list }))
-      toast({ title: "Uploaded", description: "Testimonial photo uploaded" })
+      toast({ title: "Uploaded", description: `${field.replace(/_/g, " ")} uploaded successfully` })
     } catch (error) {
       console.error("Upload error:", error)
       toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
@@ -336,18 +402,73 @@ export default function CMSPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-[#4F5077]">About Section</CardTitle>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="text-[#4F5077]">Homepage — About (full width on site)</CardTitle>
+              <Button
+                type="button"
+                onClick={handleSaveHomepageAbout}
+                disabled={savingAbout}
+                className="bg-yellow-400 hover:bg-yellow-500 text-white shrink-0"
+              >
+                {savingAbout ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Save about section
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
+              <p className="text-sm text-gray-500">
+                This content is stored in the <code className="px-1 bg-gray-100 rounded">homepage_content</code>{" "}
+                collection (title, subtitle, HTML body, image). TipTap/Quill can be added later; paste safe HTML from
+                any editor.
+              </p>
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label>About Title</Label>
-                  <Input value={homepage.about_title || ""} onChange={(e) => setHomepage({ ...homepage, about_title: e.target.value })} placeholder="Enter about section title" />
+                  <Label>Title</Label>
+                  <Input
+                    value={homepageAbout.title}
+                    onChange={(e) => setHomepageAbout((p) => ({ ...p, title: e.target.value }))}
+                    placeholder="About heading"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>About Subtitle</Label>
-                  <Textarea value={homepage.about_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, about_subtitle: e.target.value })} placeholder="Enter about section subtitle" rows={2} />
+                  <Label>Subtitle</Label>
+                  <Textarea
+                    value={homepageAbout.subtitle}
+                    onChange={(e) => setHomepageAbout((p) => ({ ...p, subtitle: e.target.value }))}
+                    placeholder="Supporting line under the title"
+                    rows={2}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Content (HTML)</Label>
+                  <Textarea
+                    value={homepageAbout.content}
+                    onChange={(e) => setHomepageAbout((p) => ({ ...p, content: e.target.value }))}
+                    placeholder="<p>Rich text HTML…</p>"
+                    rows={12}
+                    className="font-mono text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>About image (right column on homepage)</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {homepageAbout.image ? (
+                      <img src={homepageAbout.image} alt="" className="h-24 w-auto rounded border object-cover" />
+                    ) : null}
+                    <Input
+                      value={homepageAbout.image}
+                      onChange={(e) => setHomepageAbout((p) => ({ ...p, image: e.target.value }))}
+                      placeholder="URL or upload below"
+                    />
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="max-w-xs"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) handleAboutImageUpload(f)
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -386,40 +507,10 @@ export default function CMSPage() {
                   <Textarea value={homepage.testimonials_subtitle || ""} onChange={(e) => setHomepage({ ...homepage, testimonials_subtitle: e.target.value })} placeholder='Small label (e.g. "Testimonials")' rows={2} />
                 </div>
               </div>
-              <div className="space-y-2 pt-4 border-t">
-                <Label>Testimonial cards (round image on top; first 4 shown on home, all on Testimonials page)</Label>
-                {(homepage.testimonials || []).map((t, i) => (
-                  <div key={i} className="border rounded-lg p-4 space-y-3 relative bg-gray-50/50">
-                    <Button type="button" variant="ghost" size="sm" className="absolute top-2 right-2 text-red-500 hover:bg-red-50" onClick={() => setHomepage({ ...homepage, testimonials: (homepage.testimonials || []).filter((_, idx) => idx !== i) })}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Name</Label>
-                        <Input value={t.name} onChange={(e) => { const n = [...(homepage.testimonials || [])]; n[i] = { ...t, name: e.target.value }; setHomepage({ ...homepage, testimonials: n }) }} placeholder="Full name" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Role / Title</Label>
-                        <Input value={t.role} onChange={(e) => { const n = [...(homepage.testimonials || [])]; n[i] = { ...t, role: e.target.value }; setHomepage({ ...homepage, testimonials: n }) }} placeholder="e.g. Parent, Student" />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Quote (optional)</Label>
-                      <Textarea value={t.quote || ""} onChange={(e) => { const n = [...(homepage.testimonials || [])]; n[i] = { ...t, quote: e.target.value }; setHomepage({ ...homepage, testimonials: n }) }} placeholder="Testimonial quote" rows={2} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Round image (shows on top of card)</Label>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {t.image && <img src={t.image} alt={t.name} className="w-12 h-12 rounded-full object-cover border" />}
-                        <Input type="file" accept="image/*" className="max-w-xs text-sm" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleTestimonialImageUpload(i, file) }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => setHomepage({ ...homepage, testimonials: [...(homepage.testimonials || []), { name: "", role: "" }] })}>
-                  <Plus className="h-4 w-4 mr-2" /> Add testimonial
-                </Button>
-              </div>
+              <p className="text-sm text-gray-500 pt-2">
+                Testimonial cards are managed only under{" "}
+                <strong>Dashboard → Testimonials</strong> (MongoDB). Home and branch pages read from there.
+              </p>
             </CardContent>
           </Card>
 
@@ -515,6 +606,16 @@ export default function CMSPage() {
                     <Label>Email</Label>
                     <Input value={footer.email || ""} onChange={(e) => setFooter({ ...footer, email: e.target.value })} placeholder="Enter email address" type="email" />
                   </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>WhatsApp number (floating button on website)</Label>
+                    <Input
+                      value={footer.whatsapp_number || ""}
+                      onChange={(e) => setFooter({ ...footer, whatsapp_number: e.target.value })}
+                      placeholder="e.g. +91 9876543210 — leave blank to hide the button"
+                      type="tel"
+                    />
+                    <p className="text-xs text-muted-foreground">Digits only or with country code; saves to CMS and updates the green chat button after save.</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -549,6 +650,58 @@ export default function CMSPage() {
 
         {/* Branding */}
         <TabsContent value="branding" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[#4F5077]">Website loader</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-gray-500">
+                Shown full-screen on the public site while the page loads. Displayed at max <strong>140px</strong> wide.
+                Use JPG, PNG, WEBP, or GIF (animated GIF supported). Max <strong>2MB</strong>. Save all changes after upload.
+              </p>
+              <div className="flex items-center gap-4 flex-wrap">
+                {branding.site_loader_image ? (
+                  <div className="w-[140px] h-[140px] border rounded-lg overflow-hidden flex items-center justify-center bg-black">
+                    <img
+                      src={branding.site_loader_image}
+                      alt="Loader preview"
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-[140px] h-[140px] border rounded-lg flex items-center justify-center bg-gray-100 text-xs text-gray-500 text-center px-2">
+                    Default site loader
+                  </div>
+                )}
+                <div className="flex-1 space-y-2 min-w-[200px]">
+                  <Label>Image URL (optional)</Label>
+                  <Input
+                    value={branding.site_loader_image || ""}
+                    onChange={(e) => setBranding({ ...branding, site_loader_image: e.target.value })}
+                    placeholder="Or paste URL from uploads"
+                  />
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleImageUpload("site_loader_image", file)
+                      e.target.value = ""
+                    }}
+                    className="text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBranding({ ...branding, site_loader_image: "" })}
+                  >
+                    Clear (use default)
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-[#4F5077]">Logo & Favicon</CardTitle>

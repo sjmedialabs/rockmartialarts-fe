@@ -308,6 +308,11 @@ export default function DropdownSettingsPage() {
               description="Gender options for personal information"
             />
 
+            <DropdownSettingsManager
+              category="student_levels"
+              title="Student Level"
+              description="Skill levels for students (shown in Super Admin student create/edit and details)"
+            />
 
             <DropdownSettingsManager
               category="locations"

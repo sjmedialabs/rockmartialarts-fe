@@ -152,6 +152,15 @@ export default function AddCoachPage() {
     // Additional Information
     achievements: "",
     notes: "",
+
+    // Profile & public homepage
+    profileImageFile: null as File | null,
+    profileImagePreview: "",
+    profileImageUrl: "",
+    aboutShort: "",
+    featuredOnHomepage: false,
+    homepageRating: "",
+    displayOrder: "",
   })
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
@@ -682,6 +691,35 @@ export default function AddCoachPage() {
     }
   }
 
+  const validateProfileImage = (file: File): string | null => {
+    const okTypes = ["image/jpeg", "image/png", "image/webp"]
+    const extOk = /\.(jpe?g|png|webp)$/i.test(file.name)
+    if (!okTypes.includes(file.type) && !extOk) {
+      return "Please use JPG, PNG, or WEBP"
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      return "Image must be 2MB or smaller"
+    }
+    return null
+  }
+
+  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const err = validateProfileImage(file)
+    if (err) {
+      toast({ title: "Invalid image", description: err, variant: "destructive" })
+      e.target.value = ""
+      return
+    }
+    if (formData.profileImagePreview) URL.revokeObjectURL(formData.profileImagePreview)
+    setFormData((prev) => ({
+      ...prev,
+      profileImageFile: file,
+      profileImagePreview: URL.createObjectURL(file),
+    }))
+  }
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
 
@@ -699,6 +737,12 @@ export default function AddCoachPage() {
     if (!formData.gender) newErrors.gender = "Gender is required"
     if (!formData.designation) newErrors.designation = "Designation is required"
     if (!formData.experience) newErrors.experience = "Experience is required"
+    if (formData.displayOrder.trim()) {
+      const n = parseInt(formData.displayOrder, 10)
+      if (!Number.isInteger(n) || n < 0 || n > 999999) {
+        newErrors.displayOrder = "Display order must be a whole number from 0–999999, or leave empty"
+      }
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -782,6 +826,33 @@ export default function AddCoachPage() {
         throw new Error("Authentication token not found. Please login again.")
       }
 
+      let profile_image_url: string | null = formData.profileImageUrl?.trim() || null
+      if (formData.profileImageFile) {
+        const fd = new FormData()
+        fd.append("file", formData.profileImageFile)
+        const uploadRes = await fetch(getBackendApiUrl("uploads"), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        })
+        if (!uploadRes.ok) {
+          throw new Error("Profile image upload failed")
+        }
+        const uploadData = await uploadRes.json()
+        profile_image_url =
+          uploadData.url || uploadData.file_url || uploadData.image_url || null
+      }
+
+      const payload = {
+        ...coachData,
+        profile_image_url,
+        about_short: formData.aboutShort.trim() || null,
+        featured_on_homepage: formData.featuredOnHomepage,
+        homepage_rating: formData.homepageRating.trim() ? parseFloat(formData.homepageRating) : null,
+        display_order:
+          formData.displayOrder.trim() === "" ? null : parseInt(formData.displayOrder, 10),
+      }
+
       // Call the backend API
       const response = await fetch(getBackendApiUrl('coaches'), {
         method: 'POST',
@@ -789,7 +860,7 @@ export default function AddCoachPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(coachData)
+        body: JSON.stringify(payload)
       })
 
       const result = await response.json()
@@ -1028,6 +1099,78 @@ export default function AddCoachPage() {
                     placeholder="ZIP Code"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[#4F5077]">Profile photo &amp; website</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-[#7D8592]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Coach photo (JPG, PNG or WEBP, max 2MB)</Label>
+                  <Input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={handleProfileImageChange} />
+                  {(formData.profileImagePreview || formData.profileImageUrl) ? (
+                    <img
+                      src={formData.profileImagePreview || formData.profileImageUrl}
+                      alt="Preview"
+                      className="mt-2 w-32 h-32 rounded-full object-cover border border-gray-200"
+                    />
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="aboutShort">Short bio (homepage)</Label>
+                  <Textarea
+                    id="aboutShort"
+                    value={formData.aboutShort}
+                    onChange={(e) => setFormData({ ...formData, aboutShort: e.target.value })}
+                    placeholder="Shown on the public homepage Expert Masters section"
+                    rows={4}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                <div className="space-y-2">
+                  <Label htmlFor="displayOrder">Display order (homepage)</Label>
+                  <Input
+                    id="displayOrder"
+                    type="number"
+                    min={0}
+                    max={999999}
+                    step={1}
+                    value={formData.displayOrder}
+                    onChange={(e) => setFormData({ ...formData, displayOrder: e.target.value })}
+                    placeholder="Lower numbers appear first (optional; empty = sort by date)"
+                    className={errors.displayOrder ? "border-red-500" : ""}
+                  />
+                  {errors.displayOrder && <p className="text-red-500 text-sm">{errors.displayOrder}</p>}
+                  <p className="text-xs text-gray-500">Must be unique per active coach. Max 8 shown on the site.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="homepageRating">Homepage rating (optional, 0–5)</Label>
+                  <Input
+                    id="homepageRating"
+                    type="number"
+                    min={0}
+                    max={5}
+                    step={0.5}
+                    value={formData.homepageRating}
+                    onChange={(e) => setFormData({ ...formData, homepageRating: e.target.value })}
+                    placeholder="e.g. 4.5"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="featuredOnHomepage"
+                    checked={formData.featuredOnHomepage}
+                    onCheckedChange={(c) => setFormData({ ...formData, featuredOnHomepage: c === true })}
+                  />
+                  <Label htmlFor="featuredOnHomepage" className="text-sm cursor-pointer">
+                    Feature flag (optional legacy)
+                  </Label>
               </div>
             </CardContent>
           </Card>

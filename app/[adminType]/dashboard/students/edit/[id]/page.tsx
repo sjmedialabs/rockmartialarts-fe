@@ -46,7 +46,7 @@ interface Branch {
   id: string
   name: string
   code?: string
-  address?: string | { city?: string; state?: string }
+  address?: string | { area?: string; city?: string; state?: string }
   phone?: string
   email?: string
   location?: string
@@ -77,6 +77,7 @@ export default function EditStudent() {
   const params = useParams()
   const studentId = params.id as string
   const basePath = `/${(params?.adminType as string) || "super-admin"}/dashboard`
+  const isSuperAdmin = basePath.startsWith("/super-admin")
   const { access_token } = useAuth()
   
   // Loading states
@@ -89,6 +90,7 @@ export default function EditStudent() {
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
   const [durationOptions, setDurationOptions] =
     useState<Array<{ id: string; name: string; code?: string }>>(DEFAULT_DURATION_OPTIONS)
+  const [studentLevelOptions, setStudentLevelOptions] = useState<{ value: string; label: string }[]>([])
 
   const { toast } = useToast()
 
@@ -102,7 +104,8 @@ export default function EditStudent() {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [selectedDate, setSelectedDate] = useState<Date>()
-  const [joiningDate, setJoiningDate] = useState<Date>()
+  const [enrollmentStartDate, setEnrollmentStartDate] = useState<Date>()
+  const [enrollmentEndDate, setEnrollmentEndDate] = useState<Date>()
   
   const [formData, setFormData] = useState({
     // Personal Information
@@ -135,7 +138,28 @@ export default function EditStudent() {
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactRelation: "",
+    studentLevel: "",
   })
+
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    const run = async () => {
+      try {
+        const token = TokenManager.getToken()
+        const opts = await dropdownAPI.getCategoryOptions("student_levels", token || undefined)
+        setStudentLevelOptions(
+          (opts || [])
+            .filter((o: { is_active?: boolean }) => o.is_active !== false)
+            .map((o: { value: string; label: string }) => ({ value: o.value, label: o.label }))
+        )
+      } catch {
+        setStudentLevelOptions(
+          dropdownAPI.getDefaultOptions("student_levels").map((o) => ({ value: o.value, label: o.label }))
+        )
+      }
+    }
+    run()
+  }, [isSuperAdmin])
 
   // Fetch student, branches and courses data
   useEffect(() => {
@@ -337,6 +361,7 @@ export default function EditStudent() {
                     name: b.branch?.name || b.name || "Branch",
                     code: b.branch?.code,
                     address: {
+                      area: addr.area,
                       city: addr.city,
                       state: addr.state,
                     },
@@ -400,12 +425,22 @@ export default function EditStudent() {
           emergencyContactName: studentData.emergency_contact?.name || "",
           emergencyContactPhone: studentData.emergency_contact?.phone || "",
           emergencyContactRelation: studentData.emergency_contact?.relationship || "",
+          studentLevel: (studentData as { student_level?: string }).student_level || "",
         }
 
         setFormData(mappedFormData)
 
         if (studentData.date_of_birth) {
           setSelectedDate(new Date(studentData.date_of_birth))
+        }
+
+        if (primaryEnrollment?.start_date) {
+          const sd = new Date(primaryEnrollment.start_date)
+          if (!isNaN(sd.getTime())) setEnrollmentStartDate(sd)
+        }
+        if (primaryEnrollment?.end_date) {
+          const ed = new Date(primaryEnrollment.end_date)
+          if (!isNaN(ed.getTime())) setEnrollmentEndDate(ed)
         }
 
       } catch (error) {
@@ -518,6 +553,9 @@ export default function EditStudent() {
     if (formData.contactNumber && !/^[0-9]{10}$/.test(formData.contactNumber.replace(/\s+/g, ''))) {
       newErrors.contactNumber = "Please enter a valid 10-digit phone number"
     }
+    if (enrollmentStartDate && enrollmentEndDate && enrollmentEndDate.getTime() < enrollmentStartDate.getTime()) {
+      newErrors.enrollmentEnd = "End date must be on or after start date"
+    }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -561,7 +599,12 @@ export default function EditStudent() {
         branch: formData.branch ? {
           location_id: formData.location || "hyderabad",
           branch_id: formData.branch
-        } : undefined
+        } : undefined,
+        ...(isSuperAdmin ? { student_level: formData.studentLevel || null } : {}),
+        ...(enrollmentStartDate
+          ? { enrollment_start_date: format(enrollmentStartDate, "yyyy-MM-dd") }
+          : {}),
+        ...(enrollmentEndDate ? { enrollment_end_date: format(enrollmentEndDate, "yyyy-MM-dd") } : {}),
       }
 
       const response = await fetch(getBackendApiUrl(`users/${studentId}`), {
@@ -707,6 +750,31 @@ export default function EditStudent() {
                       </div>
                     </div>
 
+                    {isSuperAdmin && (
+                      <div>
+                        <Label className="block text-sm font-medium mb-2">Student level</Label>
+                        <Select
+                          value={formData.studentLevel || undefined}
+                          onValueChange={(value) => handleInputChange("studentLevel", value)}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              "!w-full !h-14 !text-base !bg-gray-50 !border-gray-200 !rounded-xl"
+                            )}
+                          >
+                            <SelectValue placeholder="Select student level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {studentLevelOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     <div>
                       <Label className="block text-sm font-medium mb-2">Date of Birth <span className="text-red-500">*</span></Label>
                       <Popover>
@@ -813,6 +881,74 @@ export default function EditStudent() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">Enrollment start</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full relative h-14 justify-start text-left font-normal pl-12 text-base bg-gray-50 border-gray-200 rounded-xl",
+                              !enrollmentStartDate && "text-gray-500"
+                            )}
+                          >
+                            <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            {enrollmentStartDate
+                              ? format(enrollmentStartDate, "MMM dd, yyyy")
+                              : "Select start date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={enrollmentStartDate}
+                            onSelect={setEnrollmentStartDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">Enrollment end</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full relative h-14 justify-start text-left font-normal pl-12 text-base bg-gray-50 border-gray-200 rounded-xl",
+                              !enrollmentEndDate && "text-gray-500",
+                              errors.enrollmentEnd && "border-red-500 bg-red-50"
+                            )}
+                          >
+                            <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            {enrollmentEndDate
+                              ? format(enrollmentEndDate, "MMM dd, yyyy")
+                              : "Select end date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={enrollmentEndDate}
+                            onSelect={(d) => {
+                              setEnrollmentEndDate(d)
+                              if (errors.enrollmentEnd) setErrors((prev) => ({ ...prev, enrollmentEnd: "" }))
+                            }}
+                            initialFocus
+                            disabled={
+                              enrollmentStartDate
+                                ? (date) => date < enrollmentStartDate
+                                : undefined
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {errors.enrollmentEnd && (
+                        <p className="text-red-500 text-sm mt-1">{errors.enrollmentEnd}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -882,7 +1018,11 @@ export default function EditStudent() {
                                 <div className="flex flex-col">
                                   <span className="font-medium">{branch.name}</span>
                                   <span className="text-xs text-gray-500">
-                                    {branch.address?.city}, {branch.address?.state}
+                                    {typeof branch.address === "object" && branch.address?.area?.trim()
+                                      ? branch.address.area.trim()
+                                      : typeof branch.address === "object"
+                                        ? [branch.address?.city, branch.address?.state].filter(Boolean).join(", ")
+                                        : ""}
                                   </span>
                                 </div>
                               </SelectItem>

@@ -78,7 +78,7 @@ export default function BranchesList() {
   const [assignmentError, setAssignmentError] = useState<string | null>(null)
   // Add state for pagination
 const [currentPage, setCurrentPage] = useState(1)
-const itemsPerPage = 5
+const itemsPerPage = 15
 
   // Fetch branches from API
   useEffect(() => {

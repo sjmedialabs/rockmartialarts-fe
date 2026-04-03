@@ -9,14 +9,19 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRegistration } from "@/contexts/RegistrationContext"
 import { useCMS } from "@/contexts/CMSContext"
-import { Calendar } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { submitLead } from "@/lib/submitLead"
 import { RegPhoneOtpSection } from "@/components/register/RegPhoneOtpSection"
+import {
+  extractIndianMobileDigits,
+  isValidIndianMobileNational,
+  toIndianE164FromNational,
+} from "@/lib/indianMobile"
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { registrationData, updateRegistrationData } = useRegistration()
+  const { registrationData, updateRegistrationData, registrationStorageReady } = useRegistration()
   const { cms } = useCMS()
   
   const [formData, setFormData] = useState({
@@ -35,20 +40,41 @@ export default function RegisterPage() {
   const [checkingPhone, setCheckingPhone] = useState(false)
   const [phoneExists, setPhoneExists] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [dobFocused, setDobFocused] = useState(false)
   const emailCheckSeq = useRef(0)
   const phoneCheckSeq = useRef(0)
+  const registrationHydrated = useRef(false)
 
   const normalizedEmail = useMemo(() => formData.email.trim().toLowerCase(), [formData.email])
-  const normalizedMobile = useMemo(() => formData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10) || "", [formData.mobile])
+  /** National 10 digits only (input is capped at 10; paste may normalize via extract). */
+  const normalizedMobile = formData.mobile
 
   const validateEmail = (email: string): boolean => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
-  const validateMobile = (mobile: string): boolean => {
-    // Accept 10-digit numbers, optionally prefixed with +91 or 0
-    return /^(\+91[\-\s]?)?[0]?[6-9]\d{9}$/.test(mobile.replace(/[\s\-]/g, ''))
-  }
+  const validateMobile = (digits10: string): boolean => isValidIndianMobileNational(digits10)
+
+  // One-time hydrate from persisted registration (localStorage loads after first paint).
+  useEffect(() => {
+    if (!registrationStorageReady || registrationHydrated.current) return
+    registrationHydrated.current = true
+    const d = extractIndianMobileDigits(registrationData.mobile)
+    setFormData({
+      firstName: registrationData.firstName || "",
+      lastName: registrationData.lastName || "",
+      email: registrationData.email || "",
+      mobile: d.length === 10 ? d : "",
+      gender: registrationData.gender || "",
+      dob: registrationData.dob || "",
+      password: registrationData.password || "",
+    })
+  }, [registrationStorageReady])
+
+  const apiPhone =
+    normalizedMobile.length === 10 && isValidIndianMobileNational(normalizedMobile)
+      ? toIndianE164FromNational(normalizedMobile)
+      : ""
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -80,8 +106,8 @@ export default function RegisterPage() {
     if (!formData.dob) {
       newErrors.dob = "Date of birth is required"
     }
-    const mobileNorm = formData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10)
-    const ctxNorm = registrationData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10)
+    const mobileNorm = formData.mobile
+    const ctxNorm = extractIndianMobileDigits(registrationData.mobile)
     const tokenOk =
       !!registrationData.phoneVerificationToken?.trim() &&
       mobileNorm.length === 10 &&
@@ -225,7 +251,7 @@ export default function RegisterPage() {
       await submitLead({
         name: leadName || "Prospect",
         email: normalizedEmail,
-        phone: formData.mobile,
+        phone: toIndianE164FromNational(normalizedMobile),
         course: "",
         source: "registration_step1",
       })
@@ -234,7 +260,7 @@ export default function RegisterPage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: normalizedEmail,
-        mobile: formData.mobile,
+        mobile: toIndianE164FromNational(normalizedMobile),
         gender: formData.gender,
         dob: formData.dob,
         password: formData.password,
@@ -248,12 +274,15 @@ export default function RegisterPage() {
   }
 
   const handleInputChange = (field: string, value: string) => {
-    if (field === "mobile" && registrationData.phoneVerificationToken) {
-      const newNorm = value.replace(/\D/g, "").replace(/^91/, "").slice(-10)
-      const storedNorm = registrationData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10)
-      if (newNorm !== storedNorm) {
-        updateRegistrationData({ phoneVerificationToken: "" })
+    if (field === "mobile") {
+      const v = extractIndianMobileDigits(value).slice(0, 10)
+      if (registrationData.phoneVerificationToken) {
+        const storedDigits = extractIndianMobileDigits(registrationData.mobile)
+        if (v !== storedDigits) {
+          updateRegistrationData({ phoneVerificationToken: "" })
+        }
       }
+      value = v
     }
     setFormData((prev) => ({ ...prev, [field]: value }))
     if (errors[field]) {
@@ -267,7 +296,7 @@ export default function RegisterPage() {
   const handlePhoneOtpVerified = (token: string) => {
     updateRegistrationData({
       phoneVerificationToken: token,
-      mobile: formData.mobile,
+      mobile: toIndianE164FromNational(normalizedMobile),
     })
     setErrors((prev) => ({ ...prev, phoneOtp: "" }))
   }
@@ -279,11 +308,11 @@ export default function RegisterPage() {
     !checkingPhone &&
     !errors.mobile
 
-  const storedMobileNorm = registrationData.mobile.replace(/\D/g, "").replace(/^91/, "").slice(-10)
+  const storedMobileDigits = extractIndianMobileDigits(registrationData.mobile)
   const phoneOtpVerified =
     !!registrationData.phoneVerificationToken?.trim() &&
     normalizedMobile.length === 10 &&
-    normalizedMobile === storedMobileNorm
+    normalizedMobile === storedMobileDigits
 
   const registrationMediaUrl = cms?.homepage?.registration_media_url
   const registrationMediaType = cms?.homepage?.registration_media_type || "auto"
@@ -322,10 +351,21 @@ export default function RegisterPage() {
       {/* Right Side - Registration Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-6">
+          <div className="flex justify-start">
+            <Button
+              type="button"
+              variant="ghost"
+              className="gap-2 pl-0 text-gray-700 hover:text-gray-900 -ml-2"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </div>
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-black">Registration</h1>
-            <p className="text-gray-500 text-sm">Please login to continue to your account.</p>
+            <p className="text-gray-500 text-sm">Enter your details to create your account and continue registration.</p>
           </div>
 
           {/* Registration Form */}
@@ -340,20 +380,20 @@ export default function RegisterPage() {
               <div>
                 <Input
                   type="text"
-                  placeholder="First Name"
+                  placeholder="Enter first name"
                   value={formData.firstName}
                   onChange={(e) => handleInputChange("firstName", e.target.value)}
-                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.firstName ? '!border !border-red-500' : ''}`}
+                  className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.firstName ? '!border !border-red-500' : ''}`}
                 />
                 {errors.firstName && <p className="text-red-500 text-xs mt-1 ml-1">{errors.firstName}</p>}
               </div>
               <div>
                 <Input
                   type="text"
-                  placeholder="Last Name"
+                  placeholder="Enter last name"
                   value={formData.lastName}
                   onChange={(e) => handleInputChange("lastName", e.target.value)}
-                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.lastName ? '!border !border-red-500' : ''}`}
+                  className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.lastName ? '!border !border-red-500' : ''}`}
                 />
                 {errors.lastName && <p className="text-red-500 text-xs mt-1 ml-1">{errors.lastName}</p>}
               </div>
@@ -364,10 +404,10 @@ export default function RegisterPage() {
               <div>
                 <Input
                   type="email"
-                  placeholder="Email Address"
+                  placeholder="Enter your email address"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
-                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.email ? '!border !border-red-500' : ''}`}
+                  className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.email ? '!border !border-red-500' : ''}`}
                 />
                 {errors.email && <p className="text-red-500 text-xs mt-1 ml-1">{errors.email}</p>}
                 {!errors.email && checkingEmail && (
@@ -375,13 +415,26 @@ export default function RegisterPage() {
                 )}
               </div>
               <div>
-                <Input
-                  type="tel"
-                  placeholder="Mobile Number"
-                  value={formData.mobile}
-                  onChange={(e) => handleInputChange("mobile", e.target.value)}
-                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.mobile ? '!border !border-red-500' : ''}`}
-                />
+                <div
+                  className={`flex items-stretch rounded-xl h-14 overflow-hidden bg-[#F9F8FF] ${errors.mobile ? "ring-2 ring-red-500 ring-inset" : ""}`}
+                >
+                  <span
+                    className="flex items-center pl-5 pr-2 text-[14px] text-gray-600 shrink-0 select-none border-0"
+                    aria-hidden
+                  >
+                    +91
+                  </span>
+                  <Input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    maxLength={10}
+                    placeholder="Enter 10-digit mobile number"
+                    value={formData.mobile}
+                    onChange={(e) => handleInputChange("mobile", e.target.value)}
+                    className="flex-1 min-w-0 border-0 rounded-none h-14 bg-transparent shadow-none focus-visible:ring-0 pr-5 py-4 text-[14px] placeholder:text-[#000]/70"
+                  />
+                </div>
                 {errors.mobile && <p className="text-red-500 text-xs mt-1 ml-1">{errors.mobile}</p>}
                 {!errors.mobile && checkingPhone && (
                   <p className="text-gray-500 text-xs mt-1 ml-1">Checking phone...</p>
@@ -390,7 +443,7 @@ export default function RegisterPage() {
             </div>
 
             <RegPhoneOtpSection
-              phone={formData.mobile}
+              apiPhone={apiPhone}
               normalizedMobile={normalizedMobile}
               readyForOtp={readyForPhoneOtp}
               isVerified={phoneOtpVerified}
@@ -403,10 +456,10 @@ export default function RegisterPage() {
             {/* Password Field */}
             <div>
               <PasswordInput
-                placeholder="Password"
+                placeholder="Enter password"
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
-                className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.password ? '!border !border-red-500' : ''}`}
+                className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.password ? '!border !border-red-500' : ''}`}
               />
               {errors.password && <p className="text-red-500 text-xs mt-1 ml-1">{errors.password}</p>}
             </div>
@@ -427,14 +480,25 @@ export default function RegisterPage() {
                 {errors.gender && <p className="text-red-500 text-xs mt-1 ml-1">{errors.gender}</p>}
               </div>
 
-              <div>
+              <div className="relative">
+                <label htmlFor="register-dob" className="sr-only">
+                  Date of birth
+                </label>
                 <Input
+                  id="register-dob"
                   type="date"
-                  placeholder="Date of Birth"
+                  placeholder="Date of birth"
                   value={formData.dob}
                   onChange={(e) => handleInputChange("dob", e.target.value)}
-                  className={`pl-5 py-4 text-[8px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${errors.dob ? '!border !border-red-500' : ''}`}
+                  onFocus={() => setDobFocused(true)}
+                  onBlur={() => setDobFocused(false)}
+                  className={`pl-5 py-4 text-[14px] bg-[#F9F8FF] border-0 rounded-xl h-14 placeholder:text-[#000] ${!formData.dob && !dobFocused ? "text-transparent" : ""} ${errors.dob ? '!border !border-red-500' : ''}`}
                 />
+                {!formData.dob && !dobFocused && (
+                  <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[14px] text-[#000]/80">
+                    Date of birth
+                  </span>
+                )}
                 {errors.dob && <p className="text-red-500 text-xs mt-1 ml-1">{errors.dob}</p>}
               </div>
             </div>

@@ -35,6 +35,11 @@ function ResetPasswordForm() {
     setError(null);
     setSuccess(null);
 
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       toast.error("Passwords do not match.");

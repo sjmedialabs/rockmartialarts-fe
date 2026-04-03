@@ -37,6 +37,18 @@ export default function StudentDashboardHeader({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [profileImage, setProfileImage] = useState<string>("")
+
+  const readProfileImage = () => {
+    try {
+      const raw = localStorage.getItem("user")
+      if (!raw) return
+      const u = JSON.parse(raw) as { profile_image?: string }
+      setProfileImage(u.profile_image || "")
+    } catch {
+      setProfileImage("")
+    }
+  }
 
   // *** MOVED HERE: Call usePermissions at the top level, before any early returns ***
   const { hasPermission } = usePermissions('student')
@@ -45,6 +57,13 @@ export default function StudentDashboardHeader({
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    readProfileImage()
+    const onUpdate = () => readProfileImage()
+    window.addEventListener("student-profile-image-updated", onUpdate)
+    return () => window.removeEventListener("student-profile-image-updated", onUpdate)
+  }, [pathname, studentName])
 
   const isActivePath = (path: string) => {
     if (!mounted) return false
@@ -248,7 +267,7 @@ export default function StudentDashboardHeader({
                     className="flex border border-gray-200 items-center space-x-2 hover:bg-gray-100/80 rounded-lg px-2 py-2 transition-all duration-200 hover:shadow-sm"
                   >
                     <Avatar className="w-6 h-6 ring-2 ring-gray-200/50 hover:ring-yellow-400/30 transition-all duration-200">
-                      <AvatarImage src="" />
+                      <AvatarImage src={profileImage} alt="" />
                       <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white font-semibold text-xs">
                         {studentName.charAt(0).toUpperCase()}
                       </AvatarFallback>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,7 @@ import { ReportsBreadcrumb } from "@/components/breadcrumb"
 import { notFound } from 'next/navigation'
 import { studentAPI } from "@/lib/studentAPI"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 // Branch interface (same as branches page)
 interface Branch {
@@ -186,30 +187,37 @@ const REPORT_CATEGORIES = [
 function CategoryReportsPageContent() {
   const params = useParams()
   const router = useRouter()
+  const pathname = usePathname()
   const basePath = useDashboardBasePath()
   const { user } = useAuth()
 
   const categoryId = params.categoryId as string
+  const isBranchAdminRoute =
+    typeof pathname === "string" && pathname.startsWith("/branch-admin/dashboard")
 
   // Authentication check
   useEffect(() => {
-    if (!TokenManager.isAuthenticated()) {
+    if (!TokenManager.isAuthenticated() && !BranchManagerAuth.getToken()) {
       console.log("❌ User not authenticated")
       router.push('/login')
       return
     }
 
-    const currentUser = TokenManager.getUser()
+    const currentUser =
+      TokenManager.getUser() ||
+      (BranchManagerAuth.getCurrentUser() as { role?: string } | null)
     if (!currentUser) {
       console.log("❌ No user data found")
       router.push('/login')
       return
     }
 
-    // Check if user is superadmin
-    if (currentUser.role !== "superadmin" && currentUser.role !== "super_admin") {
-      console.log("❌ User is not superadmin:", currentUser.role)
-      // Redirect based on user role
+    const isSuperAdmin =
+      currentUser.role === "superadmin" || currentUser.role === "super_admin"
+    const isBranchManager = currentUser.role === "branch_manager"
+
+    if (!isSuperAdmin && !(isBranchAdminRoute && isBranchManager)) {
+      console.log("❌ User is not allowed on this reports view:", currentUser.role)
       if (currentUser.role === "student") {
         router.push("/student-dashboard")
       } else if (currentUser.role === "coach") {
@@ -221,7 +229,7 @@ function CategoryReportsPageContent() {
       }
       return
     }
-  }, [router])
+  }, [router, isBranchAdminRoute])
 
   // Enhanced state management
   const [searchTerm, setSearchTerm] = useState("")
@@ -276,6 +284,17 @@ function CategoryReportsPageContent() {
     payment_method: "",
     search: ""
   })
+
+  // Branch Admin: scope financial reports to their branch (no API change; filter enforced client + request)
+  useEffect(() => {
+    if (categoryId !== "financial" || !isBranchAdminRoute) return
+    const bm = BranchManagerAuth.getCurrentUser()
+    if (!bm || bm.role !== "branch_manager") return
+    const bid = bm.branch_id || bm.managed_branches?.[0]
+    if (bid) {
+      setFilters((prev) => ({ ...prev, branch_id: bid }))
+    }
+  }, [categoryId, isBranchAdminRoute])
 
   // Custom date range state
   const [customStartDate, setCustomStartDate] = useState("")
@@ -751,7 +770,7 @@ function CategoryReportsPageContent() {
 
   // Financial Reports Handler
   const handleFinancialSearch = async () => {
-    const token = TokenManager.getToken()
+    const token = BranchManagerAuth.getToken() || TokenManager.getToken()
     if (!token) {
       toast.error('Authentication required')
       return
@@ -761,9 +780,15 @@ function CategoryReportsPageContent() {
     setHasSearched(true)
 
     try {
+      const bmBranch =
+        isBranchAdminRoute && BranchManagerAuth.getCurrentUser()?.role === "branch_manager"
+          ? BranchManagerAuth.getCurrentUser()?.branch_id ||
+            BranchManagerAuth.getCurrentUser()?.managed_branches?.[0]
+          : undefined
+
       // Prepare filters for API call
       const apiFilters = {
-        branch_id: filters.branch_id || undefined,
+        branch_id: (bmBranch || filters.branch_id) || undefined,
         payment_type: filters.payment_type || undefined,
         payment_method: filters.payment_method || undefined,
         payment_status: filters.status || undefined,

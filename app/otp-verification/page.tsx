@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { useRegistration } from "@/contexts/RegistrationContext"
+import { normalizeToIndianE164 } from "@/lib/indianMobile"
 
 const DIGITS = 6
+const RESEND_COOLDOWN_SEC = 30
 
 function OtpVerificationInner() {
   const router = useRouter()
@@ -21,10 +23,22 @@ function OtpVerificationInner() {
   const [sendBusy, setSendBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
-  const phone = registrationData.mobile?.trim() || ""
-  const masked = phone.length >= 4 ? `xxxxxx${phone.slice(-4)}` : phone || "your number"
+  const phone = normalizeToIndianE164(registrationData.mobile?.trim() || "") || ""
+  const masked =
+    phone.length >= 4 ? `xxxxxx${phone.slice(-4)}` : phone || "your number"
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const t = setInterval(() => {
+      setResendCooldown((s) => (s <= 1 ? 0 : s - 1))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [resendCooldown])
+
+  const startResendCooldown = () => setResendCooldown(RESEND_COOLDOWN_SEC)
 
   useEffect(() => {
     if (!phone) {
@@ -52,7 +66,10 @@ function OtpVerificationInner() {
           if (!cancelled) setErr(d)
           return
         }
-        if (!cancelled) setMsg("OTP sent. Check your SMS.")
+        if (!cancelled) {
+          setMsg("OTP sent. Check your SMS.")
+          startResendCooldown()
+        }
       } catch {
         if (!cancelled) setErr("Network error sending OTP.")
       } finally {
@@ -97,10 +114,13 @@ function OtpVerificationInner() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const d =
+        let d =
           typeof data?.detail === "string"
             ? data.detail
             : "Verification failed"
+        if (/otp expired|expired.*resend/i.test(d)) {
+          d = "OTP expired. Please resend."
+        }
         setErr(d)
         return
       }
@@ -109,7 +129,7 @@ function OtpVerificationInner() {
         setErr("Invalid server response.")
         return
       }
-      updateRegistrationData({ phoneVerificationToken: token })
+      updateRegistrationData({ phoneVerificationToken: token, mobile: phone })
       router.push(nextPath.startsWith("/") ? nextPath : "/register/payment")
     } catch {
       setErr("Network error. Try again.")
@@ -119,7 +139,7 @@ function OtpVerificationInner() {
   }
 
   const handleResendOTP = async () => {
-    if (!phone || sendBusy) return
+    if (!phone || sendBusy || resendCooldown > 0) return
     setSendBusy(true)
     setErr(null)
     try {
@@ -138,6 +158,7 @@ function OtpVerificationInner() {
         return
       }
       setMsg("A new OTP has been sent.")
+      startResendCooldown()
     } catch {
       setErr("Network error.")
     } finally {
@@ -212,10 +233,14 @@ function OtpVerificationInner() {
                 <button
                   type="button"
                   onClick={handleResendOTP}
-                  disabled={sendBusy || !phone}
+                  disabled={sendBusy || !phone || resendCooldown > 0}
                   className="text-red-500 hover:text-red-600 font-medium disabled:opacity-50"
                 >
-                  {sendBusy ? "Sending…" : "Resend OTP"}
+                  {sendBusy
+                    ? "Sending…"
+                    : resendCooldown > 0
+                      ? `Resend OTP (${resendCooldown}s)`
+                      : "Resend OTP"}
                 </button>
               </p>
             </div>

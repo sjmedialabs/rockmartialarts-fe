@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { getBackendApiUrl } from "@/lib/config"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,20 +13,42 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Upload, Plus, X, Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter, useParams, usePathname } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { uploadFile } from "@/lib/upload"
 import CourseFormSections, { PageContent } from "@/components/dashboard/CourseFormSections"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+
+function resolveCoursesDashboardBase(pathname: string | null): string {
+  if (!pathname) return "/super-admin/dashboard"
+  if (pathname.startsWith("/branch-admin")) return "/branch-admin/dashboard"
+  if (pathname.startsWith("/branch-manager-dashboard")) return "/branch-manager-dashboard"
+  if (pathname.startsWith("/super-admin")) return "/super-admin/dashboard"
+  return "/dashboard"
+}
+
+function getDashboardAccessToken(): string | null {
+  return BranchManagerAuth.getToken() || TokenManager.getToken()
+}
 
 export default function EditCoursePage() {
   const router = useRouter()
   const params = useParams()
+  const pathname = usePathname()
   const courseId = params.id as string
   const { toast } = useToast()
   const { user } = useAuth()
+  const coursesBasePath = useMemo(() => resolveCoursesDashboardBase(pathname), [pathname])
+  const isBranchFeeOnly = useMemo(
+    () =>
+      user?.role === "branch_manager" ||
+      (typeof pathname === "string" &&
+        (pathname.startsWith("/branch-admin") || pathname.startsWith("/branch-manager-dashboard"))),
+    [user?.role, pathname]
+  )
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -89,13 +111,19 @@ export default function EditCoursePage() {
     .sort((a, b) => a.display_order - b.display_order)
   const allowedTenureIds = new Set(allowedTenureOptions.map((d) => d.id))
 
+  useEffect(() => {
+    if (isBranchFeeOnly && !isLoading) {
+      setFormData((prev) => ({ ...prev, branchSpecificPricing: true }))
+    }
+  }, [isBranchFeeOnly, isLoading])
+
   // Fetch categories on mount
   // Fetch categories on mount
   useEffect(() => {
     // Fetch existing course data
     const fetchCourseData = async () => {
       try {
-        const token = TokenManager.getToken()
+        const token = getDashboardAccessToken()
         if (!token) {
           toast({
             title: "Authentication Error",
@@ -208,7 +236,7 @@ export default function EditCoursePage() {
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true)
-        const token = TokenManager.getToken()
+        const token = getDashboardAccessToken()
         const response = await fetch(getBackendApiUrl('categories?active_only=true'), {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -258,7 +286,7 @@ export default function EditCoursePage() {
   useEffect(() => {
     const fetchDifficultyLevels = async () => {
       try {
-        const token = TokenManager.getToken()
+        const token = getDashboardAccessToken()
         const response = await fetch(getBackendApiUrl('dropdown-settings/difficulty_levels'), {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -308,7 +336,7 @@ export default function EditCoursePage() {
   useEffect(() => {
     const fetchDurations = async () => {
       try {
-        const token = TokenManager.getToken()
+        const token = getDashboardAccessToken()
         const response = await fetch(getBackendApiUrl('durations'), {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         })
@@ -468,7 +496,7 @@ export default function EditCoursePage() {
     const fetchBranches = async () => {
       setLoadingBranches(true)
       try {
-        const token = TokenManager.getToken()
+        const token = getDashboardAccessToken()
         const res = await fetch(getBackendApiUrl('branches?active_only=true'), {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -521,6 +549,103 @@ export default function EditCoursePage() {
     setIsSubmitting(true)
 
     try {
+      if (isBranchFeeOnly) {
+        const entries = branchPrices
+          .map((bp, idx) => ({ bp, idx }))
+          .filter(({ bp }) => Boolean((bp as any).branch_id))
+        if (entries.length === 0) {
+          toast({
+            title: "Validation Error",
+            description: "Select your branch and add tenure fees.",
+            variant: "destructive",
+          })
+          setIsSubmitting(false)
+          return
+        }
+        let hasFee = false
+        for (const { bp, idx } of entries) {
+          const tenures = addedBranchTenures[idx] || []
+          const fd = (bp as any).fee_per_duration || {}
+          for (const tid of tenures) {
+            const v = fd[tid]
+            if (v !== "" && v !== undefined && parseFloat(String(v)) > 0) hasFee = true
+          }
+        }
+        if (!hasFee) {
+          toast({
+            title: "Validation Error",
+            description: "Enter at least one branch tenure fee greater than zero.",
+            variant: "destructive",
+          })
+          setIsSubmitting(false)
+          return
+        }
+        const branch_prices = entries.map(({ bp, idx }) => {
+          const tenures = addedBranchTenures[idx] || []
+          const fd = (bp as any).fee_per_duration || {}
+          const entry: Record<string, unknown> = { branch_id: (bp as any).branch_id, currency: "INR" }
+          const feePerDur: Record<string, number> = {}
+          tenures.forEach((id) => {
+            const v = fd[id]
+            if (v !== "" && v !== undefined) {
+              const n = parseFloat(String(v))
+              if (!Number.isNaN(n)) feePerDur[id] = n
+            }
+          })
+          if (Object.keys(feePerDur).length > 0) entry.fee_per_duration = feePerDur
+          return entry
+        })
+        const token = getDashboardAccessToken()
+        if (!token) {
+          toast({
+            title: "Authentication Error",
+            description: "No authentication token available. Please login again.",
+            variant: "destructive",
+          })
+          setIsSubmitting(false)
+          return
+        }
+        const response = await fetch(getBackendApiUrl(`courses/${courseId}`), {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            pricing: {
+              currency: "INR",
+              amount: 0,
+              branch_specific_pricing: true,
+              branch_prices,
+            },
+          }),
+        })
+        const result = await response.json()
+        if (!response.ok) {
+          let errorMessage = `Failed to update branch fees (${response.status})`
+          if (result.detail) {
+            if (Array.isArray(result.detail)) {
+              errorMessage = result.detail
+                .map((err: { loc?: string[]; msg?: string }) =>
+                  `${err.loc ? err.loc.join(".") : "Field"}: ${err.msg}`
+                )
+                .join(", ")
+            } else if (typeof result.detail === "string") {
+              errorMessage = result.detail
+            } else if (typeof result.detail === "object") {
+              errorMessage = JSON.stringify(result.detail)
+            }
+          } else if (result.message) {
+            errorMessage = result.message
+          }
+          throw new Error(errorMessage)
+        }
+        toast({ title: "Success!", description: "Branch fees updated successfully." })
+        setShowSuccessPopup(true)
+        setIsSubmitting(false)
+        return
+      }
+
       if (!formData.courseTitle || !formData.courseCode || !formData.description) {
         toast({
           title: "Validation Error",
@@ -635,7 +760,7 @@ export default function EditCoursePage() {
         }
       }
 
-      const token = TokenManager.getToken()
+      const token = getDashboardAccessToken()
 
       if (!token) {
         toast({
@@ -703,7 +828,7 @@ export default function EditCoursePage() {
     formData.append('file', file)
 
     try {
-      const token = TokenManager.getToken()
+      const token = getDashboardAccessToken()
       const response = await fetch(getBackendApiUrl('upload'), {
         method: 'POST',
         headers: {
@@ -750,7 +875,7 @@ export default function EditCoursePage() {
 
   const handleSuccessOk = () => {
     setShowSuccessPopup(false)
-    router.push("/dashboard/courses")
+    router.push(`${coursesBasePath}/courses`)
   }
 
   if (isLoading) {
@@ -774,11 +899,18 @@ export default function EditCoursePage() {
       <main className="w-full py-4 px-4 lg:px-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-[#4F5077]">Edit Course</h1>
+            <h1 className="text-3xl font-bold text-[#4F5077]">
+              {isBranchFeeOnly ? "Branch course fees" : "Edit Course"}
+            </h1>
+            {isBranchFeeOnly && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Edit fees for your branch only. Other course details are managed by a super admin.
+              </p>
+            )}
           </div>
           <Button
             variant="outline"
-            onClick={() => router.push("/dashboard/courses")}
+            onClick={() => router.push(`${coursesBasePath}/courses`)}
             className="flex items-center space-x-2"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -788,6 +920,43 @@ export default function EditCoursePage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
+            {isBranchFeeOnly ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-[#4F5077]">Course information (read-only)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-[#7D8592]">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Title</p>
+                    <p className="font-medium text-gray-900">{formData.courseTitle || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Code</p>
+                    <p className="font-medium text-gray-900">{formData.courseCode || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Description</p>
+                    <p className="whitespace-pre-wrap">{formData.description || "—"}</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Category</p>
+                      <p className="font-medium">{categories.find((c) => c.id === formData.category)?.name || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Difficulty</p>
+                      <p className="font-medium">{formData.difficultyLevel || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Duration</p>
+                      <p className="font-medium">
+                        {courseDurations.find((d) => d.value === formData.duration)?.label || "—"}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -1329,7 +1498,7 @@ export default function EditCoursePage() {
                       <Button 
                         type="button" 
                         variant="outline" 
-                        onClick={() => router.push("/dashboard/courses")}
+                        onClick={() => router.push(`${coursesBasePath}/courses`)}
                         disabled={isSubmitting}
                       >
                         Cancel
@@ -1339,6 +1508,7 @@ export default function EditCoursePage() {
                 </form>
               </CardContent>
             </Card>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -1347,6 +1517,7 @@ export default function EditCoursePage() {
                 <CardTitle className="text-[#4F5077]">Pricing & Availability</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-[#7D8592]">
+                {!isBranchFeeOnly && (
                 <div className="space-y-3">
                   <Label className="font-medium">Course fees by tenure (India – INR)</Label>
                   <p className="text-xs text-muted-foreground">Tenure options are based on the course duration selected above. Add fees for the tenures you offer.</p>
@@ -1419,7 +1590,9 @@ export default function EditCoursePage() {
                     </>
                   )}
                 </div>
+                )}
 
+                {!isBranchFeeOnly && (
                 <div className="flex items-center justify-between">
                   <Label htmlFor="branchSpecificPricing">Branch-specific pricing</Label>
                   <Switch
@@ -1428,9 +1601,16 @@ export default function EditCoursePage() {
                     onCheckedChange={(checked) => setFormData({ ...formData, branchSpecificPricing: checked })}
                   />
                 </div>
+                )}
+
+                {isBranchFeeOnly && (
+                  <p className="text-xs text-muted-foreground">
+                    Add tenures and amounts for your branch. Global course fees are set by a super admin.
+                  </p>
+                )}
 
                 {/* Branch-Specific Pricing Section */}
-                {formData.branchSpecificPricing && (
+                {(formData.branchSpecificPricing || isBranchFeeOnly) && (
                   <div className="space-y-4 border-t pt-4">
                     <div className="flex justify-between items-center">
                       <Label className="text-md font-semibold">Branch-specific fees (add tenures per branch)</Label>
@@ -1598,9 +1778,41 @@ export default function EditCoursePage() {
                   </div>
                 )}
 
+                {isBranchFeeOnly && (
+                  <div className="pt-4 border-t flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      className="bg-yellow-400 hover:bg-yellow-500 text-white"
+                      disabled={isSubmitting}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        void handleSubmit(e as unknown as React.FormEvent)
+                      }}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save branch fees"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isSubmitting}
+                      onClick={() => router.push(`${coursesBasePath}/courses`)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+
               </CardContent>
             </Card>
 
+            {!isBranchFeeOnly && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-[#4F5077]">Course Overview</CardTitle>
@@ -1671,6 +1883,7 @@ export default function EditCoursePage() {
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
         </div>
       </main>

@@ -283,23 +283,38 @@ class PaymentAPI extends BaseAPI {
   /**
    * Format payment method for display
    */
-  formatPaymentMethod(method: string): string {
-    switch (method.toLowerCase()) {
+  formatPaymentMethod(method: string | null | undefined): string {
+    const m = (method || '').toLowerCase()
+    switch (m) {
       case 'credit_card':
-        return 'Credit Card'
+        return 'Credit card'
       case 'debit_card':
-        return 'Debit Card'
+        return 'Debit card'
       case 'upi':
         return 'UPI'
       case 'net_banking':
-        return 'Net Banking'
+        return 'Net banking'
+      case 'digital_wallet':
+        return 'Online (UPI / card / wallet)'
       case 'cash':
         return 'Cash'
+      case 'bank_transfer':
+        return 'Bank transfer'
       case 'cheque':
         return 'Cheque'
       default:
-        return method
+        return m ? m.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '—'
     }
+  }
+
+  /** Prefer gateway label from API (UPI, card network, etc.); else format payment_method. */
+  formatPaymentSource(payment: {
+    gateway_payment_label?: string | null
+    payment_method?: string | null
+  }): string {
+    const label = payment.gateway_payment_label?.trim()
+    if (label) return label
+    return this.formatPaymentMethod(payment.payment_method || '')
   }
 }
 

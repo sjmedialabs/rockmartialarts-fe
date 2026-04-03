@@ -1,10 +1,10 @@
 "use client"
 
 import { motion, useInView, useReducedMotion } from "framer-motion"
-import { useRef, ReactNode } from "react"
+import { useRef, Children, ReactNode } from "react"
 
 interface AnimatedStaggerGridProps {
-  children: ReactNode[]
+  children: ReactNode
   /** Delay between each child (seconds) */
   staggerDelay?: number
   /** Class for the grid container */
@@ -27,11 +27,13 @@ export function AnimatedStaggerGrid({
   const inView = useInView(ref, { once: true, margin: "-60px 0px", amount: 0.1 })
   const shouldReduceMotion = useReducedMotion()
 
+  const items = Children.toArray(children).filter((c) => c != null && c !== false)
+
   if (shouldReduceMotion) {
     return (
       <div ref={ref} className={className}>
-        {children.map((child, i) => (
-          <div key={i} className={childClassName}>
+        {items.map((child, i) => (
+          <div key={i} className={`min-w-0 ${childClassName}`.trim()}>
             {child}
           </div>
         ))}
@@ -54,10 +56,10 @@ export function AnimatedStaggerGrid({
         },
       }}
     >
-      {children.map((child, i) => (
+      {items.map((child, i) => (
         <motion.div
           key={i}
-          className={childClassName}
+          className={`min-w-0 ${childClassName}`.trim()}
           variants={{
             hidden: { opacity: 0, y: 20 },
             visible: {

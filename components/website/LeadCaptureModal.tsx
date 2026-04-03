@@ -124,10 +124,10 @@ export function LeadCaptureModal() {
 
   return (
     <Dialog open={open}>
-      <DialogContent className="bg-[#171A26] border-gray-800 text-white max-w-md" showCloseButton={false}>
+      <DialogContent className="max-w-md border-gray-200 bg-white text-gray-900 shadow-xl" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Get a call from our team</DialogTitle>
-          <DialogDescription className="text-gray-300">
+          <DialogDescription className="text-gray-600">
             Share your details and preferred branch. Our team will contact you with course options and fees.
           </DialogDescription>
         </DialogHeader>
@@ -135,13 +135,13 @@ export function LeadCaptureModal() {
           {submitError ? (
             <div
               role="alert"
-              className="rounded-md border border-red-500/60 bg-red-950/80 px-3 py-2 text-sm text-red-100"
+              className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
             >
               {submitError}
             </div>
           ) : null}
           <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-200">Name</label>
+            <label className="text-sm font-medium text-gray-800">Name</label>
             <Input
               value={name}
               onChange={(e) => {
@@ -153,7 +153,7 @@ export function LeadCaptureModal() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-200">Phone number</label>
+            <label className="text-sm font-medium text-gray-800">Phone number</label>
             <Input
               value={phone}
               onChange={(e) => {
@@ -165,7 +165,7 @@ export function LeadCaptureModal() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-200">Select branch</label>
+            <label className="text-sm font-medium text-gray-800">Select branch</label>
             <Select
               value={branchId}
               onValueChange={(v) => {
@@ -173,10 +173,10 @@ export function LeadCaptureModal() {
                 setSubmitError(null)
               }}
             >
-              <SelectTrigger className="bg-[#11131C] border-gray-700 text-white">
+              <SelectTrigger className="border-gray-200 bg-white text-gray-900">
                 <SelectValue placeholder="Choose a branch" />
               </SelectTrigger>
-              <SelectContent className="bg-[#11131C] border-gray-700 text-white">
+              <SelectContent className="border-gray-200 bg-white text-gray-900">
                 {branches.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.name}
@@ -187,7 +187,7 @@ export function LeadCaptureModal() {
           </div>
           <Button
             type="submit"
-            className="w-full bg-[#FFB70F] text-[#171A26] hover:bg-[#FFB70F]/90"
+            className="w-full bg-amber-500 text-white hover:bg-amber-600"
             disabled={submitting}
           >
             {submitting ? "Submitting..." : "Submit"}
@@ -196,7 +196,7 @@ export function LeadCaptureModal() {
         <button
           type="button"
           onClick={handleSkip}
-          className="mt-3 w-full text-sm text-gray-400 hover:text-white transition-colors"
+          className="mt-3 w-full text-sm text-gray-500 hover:text-gray-800 transition-colors"
         >
           Skip for now
         </button>

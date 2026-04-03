@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { format } from "date-fns"
+import { useRouter, usePathname } from "next/navigation"
+import { format, parseISO } from "date-fns"
 import {
   BarChart,
   Bar,
@@ -41,6 +41,26 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import DashboardHeader from "@/components/dashboard-header"
 import { SuperAdminAuth } from "@/lib/auth"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { TokenManager } from "@/lib/tokenManager"
+import { formatTimeIST } from "@/lib/formatRegisteredDate"
+
+function getAttendanceAuthHeaders(): Record<string, string> | null {
+  if (typeof window === "undefined") return null
+  if (SuperAdminAuth.isAuthenticated()) {
+    return SuperAdminAuth.getAuthHeaders()
+  }
+  const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+  if (!token) return null
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  }
+}
+
+function isAttendanceAuthenticated(): boolean {
+  return !!getAttendanceAuthHeaders()
+}
 
 interface Student {
   id: string
@@ -79,6 +99,10 @@ interface AttendanceRecord {
   check_out_time?: string
   notes?: string
   date: string
+  /** Raw ISO from API for editing / re-save */
+  check_in_iso?: string | null
+  check_out_iso?: string | null
+  admin_adjusted?: boolean
 }
 
 interface AttendanceStats {
@@ -106,6 +130,23 @@ interface Course {
 
 export default function SuperAdminStudentAttendancePage() {
   const router = useRouter()
+  const pathname = usePathname()
+  const usesDashboardLayoutNav =
+    !!pathname &&
+    (pathname.startsWith("/super-admin/dashboard") ||
+      pathname.startsWith("/branch-admin/dashboard") ||
+      pathname.startsWith("/branch-manager-dashboard/"))
+
+  const canEditCheckInTime =
+    typeof window !== "undefined" &&
+    (SuperAdminAuth.isAuthenticated() ||
+      BranchManagerAuth.getCurrentUser()?.role === "branch_manager" ||
+      TokenManager.getUser()?.role === "branch_manager")
+
+  const canChangeAttendanceStatus =
+    typeof window !== "undefined" &&
+    (SuperAdminAuth.isAuthenticated() ||
+      BranchManagerAuth.getCurrentUser()?.role === "branch_manager")
 
   // Enhanced state management
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
@@ -145,6 +186,10 @@ export default function SuperAdminStudentAttendancePage() {
   // Saving state for individual records
   const [saveStatus, setSaveStatus] = useState<Record<string, 'idle' | 'saving' | 'success' | 'error'>>({})
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [editingCheckInId, setEditingCheckInId] = useState<string | null>(null)
+  const [checkInEditDraft, setCheckInEditDraft] = useState("")
+  const [editingCheckOutId, setEditingCheckOutId] = useState<string | null>(null)
+  const [checkOutEditDraft, setCheckOutEditDraft] = useState("")
 
   // Filter attendance records based on search and filters
   const filteredRecords = attendanceRecords.filter(record => {
@@ -178,9 +223,10 @@ export default function SuperAdminStudentAttendancePage() {
   // Fetch branches for filtering
   const fetchBranches = async () => {
     try {
-      if (!SuperAdminAuth.isAuthenticated()) return
+      if (!isAttendanceAuthenticated()) return
 
-      const headers = SuperAdminAuth.getAuthHeaders()
+      const headers = getAttendanceAuthHeaders()
+      if (!headers) return
       const response = await fetch('/api/backend/branches', {
         method: 'GET',
         headers
@@ -202,9 +248,10 @@ export default function SuperAdminStudentAttendancePage() {
   // Fetch courses for filtering
   const fetchCourses = async () => {
     try {
-      if (!SuperAdminAuth.isAuthenticated()) return
+      if (!isAttendanceAuthenticated()) return
 
-      const headers = SuperAdminAuth.getAuthHeaders()
+      const headers = getAttendanceAuthHeaders()
+      if (!headers) return
       const response = await fetch('/api/backend/courses', {
         method: 'GET',
         headers
@@ -229,12 +276,16 @@ export default function SuperAdminStudentAttendancePage() {
       setLoading(true)
       setError(null)
 
-      if (!SuperAdminAuth.isAuthenticated()) {
+      if (!isAttendanceAuthenticated()) {
         setError("Authentication required")
         return
       }
 
-      const headers = SuperAdminAuth.getAuthHeaders()
+      const headers = getAttendanceAuthHeaders()
+      if (!headers) {
+        setError("Authentication required")
+        return
+      }
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
 
       console.log(`🔄 Superadmin fetching attendance data for date: ${dateStr}`)
@@ -265,18 +316,31 @@ export default function SuperAdminStudentAttendancePage() {
             email: student.email || '',
             phone: student.phone || '',
             status: student.attendance?.status || "not_marked",
-            check_in_time: student.attendance?.check_in_time ?
-              new Date(student.attendance.check_in_time).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              }) : undefined,
-            check_out_time: student.attendance?.check_out_time ?
-              new Date(student.attendance.check_out_time).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              }) : undefined,
+            check_in_iso: student.attendance?.check_in_time
+              ? (typeof student.attendance.check_in_time === "string"
+                  ? student.attendance.check_in_time
+                  : new Date(student.attendance.check_in_time).toISOString())
+              : null,
+            check_out_iso: student.attendance?.check_out_time
+              ? (typeof student.attendance.check_out_time === "string"
+                  ? student.attendance.check_out_time
+                  : new Date(student.attendance.check_out_time).toISOString())
+              : null,
+            check_in_time: student.attendance?.check_in_time
+              ? formatTimeIST(
+                  typeof student.attendance.check_in_time === "string"
+                    ? student.attendance.check_in_time
+                    : new Date(student.attendance.check_in_time).toISOString()
+                )
+              : undefined,
+            check_out_time: student.attendance?.check_out_time
+              ? formatTimeIST(
+                  typeof student.attendance.check_out_time === "string"
+                    ? student.attendance.check_out_time
+                    : new Date(student.attendance.check_out_time).toISOString()
+                )
+              : undefined,
+            admin_adjusted: Boolean(student.attendance?.admin_adjusted),
             notes: student.attendance?.notes || "",
             date: dateStr
           }
@@ -329,7 +393,7 @@ export default function SuperAdminStudentAttendancePage() {
 
       console.log("🔄 Superadmin marking attendance for record:", recordId, "status:", status)
 
-      if (!SuperAdminAuth.isAuthenticated()) {
+      if (!isAttendanceAuthenticated()) {
         setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
         setError("Authentication required. Please log in again.")
         return
@@ -349,8 +413,14 @@ export default function SuperAdminStudentAttendancePage() {
         return
       }
 
-      const headers = SuperAdminAuth.getAuthHeaders()
+      const headers = getAttendanceAuthHeaders()
+      if (!headers) {
+        setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
+        setError("Authentication required. Please log in again.")
+        return
+      }
 
+      const checkIso = new Date().toISOString()
       const attendanceData = {
         user_id: record.student_id,
         user_type: "student",
@@ -358,7 +428,7 @@ export default function SuperAdminStudentAttendancePage() {
         branch_id: record.branch_id,
         attendance_date: `${record.date}T10:00:00Z`,
         status: status,
-        check_in_time: status !== "absent" ? new Date().toISOString() : null,
+        check_in_time: status !== "absent" ? checkIso : null,
         notes: `Marked by superadmin on ${format(new Date(), 'PPP')}`
       }
 
@@ -387,11 +457,8 @@ export default function SuperAdminStudentAttendancePage() {
               ? {
                   ...r,
                   status: status,
-                  check_in_time: status !== "absent" ? new Date().toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  }) : undefined,
+                  check_in_iso: status !== "absent" ? checkIso : null,
+                  check_in_time: status !== "absent" ? formatTimeIST(new Date()) : undefined,
                   notes: attendanceData.notes
                 }
               : r
@@ -448,6 +515,147 @@ export default function SuperAdminStudentAttendancePage() {
       console.error("❌ Error marking attendance:", error)
       setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
       setError(`❌ Network error: ${error instanceof Error ? error.message : 'Please check your connection and try again.'}`)
+    }
+  }
+
+  const isAttendanceStatusFinal = (s: string) =>
+    s === "present" || s === "late" || s === "absent"
+
+  const isStatusButtonDisabled = (
+    record: AttendanceRecord,
+    role: "present" | "late" | "absent"
+  ) => {
+    if (saveStatus[record.id] === "saving") return true
+    if (canChangeAttendanceStatus) return false
+    if (isAttendanceStatusFinal(record.status)) {
+      return record.status !== role
+    }
+    return false
+  }
+
+  const handleUpdateCheckInTime = async (recordId: string, iso: string) => {
+    const record = attendanceRecords.find((r) => r.id === recordId)
+    if (!record || record.status === "absent" || record.status === "not_marked") return
+    if (!canEditCheckInTime) return
+    if (record.check_out_iso) {
+      const tIn = new Date(iso).getTime()
+      const tOut = new Date(record.check_out_iso).getTime()
+      if (!(tOut > tIn)) {
+        setError("Check-out must be after check-in. Adjust check-out or clear it first.")
+        return
+      }
+    }
+    try {
+      setSaveStatus((prev) => ({ ...prev, [recordId]: "saving" }))
+      const headers = getAttendanceAuthHeaders()
+      if (!headers) {
+        setError("Authentication required")
+        return
+      }
+      const attendanceData: Record<string, unknown> = {
+        user_id: record.student_id,
+        user_type: "student",
+        course_id: record.course_id,
+        branch_id: record.branch_id,
+        attendance_date: `${record.date}T10:00:00Z`,
+        status: record.status,
+        check_in_time: iso,
+        notes: record.notes || `Check-in time updated ${format(new Date(), "PPp")}`,
+      }
+      if (record.check_out_iso) {
+        attendanceData.check_out_time = record.check_out_iso
+      }
+      const response = await fetch(`/api/backend/attendance/mark`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(attendanceData),
+      })
+      if (!response.ok) {
+        const t = await response.text()
+        throw new Error(t || `Failed (${response.status})`)
+      }
+      setAttendanceRecords((prev) =>
+        prev.map((r) =>
+          r.id === recordId
+            ? {
+                ...r,
+                check_in_iso: iso,
+                check_in_time: formatTimeIST(iso),
+                admin_adjusted: true,
+              }
+            : r
+        )
+      )
+      setEditingCheckInId(null)
+      setSuccessMessage("Check-in time updated")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update check-in time")
+    } finally {
+      setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
+    }
+  }
+
+  const handleUpdateCheckOutTime = async (recordId: string, _iso: string) => {
+    const record = attendanceRecords.find((r) => r.id === recordId)
+    if (!record || record.status === "absent" || record.status === "not_marked") return
+    if (!canEditCheckInTime) return
+    const iso = new Date(_iso).toISOString()
+    const cinBase = record.check_in_iso
+    if (!cinBase) {
+      setError("Set check-in time before check-out.")
+      return
+    }
+    const tIn = new Date(cinBase).getTime()
+    const tOut = new Date(iso).getTime()
+    if (!(tOut > tIn)) {
+      setError("Check-out must be after check-in.")
+      return
+    }
+    try {
+      setSaveStatus((prev) => ({ ...prev, [recordId]: "saving" }))
+      const headers = getAttendanceAuthHeaders()
+      if (!headers) {
+        setError("Authentication required")
+        return
+      }
+      const attendanceData: Record<string, unknown> = {
+        user_id: record.student_id,
+        user_type: "student",
+        course_id: record.course_id,
+        branch_id: record.branch_id,
+        attendance_date: `${record.date}T10:00:00Z`,
+        status: record.status,
+        check_in_time: record.check_in_iso,
+        check_out_time: iso,
+        notes: record.notes || `Check-out time updated ${format(new Date(), "PPp")}`,
+      }
+      const response = await fetch(`/api/backend/attendance/mark`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(attendanceData),
+      })
+      if (!response.ok) {
+        const t = await response.text()
+        throw new Error(t || `Failed (${response.status})`)
+      }
+      setAttendanceRecords((prev) =>
+        prev.map((r) =>
+          r.id === recordId
+            ? {
+                ...r,
+                check_out_iso: iso,
+                check_out_time: formatTimeIST(iso),
+                admin_adjusted: true,
+              }
+            : r
+        )
+      )
+      setEditingCheckOutId(null)
+      setSuccessMessage("Check-out time updated")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update check-out time")
+    } finally {
+      setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
     }
   }
 
@@ -572,7 +780,7 @@ export default function SuperAdminStudentAttendancePage() {
   // Render main content
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
+      {!usesDashboardLayoutNav && <DashboardHeader />}
 
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -779,11 +987,9 @@ export default function SuperAdminStudentAttendancePage() {
           </CardContent>
         </Card>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Attendance Table */}
-          <div className="lg:col-span-2">
-            <Card className="shadow-lg border-0">
+        {/* Main Content: full-width attendance table, then three analytics cards in one row */}
+        <div className="space-y-8">
+            <Card className="shadow-lg border-0 w-full">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
@@ -866,6 +1072,9 @@ export default function SuperAdminStudentAttendancePage() {
                             Check In
                           </th>
                           <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Check Out
+                          </th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
@@ -925,15 +1134,141 @@ export default function SuperAdminStudentAttendancePage() {
                                 <span className="ml-2">{getStatusBadge(record.status)}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900 font-medium">
-                                {record.check_in_time || (
-                                  <span className="text-gray-400 italic">Not recorded</span>
-                                )}
-                              </div>
+                            <td className="px-6 py-4 whitespace-nowrap align-top">
+                              {editingCheckInId === record.id &&
+                              canEditCheckInTime &&
+                              (record.status === "present" || record.status === "late") ? (
+                                <div className="flex flex-col gap-1 max-w-[14rem]">
+                                  <Input
+                                    type="datetime-local"
+                                    className="h-8 text-xs"
+                                    value={checkInEditDraft}
+                                    onChange={(e) => setCheckInEditDraft(e.target.value)}
+                                  />
+                                  <div className="flex gap-1">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => {
+                                        const iso = new Date(checkInEditDraft).toISOString()
+                                        void handleUpdateCheckInTime(record.id, iso)
+                                      }}
+                                    >
+                                      Save
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => setEditingCheckInId(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-900 font-medium">
+                                  {record.check_in_time || (
+                                    <span className="text-gray-400 italic">Not recorded</span>
+                                  )}
+                                  {record.admin_adjusted && (
+                                    <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                                      Adjusted
+                                    </span>
+                                  )}
+                                  {canEditCheckInTime &&
+                                    (record.status === "present" || record.status === "late") &&
+                                    record.check_in_iso && (
+                                      <Button
+                                        type="button"
+                                        variant="link"
+                                        className="h-auto p-0 ml-2 text-xs"
+                                        onClick={() => {
+                                          setEditingCheckOutId(null)
+                                          setEditingCheckInId(record.id)
+                                          try {
+                                            setCheckInEditDraft(
+                                              format(parseISO(record.check_in_iso as string), "yyyy-MM-dd'T'HH:mm")
+                                            )
+                                          } catch {
+                                            setCheckInEditDraft("")
+                                          }
+                                        }}
+                                      >
+                                        Edit
+                                      </Button>
+                                    )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap align-top">
+                              {editingCheckOutId === record.id &&
+                              canEditCheckInTime &&
+                              (record.status === "present" || record.status === "late") ? (
+                                <div className="flex flex-col gap-1 max-w-[14rem]">
+                                  <Input
+                                    type="datetime-local"
+                                    className="h-8 text-xs"
+                                    value={checkOutEditDraft}
+                                    onChange={(e) => setCheckOutEditDraft(e.target.value)}
+                                  />
+                                  <div className="flex gap-1">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => {
+                                        void handleUpdateCheckOutTime(record.id, checkOutEditDraft)
+                                      }}
+                                    >
+                                      Save
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => setEditingCheckOutId(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-900 font-medium">
+                                  {record.check_out_time || (
+                                    <span className="text-gray-400 italic">Not recorded</span>
+                                  )}
+                                  {canEditCheckInTime &&
+                                    (record.status === "present" || record.status === "late") &&
+                                    record.check_in_iso && (
+                                      <Button
+                                        type="button"
+                                        variant="link"
+                                        className="h-auto p-0 ml-2 text-xs"
+                                        onClick={() => {
+                                          setEditingCheckInId(null)
+                                          setEditingCheckOutId(record.id)
+                                          const baseIso = record.check_out_iso || record.check_in_iso
+                                          try {
+                                            setCheckOutEditDraft(
+                                              format(parseISO(baseIso as string), "yyyy-MM-dd'T'HH:mm")
+                                            )
+                                          } catch {
+                                            setCheckOutEditDraft("")
+                                          }
+                                        }}
+                                      >
+                                        Edit
+                                      </Button>
+                                    )}
+                                </div>
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                   onClick={() => handleMarkAttendance(record.id, "present")}
                                   size="sm"
@@ -943,7 +1278,7 @@ export default function SuperAdminStudentAttendancePage() {
                                       ? "bg-green-600 hover:bg-green-700 text-white shadow-md"
                                       : "hover:bg-green-50 hover:border-green-300 hover:text-green-700"
                                   }`}
-                                  disabled={saveStatus[record.id] === 'saving'}
+                                  disabled={isStatusButtonDisabled(record, "present")}
                                 >
                                   {saveStatus[record.id] === 'saving' ? (
                                     <RefreshCw className="h-3 w-3 animate-spin mr-1" />
@@ -961,7 +1296,7 @@ export default function SuperAdminStudentAttendancePage() {
                                       ? "bg-yellow-600 hover:bg-yellow-700 text-white shadow-md"
                                       : "hover:bg-yellow-50 hover:border-yellow-300 hover:text-yellow-700"
                                   }`}
-                                  disabled={saveStatus[record.id] === 'saving'}
+                                  disabled={isStatusButtonDisabled(record, "late")}
                                 >
                                   {saveStatus[record.id] === 'saving' ? (
                                     <RefreshCw className="h-3 w-3 animate-spin mr-1" />
@@ -979,7 +1314,7 @@ export default function SuperAdminStudentAttendancePage() {
                                       ? "bg-red-600 hover:bg-red-700 text-white shadow-md"
                                       : "hover:bg-red-50 hover:border-red-300 hover:text-red-700"
                                   }`}
-                                  disabled={saveStatus[record.id] === 'saving'}
+                                  disabled={isStatusButtonDisabled(record, "absent")}
                                 >
                                   {saveStatus[record.id] === 'saving' ? (
                                     <RefreshCw className="h-3 w-3 animate-spin mr-1" />
@@ -988,7 +1323,7 @@ export default function SuperAdminStudentAttendancePage() {
                                   )}
                                   Absent
                                 </Button>
-                                <div className="ml-2">
+                                <div className="ml-1">
                                   {getSaveStatusIcon(record.id)}
                                 </div>
                               </div>
@@ -1002,12 +1337,10 @@ export default function SuperAdminStudentAttendancePage() {
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          {/* Analytics Sidebar */}
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
             {/* Attendance Distribution */}
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
                 <CardTitle className="text-lg">Attendance Distribution</CardTitle>
               </CardHeader>

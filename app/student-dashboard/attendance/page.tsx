@@ -12,6 +12,7 @@ import { CardSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
+import { formatSessionDateLabelYmd } from "@/lib/formatRegisteredDate"
 import {
   Calendar,
   CheckCircle,
@@ -36,6 +37,8 @@ interface AttendanceRecord {
   check_out_time?: string
   is_present: boolean
   notes: string
+  admin_adjusted?: boolean
+  attendance_modified_at?: string | null
 }
 
 interface AttendanceStats {
@@ -310,19 +313,29 @@ export default function StudentAttendancePage() {
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Check In</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Check Out</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[8rem]">Note</th>
                   </tr>
                 </thead>
                 <tbody>
                   {attendanceRecords.map((record) => (
                     <tr key={record.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 text-gray-900">
-                        {new Date(record.date).toLocaleDateString()}
+                        {formatSessionDateLabelYmd(record.date)}
                       </td>
                       <td className="py-3 px-4 text-gray-900">{record.course}</td>
                       <td className="py-3 px-4 text-gray-600">{record.branch}</td>
                       <td className="py-3 px-4">{getStatusBadge(record.status)}</td>
-                      <td className="py-3 px-4 text-gray-600">{record.check_in_time || "-"}</td>
-                      <td className="py-3 px-4 text-gray-600">{record.check_out_time || "-"}</td>
+                      <td className="py-3 px-4 text-gray-600 whitespace-nowrap">{record.check_in_time || "-"}</td>
+                      <td className="py-3 px-4 text-gray-600 whitespace-nowrap">{record.check_out_time || "-"}</td>
+                      <td className="py-3 px-4 text-gray-600 text-xs">
+                        {record.admin_adjusted ? (
+                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-amber-900 ring-1 ring-inset ring-amber-200">
+                            Updated by Admin
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

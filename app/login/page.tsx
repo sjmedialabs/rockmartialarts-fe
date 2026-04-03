@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,9 @@ function LoginFormContent() {
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
-  const router = useRouter();
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const passwordJustReset = searchParams.get("reset") === "success"
   const { getToken, resetRecaptcha, isEnabled } = useReCaptcha()
 
   const validateEmail = (email: string): boolean => {
@@ -226,13 +228,13 @@ function LoginFormContent() {
                 </div>
                 <Input
                   type="email"
-                  placeholder="Email"
+                  placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value)
                     if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }))
                   }}
-                  className={`pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000] ${fieldErrors.email ? '!border !border-red-500' : ''}`}
+                  className={`pl-14 py-4 text-[14px] bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000] ${fieldErrors.email ? '!border !border-red-500' : ''}`}
                 />
               </div>
               {fieldErrors.email && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.email}</p>}
@@ -252,17 +254,23 @@ function LoginFormContent() {
                   </svg>
                 </div>
                 <PasswordInput
-                  placeholder="Password"
+                  placeholder="Enter password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
                     if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: '' }))
                   }}
-                  className={`pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000] ${fieldErrors.password ? '!border !border-red-500' : ''}`}
+                  className={`pl-14 py-4 text-[14px] bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000] ${fieldErrors.password ? '!border !border-red-500' : ''}`}
                 />
               </div>
               {fieldErrors.password && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.password}</p>}
             </div>
+
+            {passwordJustReset && (
+              <div className="text-green-700 text-sm text-center bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+                Password reset successfully. Sign in with your new password.
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (
@@ -329,7 +337,9 @@ function LoginFormContent() {
 export default function LoginPage() {
   return (
     <ReCaptchaWrapper>
-      <LoginFormContent />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading…</div>}>
+        <LoginFormContent />
+      </Suspense>
     </ReCaptchaWrapper>
   )
 }

@@ -16,7 +16,7 @@ import { CalendarIcon, MapPinIcon, Building2Icon, FolderIcon, BookOpenIcon, Cloc
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
-import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
+import { useDashboardBasePath, useDashboardRole } from "@/lib/useDashboardBasePath"
 import { useAuth } from "@/contexts/AuthContext"
 import { branchAPI } from "@/lib/branchAPI"
 import { courseAPI } from "@/lib/courseAPI"
@@ -68,6 +68,7 @@ interface FormErrors {
 export default function CreateStudent() {
   const router = useRouter()
   const basePath = useDashboardBasePath()
+  const isSuperAdmin = useDashboardRole() === "super_admin"
   const { toast } = useToast()
   
   // Loading states
@@ -80,6 +81,7 @@ export default function CreateStudent() {
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([])
   const [filteredCoaches, setFilteredCoaches] = useState<Coach[]>([])
+  const [studentLevelOptions, setStudentLevelOptions] = useState<{ value: string; label: string }[]>([])
 
   // API Loading states
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
@@ -131,6 +133,7 @@ export default function CreateStudent() {
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactRelation: "",
+    studentLevel: "",
     
     // Payment Plan
     paymentPlan: "full",
@@ -141,6 +144,26 @@ export default function CreateStudent() {
   // Dynamic branches will be loaded from API
 
   // Dynamic courses and categories will be loaded from API
+
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    const run = async () => {
+      try {
+        const token = TokenManager.getToken()
+        const opts = await dropdownAPI.getCategoryOptions("student_levels", token || undefined)
+        setStudentLevelOptions(
+          (opts || [])
+            .filter((o: { is_active?: boolean }) => o.is_active !== false)
+            .map((o: { value: string; label: string }) => ({ value: o.value, label: o.label }))
+        )
+      } catch {
+        setStudentLevelOptions(
+          dropdownAPI.getDefaultOptions("student_levels").map((o) => ({ value: o.value, label: o.label }))
+        )
+      }
+    }
+    run()
+  }, [isSuperAdmin])
 
   // Duration options
   const durations = [
@@ -505,7 +528,8 @@ export default function CreateStudent() {
               name: formData.emergencyContactName || "",
               phone: formData.emergencyContactPhone || "",
               relationship: formData.emergencyContactRelation || ""
-            }
+            },
+            ...(isSuperAdmin && formData.studentLevel ? { student_level: formData.studentLevel } : {}),
           },
           course_id: formData.course,
           branch_id: formData.branch,
@@ -560,6 +584,7 @@ export default function CreateStudent() {
             phone: formData.emergencyContactPhone || "",
             relationship: formData.emergencyContactRelation || ""
           },
+          ...(isSuperAdmin && formData.studentLevel ? { student_level: formData.studentLevel } : {}),
           course: formData.course ? {
             category_id: formData.category,
             course_id: formData.course,
@@ -766,6 +791,35 @@ export default function CreateStudent() {
                         {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
                       </div>
                     </div>
+
+                    {isSuperAdmin && (
+                      <div>
+                        <Label className="block text-sm font-medium mb-2">Student level</Label>
+                        <Select
+                          value={formData.studentLevel || undefined}
+                          onValueChange={(value) => handleInputChange("studentLevel", value)}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              "!w-full !h-14 !pl-12 !pr-4 !py-4 !text-base !bg-gray-50 !border-gray-200 !rounded-xl !min-h-14"
+                            )}
+                          >
+                            <SelectValue placeholder="Select student level" className="text-gray-500" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border border-gray-200 bg-white shadow-lg max-h-60">
+                            {studentLevelOptions.map((opt) => (
+                              <SelectItem
+                                key={opt.value}
+                                value={opt.value}
+                                className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer"
+                              >
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
                     {/* Date of Birth */}
                     <div>

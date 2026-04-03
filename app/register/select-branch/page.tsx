@@ -17,6 +17,7 @@ interface Branch {
   name: string
   code: string
   address: {
+    area?: string
     city: string
     state: string
   }
@@ -99,6 +100,7 @@ export default function SelectBranchPage() {
           name: branch.branch?.name || branch.name,
           code: branch.branch?.code || branch.code || '',
           address: {
+            area: branch.branch?.address?.area || branch.address?.area || '',
             city: branch.branch?.address?.city || branch.address?.city || '',
             state: branch.branch?.address?.state || branch.address?.state || ''
           }
@@ -176,10 +178,17 @@ export default function SelectBranchPage() {
       branch_id,
       branch_name: selectedBranch?.name || "",
       selected_location: selectedLocation,
-      branch_details: selectedBranch ? {
-        name: selectedBranch.name,
-        address: selectedBranch.address
-      } : null
+      branch_details: selectedBranch
+        ? {
+            name: selectedBranch.name,
+            address: {
+              ...selectedBranch.address,
+              area: selectedBranch.address?.area,
+              city: selectedBranch.address?.city,
+              state: selectedBranch.address?.state,
+            },
+          }
+        : null
     })
 
     router.push("/register/select-course")
@@ -284,9 +293,12 @@ export default function SelectBranchPage() {
                       <SelectItem key={branch.id} value={branch.id} className="!py-3 !pl-3 pr-8 text-base hover:bg-gray-50 rounded-lg cursor-pointer">
                         <div className="flex flex-col">
                           <span className="font-medium">{branch.name}</span>
-                          {branch.address?.city && (
+                          {(branch.address?.area?.trim() ||
+                            branch.address?.city ||
+                            branch.address?.state) && (
                             <span className="text-xs text-gray-500">
-                              {branch.address.city}{branch.address.state && `, ${branch.address.state}`}
+                              {branch.address.area?.trim() ||
+                                [branch.address.city, branch.address.state].filter(Boolean).join(", ")}
                             </span>
                           )}
                         </div>

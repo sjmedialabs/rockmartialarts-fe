@@ -28,6 +28,7 @@ import {
 import Header from "@/components/layout/Header"
 import { getBackendApiUrl } from "@/lib/config"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { formatPaymentSourceLabel } from "@/lib/formatPaymentSourceLabel"
 
 interface StudentDetails {
@@ -601,7 +602,7 @@ export default function BranchManagerStudentDetailPage() {
                   <Calendar className="w-5 h-5 text-gray-400" />
                   <div>
                     <p className="font-medium text-gray-900">Joined</p>
-                    <p className="text-sm text-gray-600">{formatDate(student.created_at)}</p>
+                    <p className="text-sm text-gray-600">{formatRegisteredDateTime(student.created_at)}</p>
                   </div>
                 </div>
               </CardContent>

@@ -1313,65 +1313,76 @@ export default function EditBranch() {
                                     className="h-9"
                                   />
                                 </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-gray-600">Batch course fee (₹)</Label>
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    placeholder="Optional — overrides tenure-based course fee for this batch"
-                                    value={batch.batch_fee ?? ""}
-                                    onChange={(e) =>
-                                      updateBatch(course.id, batch.id, "batch_fee", e.target.value)
-                                    }
-                                    className="h-9"
-                                  />
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
-                                  <Input
-                                    type="time"
-                                    placeholder="Start"
-                                    value={batch.start_time}
-                                    onChange={(e) =>
-                                      updateBatch(course.id, batch.id, "start_time", e.target.value)
-                                    }
-                                  />
-                                  <Input
-                                    type="time"
-                                    placeholder="End"
-                                    value={batch.end_time}
-                                    onChange={(e) =>
-                                      updateBatch(course.id, batch.id, "end_time", e.target.value)
-                                    }
-                                  />
-                                  <Select
-                                    value={
-                                      (batch.coach_id || "").trim()
-                                        ? batch.coach_id
-                                        : BATCH_COACH_UNASSIGNED
-                                    }
-                                    onValueChange={(value) =>
-                                      updateBatch(
-                                        course.id,
-                                        batch.id,
-                                        "coach_id",
-                                        value === BATCH_COACH_UNASSIGNED ? "" : value
-                                      )
-                                    }
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Coach" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value={BATCH_COACH_UNASSIGNED}>
-                                        No coach assigned
-                                      </SelectItem>
-                                      {coaches.map((coach) => (
-                                        <SelectItem key={coach.id} value={coach.id}>
-                                          {coach.name}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">Start time</Label>
+                                    <Input
+                                      type="time"
+                                      value={batch.start_time}
+                                      onChange={(e) =>
+                                        updateBatch(course.id, batch.id, "start_time", e.target.value)
+                                      }
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">End time</Label>
+                                    <Input
+                                      type="time"
+                                      value={batch.end_time}
+                                      onChange={(e) =>
+                                        updateBatch(course.id, batch.id, "end_time", e.target.value)
+                                      }
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">Trainer</Label>
+                                    <Select
+                                      value={
+                                        (batch.coach_id || "").trim()
+                                          ? batch.coach_id
+                                          : BATCH_COACH_UNASSIGNED
+                                      }
+                                      onValueChange={(value) =>
+                                        updateBatch(
+                                          course.id,
+                                          batch.id,
+                                          "coach_id",
+                                          value === BATCH_COACH_UNASSIGNED ? "" : value
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger className="h-9">
+                                        <SelectValue placeholder="Trainer" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value={BATCH_COACH_UNASSIGNED}>
+                                          No trainer assigned
                                         </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                        {coaches.map((coach) => (
+                                          <SelectItem key={coach.id} value={coach.id}>
+                                            {coach.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">Batch fee (₹)</Label>
+                                    <Input
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="Optional — overrides tenure fee"
+                                      value={batch.batch_fee ?? ""}
+                                      onChange={(e) =>
+                                        updateBatch(course.id, batch.id, "batch_fee", e.target.value)
+                                      }
+                                      className="h-9"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex justify-end">
                                   <Button
                                     variant="ghost"
                                     size="sm"

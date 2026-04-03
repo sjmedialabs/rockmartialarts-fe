@@ -64,7 +64,7 @@ export default function BranchManagersListPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
+  const itemsPerPage = 15
 
   // Branch admin cannot access branch managers list — redirect to dashboard
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { format } from "date-fns"
 import {
   BarChart,
@@ -48,6 +48,20 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import DashboardHeader from "@/components/dashboard-header"
 import { checkAuth, getAuthHeaders } from "@/lib/auth"
+import { formatTimeIST } from "@/lib/formatRegisteredDate"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { TokenManager } from "@/lib/tokenManager"
+
+function getCoachAttendanceHeaders(): Record<string, string> | null {
+  if (checkAuth().isAuthenticated) return getAuthHeaders()
+  const token = BranchManagerAuth.getToken() || TokenManager.getToken()
+  if (!token) return null
+  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+}
+
+function isCoachAttendanceAuthenticated(): boolean {
+  return !!getCoachAttendanceHeaders()
+}
 
 interface CoachAttendanceRecord {
   id: string
@@ -85,6 +99,12 @@ interface Branch {
 
 export default function SuperAdminCoachAttendancePage() {
   const router = useRouter()
+  const pathname = usePathname()
+  const usesDashboardLayoutNav =
+    !!pathname &&
+    (pathname.startsWith("/super-admin/dashboard") ||
+      pathname.startsWith("/branch-admin/dashboard") ||
+      pathname.startsWith("/branch-manager-dashboard/"))
 
   // Enhanced state management
   const [attendanceRecords, setAttendanceRecords] = useState<CoachAttendanceRecord[]>([])
@@ -144,10 +164,10 @@ export default function SuperAdminCoachAttendancePage() {
   // Fetch branches for filtering
   const fetchBranches = async () => {
     try {
-      const authResult = checkAuth()
-      if (!authResult.isAuthenticated) return
+      if (!isCoachAttendanceAuthenticated()) return
 
-      const headers = getAuthHeaders()
+      const headers = getCoachAttendanceHeaders()
+      if (!headers) return
       const response = await fetch('/api/backend/branches', {
         method: 'GET',
         headers
@@ -172,13 +192,16 @@ export default function SuperAdminCoachAttendancePage() {
       setLoading(true)
       setError(null)
 
-      const authResult = checkAuth()
-      if (!authResult.isAuthenticated) {
+      if (!isCoachAttendanceAuthenticated()) {
         setError("Authentication required")
         return
       }
 
-      const headers = getAuthHeaders()
+      const headers = getCoachAttendanceHeaders()
+      if (!headers) {
+        setError("Authentication required")
+        return
+      }
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
 
       console.log(`🔄 Superadmin fetching coach attendance data for date: ${dateStr}`)
@@ -233,18 +256,20 @@ export default function SuperAdminCoachAttendancePage() {
                 return {
                   ...record,
                   status: attendanceRecord.attendance.status || "not_marked",
-                  check_in_time: attendanceRecord.attendance.check_in_time ?
-                    new Date(attendanceRecord.attendance.check_in_time).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true
-                    }) : undefined,
-                  check_out_time: attendanceRecord.attendance.check_out_time ?
-                    new Date(attendanceRecord.attendance.check_out_time).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true
-                    }) : undefined,
+                  check_in_time: attendanceRecord.attendance.check_in_time
+                    ? formatTimeIST(
+                        typeof attendanceRecord.attendance.check_in_time === "string"
+                          ? attendanceRecord.attendance.check_in_time
+                          : new Date(attendanceRecord.attendance.check_in_time).toISOString()
+                      )
+                    : undefined,
+                  check_out_time: attendanceRecord.attendance.check_out_time
+                    ? formatTimeIST(
+                        typeof attendanceRecord.attendance.check_out_time === "string"
+                          ? attendanceRecord.attendance.check_out_time
+                          : new Date(attendanceRecord.attendance.check_out_time).toISOString()
+                      )
+                    : undefined,
                   notes: attendanceRecord.attendance.notes || ""
                 }
               }
@@ -305,8 +330,7 @@ export default function SuperAdminCoachAttendancePage() {
 
       console.log("🔄 Superadmin marking coach attendance for record:", recordId, "status:", status)
 
-      const authResult = checkAuth()
-      if (!authResult.isAuthenticated) {
+      if (!isCoachAttendanceAuthenticated()) {
         setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
         setError("Authentication required")
         return
@@ -319,15 +343,21 @@ export default function SuperAdminCoachAttendancePage() {
         return
       }
 
-      const headers = getAuthHeaders()
+      const headers = getCoachAttendanceHeaders()
+      if (!headers) {
+        setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
+        setError("Authentication required")
+        return
+      }
 
+      const checkIso = new Date().toISOString()
       const attendanceData = {
         user_id: record.coach_id,
         user_type: "coach",
         branch_id: record.branch_id,
         attendance_date: `${record.date}T10:00:00Z`,
         status: status,
-        check_in_time: status !== "absent" ? new Date().toISOString() : null,
+        check_in_time: status !== "absent" ? checkIso : null,
         notes: `Marked by superadmin on ${format(new Date(), 'PPP')}`
       }
 
@@ -353,11 +383,7 @@ export default function SuperAdminCoachAttendancePage() {
               ? {
                   ...r,
                   status: status,
-                  check_in_time: status !== "absent" ? new Date().toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  }) : undefined,
+                  check_in_time: status !== "absent" ? formatTimeIST(new Date()) : undefined,
                   notes: attendanceData.notes
                 }
               : r
@@ -398,6 +424,20 @@ export default function SuperAdminCoachAttendancePage() {
       setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
       setError("Failed to mark coach attendance. Please try again.")
     }
+  }
+
+  const isAttendanceStatusFinal = (s: string) =>
+    s === "present" || s === "late" || s === "absent"
+
+  const isCoachStatusButtonDisabled = (
+    record: CoachAttendanceRecord,
+    role: "present" | "late" | "absent"
+  ) => {
+    if (saveStatus[record.id] === "saving") return true
+    if (isAttendanceStatusFinal(record.status)) {
+      return record.status !== role
+    }
+    return false
   }
 
   // Load initial data
@@ -516,7 +556,7 @@ export default function SuperAdminCoachAttendancePage() {
   // Render main content
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
+      {!usesDashboardLayoutNav && <DashboardHeader />}
 
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -705,11 +745,9 @@ export default function SuperAdminCoachAttendancePage() {
           </CardContent>
         </Card>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Attendance Table */}
-          <div className="lg:col-span-2">
-            <Card>
+        {/* Main Content: full-width table, then three analytics cards */}
+        <div className="space-y-8">
+            <Card className="w-full shadow-lg border-0">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>Coach Attendance ({filteredRecords.length} coaches)</span>
@@ -807,7 +845,7 @@ export default function SuperAdminCoachAttendancePage() {
                                   size="sm"
                                   variant={record.status === "present" ? "default" : "outline"}
                                   className="text-xs"
-                                  disabled={saveStatus[record.id] === 'saving'}
+                                  disabled={isCoachStatusButtonDisabled(record, "present")}
                                 >
                                   Present
                                 </Button>
@@ -816,7 +854,7 @@ export default function SuperAdminCoachAttendancePage() {
                                   size="sm"
                                   variant={record.status === "late" ? "default" : "outline"}
                                   className="text-xs"
-                                  disabled={saveStatus[record.id] === 'saving'}
+                                  disabled={isCoachStatusButtonDisabled(record, "late")}
                                 >
                                   Late
                                 </Button>
@@ -825,7 +863,7 @@ export default function SuperAdminCoachAttendancePage() {
                                   size="sm"
                                   variant={record.status === "absent" ? "default" : "outline"}
                                   className="text-xs"
-                                  disabled={saveStatus[record.id] === 'saving'}
+                                  disabled={isCoachStatusButtonDisabled(record, "absent")}
                                 >
                                   Absent
                                 </Button>
@@ -840,12 +878,10 @@ export default function SuperAdminCoachAttendancePage() {
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          {/* Analytics Sidebar */}
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
             {/* Attendance Distribution */}
-            <Card>
+            <Card className="min-w-0">
               <CardHeader>
                 <CardTitle className="text-lg">Attendance Distribution</CardTitle>
               </CardHeader>

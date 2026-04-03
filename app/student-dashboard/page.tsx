@@ -25,6 +25,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { getBackendApiUrl } from "@/lib/config"
+import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 
 export default function StudentDashboard() {
   const router = useRouter()
@@ -94,7 +95,7 @@ export default function StudentDashboard() {
             name: profileData.full_name || `${profileData.first_name} ${profileData.last_name}` || "Student",
             email: profileData.email || "",
             studentId: profileData.id || "",
-            joinDate: profileData.created_at ? new Date(profileData.created_at).toLocaleDateString() : "",
+            joinDate: profileData.created_at ? formatRegisteredDateTime(profileData.created_at) : "",
             course: profileData.enrollments?.[0]?.course_name || "No Course",
             phone: profileData.phone || "",
             dateOfBirth: profileData.date_of_birth || "",

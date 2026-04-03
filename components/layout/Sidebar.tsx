@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { getMenuForRole, type DashboardRole } from "@/lib/dashboard-config"
+import { getMainNavItems, getOverflowNavItems, type DashboardRole } from "@/lib/dashboard-config"
 
 interface SidebarProps {
   role: DashboardRole
@@ -10,7 +10,8 @@ interface SidebarProps {
 
 export default function Sidebar({ role, onNavigate }: SidebarProps) {
   const pathname = usePathname()
-  const menuItems = getMenuForRole(role)
+  const menuItems = getMainNavItems(role)
+  const overflowItems = getOverflowNavItems(role)
 
   const isActivePath = (path: string) => pathname === path || pathname.startsWith(path + "/")
 
@@ -70,6 +71,28 @@ export default function Sidebar({ role, onNavigate }: SidebarProps) {
               </button>
             )
           })}
+          {overflowItems.length > 0 ? (
+            <div className="mt-6 pt-4 border-t border-gray-200/80 px-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">More</p>
+              <div className="space-y-1">
+                {overflowItems.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => onNavigate(item.path)}
+                      className={itemClass(item.path)}
+                    >
+                      <span className="flex items-center gap-2">
+                        {Icon && <Icon className="w-4 h-4" />}
+                        {item.label}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
       </nav>
     </div>

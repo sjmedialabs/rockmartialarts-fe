@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
+import { sanitizeRichHtmlClient } from "@/lib/sanitizeClientHtml"
 import { ScrollZoomContinuous } from "@/components/ScrollZoomContinuous"
 import {
   AnimatedSection,
@@ -10,6 +12,13 @@ import {
   FloatingShapes,
   HeroAnimation,
 } from "@/components/animations"
+import { Carousel } from "@/components/common/Carousel"
+import {
+  TestimonialCard,
+  type TestimonialCardItem,
+  ShowcaseAchievementCard,
+  type ShowcaseAchievementItem,
+} from "@/components/testimonials"
 
 /* ---------- Types (mirror server data shape; no API change) ---------- */
 
@@ -25,6 +34,10 @@ export interface HomePageViewProps {
   bottomCtaSubtitle: string
   aboutTitle: string
   aboutSubtitle: string
+  /** Rich HTML for homepage about (from homepage_content collection). */
+  aboutContentHtml?: string
+  /** Right-column image for about section. */
+  aboutImage?: string
   coursesTitle: string
   coursesSubtitle: string
   testimonialsTitle: string
@@ -32,9 +45,13 @@ export interface HomePageViewProps {
   classCards: { id?: string; name: string; img: string; href: string }[]
   physicalBenefits: string[]
   mentalBenefits: string[]
-  trainers: { name: string; role: string; img: string }[]
-  testimonials: { name: string; role: string; quote?: string; image?: string }[]
+  trainers: { name: string; role: string; img: string; about?: string; rating?: number | null }[]
+  testimonials: { name: string; role: string; quote?: string; image?: string; achievement?: string }[]
   defaultTestimonialQuote: string
+  /** Marketing testimonials from MongoDB (`student_testimonials`) */
+  showcaseTestimonials?: TestimonialCardItem[]
+  /** Marketing achievements from MongoDB (`student_showcase_achievements`) */
+  showcaseAchievements?: ShowcaseAchievementItem[]
 }
 
 /* ---------- Homepage with Cult.fit-style animations ---------- */
@@ -51,6 +68,8 @@ export default function HomePageView({
   bottomCtaSubtitle,
   aboutTitle,
   aboutSubtitle,
+  aboutContentHtml = "",
+  aboutImage = "",
   coursesTitle,
   coursesSubtitle,
   testimonialsTitle,
@@ -61,8 +80,15 @@ export default function HomePageView({
   trainers,
   testimonials,
   defaultTestimonialQuote,
+  showcaseTestimonials = [],
+  showcaseAchievements = [],
 }: HomePageViewProps) {
   const shouldReduceMotion = useReducedMotion()
+  const [safeAboutHtml, setSafeAboutHtml] = useState("")
+
+  useEffect(() => {
+    setSafeAboutHtml(sanitizeRichHtmlClient(aboutContentHtml || ""))
+  }, [aboutContentHtml])
 
   const resolveUploadUrl = (url?: string): string => {
     if (!url) return ""
@@ -174,6 +200,8 @@ export default function HomePageView({
                     <img
                       src={c.img}
                       alt={c.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
@@ -191,61 +219,72 @@ export default function HomePageView({
         </div>
       </section>
 
-      {/* Discover - Advantages (Section 4): left and right columns zoom individually (in view = scale 1, scroll past = scale 0) */}
+      {/* About: CMS — title, subtitle, rich content (left); image (right). Fallback to legacy benefits lists when no HTML. */}
       <AnimatedSection
         variant="fadeSlideUp"
         className="py-16 md:py-20 bg-[#171A26] relative z-10"
       >
         <div className="container mx-auto px-4 max-w-7xl">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <ScrollZoomContinuous>
-              <div className="overflow-hidden rounded-lg">
-                <img
-                  src="/assets/img/courses/tr_yourself.png"
-                  alt="Train yourself"
-                  className="w-full h-auto"
-                />
-              </div>
-            </ScrollZoomContinuous>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
             <ScrollZoomContinuous>
               <div>
                 <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Discover</p>
-                <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-8">{aboutTitle}</h2>
-                {aboutSubtitle && <p className="text-gray-300 mb-6">{aboutSubtitle}</p>}
-                <div className="space-y-6">
-                  <div className="flex gap-4">
-                    <img
-                      src="/assets/img/courses/icon1.png"
-                      alt=""
-                      className="w-12 h-12 flex-shrink-0"
-                    />
-                    <ul className="list-disc list-inside text-gray-300 space-y-2">
-                      {physicalBenefits.map((b) => (
+                <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F] mb-4">{aboutTitle || "About us"}</h2>
+                {aboutSubtitle ? <p className="text-gray-300 mb-6">{aboutSubtitle}</p> : null}
+                {safeAboutHtml ? (
+                  <div
+                    className="max-w-none text-gray-300 space-y-4 leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-[#FFB70F] [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#FFB70F] [&_h3]:text-lg [&_h3]:text-[#FFB70F] [&_p]:text-gray-300 [&_a]:text-[#FFB70F] [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:text-white"
+                    dangerouslySetInnerHTML={{ __html: safeAboutHtml }}
+                  />
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex gap-4">
+                      <img
+                        src="/assets/img/courses/icon1.png"
+                        alt=""
+                        className="w-12 h-12 flex-shrink-0"
+                      />
+                      <ul className="list-disc list-inside text-gray-300 space-y-2">
+                        {physicalBenefits.map((b) => (
+                          <li key={b}>{b}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="flex gap-4 items-center">
+                      <img
+                        src="/assets/img/courses/icon2.png"
+                        alt=""
+                        className="w-12 h-12 flex-shrink-0"
+                      />
+                      <h3 className="text-2xl font-bold text-[#FFB70F]">Mental Benefits</h3>
+                    </div>
+                    <ul className="list-disc list-inside text-gray-300 space-y-2 ml-16">
+                      {mentalBenefits.map((b) => (
                         <li key={b}>{b}</li>
                       ))}
                     </ul>
                   </div>
-                  <div className="flex gap-4 items-center">
-                    <img
-                      src="/assets/img/courses/icon2.png"
-                      alt=""
-                      className="w-12 h-12 flex-shrink-0"
-                    />
-                    <h3 className="text-2xl font-bold text-[#FFB70F]">Mental Benefits</h3>
-                  </div>
-                  <ul className="list-disc list-inside text-gray-300 space-y-2 ml-16">
-                    {mentalBenefits.map((b) => (
-                      <li key={b}>{b}</li>
-                    ))}
-                  </ul>
-                </div>
+                )}
+              </div>
+            </ScrollZoomContinuous>
+            <ScrollZoomContinuous>
+              <div className="overflow-hidden rounded-lg">
+                <img
+                  src={
+                    aboutImage
+                      ? resolveUploadUrl(aboutImage)
+                      : "/assets/img/courses/tr_yourself.png"
+                  }
+                  alt={aboutTitle || "About"}
+                  className="w-full h-auto object-cover"
+                />
               </div>
             </ScrollZoomContinuous>
           </div>
         </div>
       </AnimatedSection>
 
-      {/* Our Expert Masters - staggered cards */}
+      {/* Our Expert Masters — up to 8 coaches; desktop 4 / tablet 2 / mobile 1 */}
       <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
         <div className="container mx-auto px-4 max-w-7xl">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
@@ -254,33 +293,53 @@ export default function HomePageView({
             <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">Our Expert Masters</h2>
           </AnimatedSection>
           <AnimatedStaggerGrid
-            className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-            staggerDelay={0.15}
-            childClassName="flex flex-col sm:flex-row gap-6"
+            className={
+              trainers.length
+                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-8 w-full"
+                : "grid grid-cols-1 gap-6 w-full"
+            }
+            staggerDelay={0.12}
+            childClassName="h-full w-full"
           >
-            {trainers.map((t) => (
-              <AnimatedCard key={t.name} scrollReveal={false}>
-                <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col sm:flex-row gap-6">
-                  <img
-                    src={t.img}
-                    alt={t.name}
-                    className="w-full sm:w-48 h-64 object-cover rounded-lg flex-shrink-0"
-                  />
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-white mb-1">{t.name}</h3>
-                    <p className="text-[#FFB70F] font-semibold mb-3">{t.role}</p>
-                    <p className="text-gray-400 text-sm leading-relaxed">
-                      Quuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro
-                      quisquam est, qui dolorem ipsum quiaolor sit amet, consectetur, adipisci
-                      velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore
-                      magnam.
-                    </p>
+            {trainers.length === 0 ? (
+              <p className="text-center text-gray-500 text-sm col-span-full py-8">
+                Coach profiles from admin will appear here. Set display order and photos in Coaches Management.
+              </p>
+            ) : null}
+            {trainers.map((t, idx) => (
+              <AnimatedCard key={`${t.name}-${idx}`} scrollReveal={false}>
+                <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center">
+                  <div className="w-[180px] h-[340px] max-w-full shrink-0 rounded-lg overflow-hidden border-2 border-[#FFB70F]/40 mb-4 bg-gray-800">
                     <img
-                      src="/assets/img/courses/stars.png"
-                      alt="Rating"
-                      className="mt-2 w-24 h-auto"
+                      src={t.img ? resolveUploadUrl(t.img) : ""}
+                      alt={t.name}
+                      loading="lazy"
+                      decoding="async"
+                      width={180}
+                      height={340}
+                      className="w-full h-full object-cover"
                     />
                   </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-1 line-clamp-2">{t.name}</h3>
+                  <p className="text-[#FFB70F] font-semibold text-sm mb-3 line-clamp-2">{t.role}</p>
+                  <p className="text-gray-400 text-sm leading-relaxed line-clamp-4 flex-1 w-full">
+                    {t.about?.trim()
+                      ? t.about
+                      : "Experienced instructor dedicated to helping every student grow with discipline and skill."}
+                  </p>
+                  {typeof t.rating === "number" && t.rating > 0 ? (
+                    <p className="mt-3 text-[#FFB70F] text-sm font-semibold" aria-label={`Rating ${t.rating} out of 5`}>
+                      ★ {t.rating.toFixed(1)} / 5
+                    </p>
+                  ) : (
+                    <img
+                      src="/assets/img/courses/stars.png"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="mt-3 w-24 h-auto opacity-90"
+                    />
+                  )}
                 </div>
               </AnimatedCard>
             ))}
@@ -288,53 +347,106 @@ export default function HomePageView({
         </div>
       </section>
 
-      {/* Testimonials - max 4 cards with round image on top; More button to /testimonials */}
+      {/* Student testimonials (MongoDB marketing) — carousel, max 6 */}
       <section className="py-16 md:py-20 bg-[#171A26] relative z-10">
         <div className="container mx-auto px-4 max-w-7xl">
           <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
             <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
-            <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">
-              {testimonialsSubtitle}
-            </p>
+            <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">{testimonialsSubtitle}</p>
             <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">{testimonialsTitle}</h2>
           </AnimatedSection>
-          <AnimatedStaggerGrid
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-            staggerDelay={0.1}
-          >
-            {testimonials.slice(0, 4).map((t, i) => (
-              <AnimatedCard key={i} scrollReveal={false}>
-                <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0">
-                    {t.image ? (
-                      <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gray-700 flex items-center justify-center text-2xl text-gray-400">👤</div>
-                    )}
-                  </div>
-                  <img
-                    src="/assets/img/courses/quote.png"
-                    alt=""
-                    className="w-8 h-8 mb-2 opacity-80"
-                  />
-                  <p className="text-gray-300 text-sm leading-relaxed mb-4 flex-1">
-                    {t.quote || defaultTestimonialQuote}
-                  </p>
-                  <h3 className="text-[#FFB70F] font-semibold">{t.name}</h3>
-                  <p className="text-white/80 text-sm">{t.role}</p>
-                </div>
-              </AnimatedCard>
-            ))}
-          </AnimatedStaggerGrid>
-          {testimonials.length > 0 && (
-            <AnimatedSection className="text-center mt-10" variant="fadeSlideUp">
-              <Link
-                href="/testimonials"
-                className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+          {showcaseTestimonials.length === 0 && testimonials.length === 0 ? (
+            <p className="text-center text-gray-500 py-12 text-sm">No testimonials available</p>
+          ) : showcaseTestimonials.length > 0 ? (
+            <>
+              <Carousel className="px-2 md:px-8">
+                {showcaseTestimonials.slice(0, 6).map((t, i) => (
+                  <TestimonialCard key={t.id || i} item={t} />
+                ))}
+              </Carousel>
+              <AnimatedSection className="text-center mt-10" variant="fadeSlideUp">
+                <Link
+                  href="/testimonials"
+                  className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+                >
+                  More testimonials
+                </Link>
+              </AnimatedSection>
+            </>
+          ) : (
+            <>
+              <AnimatedStaggerGrid
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+                staggerDelay={0.1}
               >
-                More testimonials
-              </Link>
-            </AnimatedSection>
+                {testimonials.slice(0, 4).map((t, i) => (
+                  <AnimatedCard key={i} scrollReveal={false}>
+                    <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center">
+                      <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0">
+                        {t.image ? (
+                          <img
+                            src={resolveUploadUrl(t.image)}
+                            alt={t.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-700 flex items-center justify-center text-2xl text-gray-400">
+                            👤
+                          </div>
+                        )}
+                      </div>
+                      <img
+                        src="/assets/img/courses/quote.png"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="w-8 h-8 mb-2 opacity-80"
+                      />
+                      <p className="text-gray-300 text-sm leading-relaxed mb-4 flex-1">
+                        {t.quote || defaultTestimonialQuote}
+                      </p>
+                      <h3 className="text-[#FFB70F] font-semibold">{t.name}</h3>
+                      {t.achievement?.trim() ? (
+                        <p className="text-[#FFB70F]/90 text-xs font-medium uppercase tracking-wide mt-1">
+                          {t.achievement}
+                        </p>
+                      ) : null}
+                      <p className="text-white/80 text-sm">{t.role}</p>
+                    </div>
+                  </AnimatedCard>
+                ))}
+              </AnimatedStaggerGrid>
+              <AnimatedSection className="text-center mt-10" variant="fadeSlideUp">
+                <Link
+                  href="/testimonials"
+                  className="inline-block rounded-lg bg-[#FFB70F] px-6 py-3 text-base font-semibold text-black hover:bg-[#F73322] hover:text-white transition-colors duration-300"
+                >
+                  More testimonials
+                </Link>
+              </AnimatedSection>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Student achievements showcase (MongoDB) */}
+      <section className="py-16 md:py-20 bg-[#171A26] relative z-10 border-t border-gray-800/80">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <AnimatedSection className="text-center mb-12" variant="fadeSlideUp">
+            <div className="w-16 h-1 bg-[#FFB70F] mx-auto mb-4" />
+            <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Celebrate</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-[#FFB70F]">Student Achievements</h2>
+          </AnimatedSection>
+          {showcaseAchievements.length === 0 ? (
+            <p className="text-center text-gray-500 py-12 text-sm">No achievements yet</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {showcaseAchievements.slice(0, 12).map((a, i) => (
+                <ShowcaseAchievementCard key={a.id || i} item={a} />
+              ))}
+            </div>
           )}
         </div>
       </section>

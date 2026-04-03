@@ -79,7 +79,7 @@ export default function BranchManagerBranchInfo() {
   
   // Add state for pagination
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
+  const itemsPerPage = 15
 
   // Authentication check
   useEffect(() => {

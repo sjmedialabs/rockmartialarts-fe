@@ -79,6 +79,8 @@ interface CourseBatch {
   coach_id: string
   /** Full day names, e.g. Monday — same as branch operational timings. */
   days: string[]
+  batch_name?: string
+  batch_fee?: string
 }
 
 interface SelectedCourse {
@@ -494,6 +496,8 @@ export default function EditBranch() {
                 end_time: "",
                 coach_id: "",
                 days: [],
+                batch_name: "",
+                batch_fee: "",
               }]
             }
           ]
@@ -520,6 +524,8 @@ export default function EditBranch() {
                     end_time: "",
                     coach_id: "",
                     days: [],
+                    batch_name: "",
+                    batch_fee: "",
                   }
                 ]
               }
@@ -681,6 +687,7 @@ export default function EditBranch() {
     if (!formData.location_id) newErrors.location = "Location is required"
     if (!formData.manager_id) newErrors.manager = "Manager is required"
     if (!formData.branch.address.line1) newErrors.addressLine1 = "Address is required"
+    if (!formData.branch.address.area?.trim()) newErrors.area = "Area is required"
     if (!formData.branch.address.pincode) newErrors.pincode = "Pincode is required"
 
     setErrors(newErrors)
@@ -830,8 +837,8 @@ export default function EditBranch() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Left Card - Branch Information */}
+        <div className="space-y-6">
+          {/* Branch Information — full width */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -980,7 +987,7 @@ export default function EditBranch() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="area">Area/Locality</Label>
+                <Label htmlFor="area">Area / Locality <span className="text-red-500">*</span></Label>
                 <Input
                   id="area"
                   value={formData.branch.address.area}
@@ -992,7 +999,9 @@ export default function EditBranch() {
                     }
                   })}
                   placeholder="Area or locality"
+                  className={errors.area ? "border-red-500" : ""}
                 />
+                {errors.area && <p className="text-xs text-red-500">{errors.area}</p>}
               </div>
 
               <div className="grid grid-cols-3 gap-4">
@@ -1074,7 +1083,211 @@ export default function EditBranch() {
             </CardContent>
           </Card>
 
-          {/* Top Right Card - Operational Details */}
+          {/* Course Assignments — full width */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-[#FA6669]" />
+                <span className="text-[#4F5077]">Course Assignments</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Category Selection */}
+              <div className="space-y-2">
+                <Label>Select Category</Label>
+                <Select
+                  value={selectedCategoryId}
+                  onValueChange={handleCategoryChange}
+                  disabled={isLoadingCategories}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={isLoadingCategories ? "Loading..." : "Select category"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.filter(c => !c.parent_category_id).map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Course List */}
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {filteredCourses.length > 0 ? (
+                  filteredCourses.map((course) => {
+                    const selectedCourse = formData.assignments.courses.find(c => c.course_id === course.id)
+                    const isSelected = !!selectedCourse
+
+                    return (
+                      <div key={course.id} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => handleCourseToggle(course.id)}
+                            />
+                            <div>
+                              <p className="font-medium">{course.title}</p>
+                              <p className="text-xs text-gray-500">{course.code}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Batches for selected course */}
+                        {isSelected && selectedCourse && (
+                          <div className="ml-6 space-y-2">
+                            <Label className="text-sm">Batches</Label>
+                            {selectedCourse.batches.map((batch) => (
+                              <div
+                                key={batch.id}
+                                className="space-y-2 bg-gray-50 p-3 rounded border border-gray-200"
+                              >
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-gray-600">Available days</Label>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-2">
+                                    {WEEKDAY_CHECKLIST_ORDER.map((day) => (
+                                      <label
+                                        key={day}
+                                        className="flex items-center gap-1.5 text-xs cursor-pointer text-gray-800"
+                                      >
+                                        <Checkbox
+                                          checked={(batch.days || []).includes(day)}
+                                          onCheckedChange={() => toggleBatchDay(course.id, batch.id, day)}
+                                        />
+                                        <span>{day}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                                {(batch.days || []).length > 0 && (
+                                  <p className="text-xs font-medium text-[#4F5077]">
+                                    {formatWeekdayRanges(batch.days || [])}
+                                    {batch.start_time || batch.end_time
+                                      ? ` · ${batch.start_time || "—"} – ${batch.end_time || "—"}`
+                                      : ""}
+                                  </p>
+                                )}
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-gray-600">Batch name (optional)</Label>
+                                  <Input
+                                    type="text"
+                                    placeholder="e.g. Morning batch"
+                                    value={batch.batch_name ?? ""}
+                                    onChange={(e) =>
+                                      updateBatch(course.id, batch.id, "batch_name", e.target.value)
+                                    }
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">Start time</Label>
+                                    <Input
+                                      type="time"
+                                      value={batch.start_time}
+                                      onChange={(e) =>
+                                        updateBatch(course.id, batch.id, "start_time", e.target.value)
+                                      }
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">End time</Label>
+                                    <Input
+                                      type="time"
+                                      value={batch.end_time}
+                                      onChange={(e) =>
+                                        updateBatch(course.id, batch.id, "end_time", e.target.value)
+                                      }
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">Trainer</Label>
+                                    <Select
+                                      value={
+                                        (batch.coach_id || "").trim()
+                                          ? batch.coach_id
+                                          : BATCH_COACH_UNASSIGNED
+                                      }
+                                      onValueChange={(value) =>
+                                        updateBatch(
+                                          course.id,
+                                          batch.id,
+                                          "coach_id",
+                                          value === BATCH_COACH_UNASSIGNED ? "" : value
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger className="h-9">
+                                        <SelectValue placeholder="Trainer" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value={BATCH_COACH_UNASSIGNED}>
+                                          No trainer assigned
+                                        </SelectItem>
+                                        {coaches.map((coach) => (
+                                          <SelectItem key={coach.id} value={coach.id}>
+                                            {coach.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs text-gray-600">Batch fee (₹)</Label>
+                                    <Input
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="Optional — uses course fee if empty"
+                                      value={batch.batch_fee ?? ""}
+                                      onChange={(e) =>
+                                        updateBatch(course.id, batch.id, "batch_fee", e.target.value)
+                                      }
+                                      className="h-9"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex justify-end">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    type="button"
+                                    onClick={() => removeBatchFromCourse(course.id, batch.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => addBatchToCourse(course.id)}
+                              className="w-full"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Batch
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    {selectedCategoryId ? "No courses found for this category" : "Please select a category to view courses"}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Operational Details — 50% on large screens */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -1184,174 +1397,7 @@ export default function EditBranch() {
             </CardContent>
           </Card>
 
-          {/* Bottom Left Card - Course Assignments */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-[#FA6669]" />
-                <span className="text-[#4F5077]">Course Assignments</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Category Selection */}
-              <div className="space-y-2">
-                <Label>Select Category</Label>
-                <Select
-                  value={selectedCategoryId}
-                  onValueChange={handleCategoryChange}
-                  disabled={isLoadingCategories}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={isLoadingCategories ? "Loading..." : "Select category"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.filter(c => !c.parent_category_id).map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Course List */}
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredCourses.length > 0 ? (
-                  filteredCourses.map((course) => {
-                    const selectedCourse = formData.assignments.courses.find(c => c.course_id === course.id)
-                    const isSelected = !!selectedCourse
-
-                    return (
-                      <div key={course.id} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => handleCourseToggle(course.id)}
-                            />
-                            <div>
-                              <p className="font-medium">{course.title}</p>
-                              <p className="text-xs text-gray-500">{course.code}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Batches for selected course */}
-                        {isSelected && selectedCourse && (
-                          <div className="ml-6 space-y-2">
-                            <Label className="text-sm">Batches</Label>
-                            {selectedCourse.batches.map((batch) => (
-                              <div
-                                key={batch.id}
-                                className="space-y-2 bg-gray-50 p-3 rounded border border-gray-200"
-                              >
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-gray-600">Available days</Label>
-                                  <div className="flex flex-wrap gap-x-3 gap-y-2">
-                                    {WEEKDAY_CHECKLIST_ORDER.map((day) => (
-                                      <label
-                                        key={day}
-                                        className="flex items-center gap-1.5 text-xs cursor-pointer text-gray-800"
-                                      >
-                                        <Checkbox
-                                          checked={(batch.days || []).includes(day)}
-                                          onCheckedChange={() => toggleBatchDay(course.id, batch.id, day)}
-                                        />
-                                        <span>{day}</span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                </div>
-                                {(batch.days || []).length > 0 && (
-                                  <p className="text-xs font-medium text-[#4F5077]">
-                                    {formatWeekdayRanges(batch.days || [])}
-                                    {batch.start_time || batch.end_time
-                                      ? ` · ${batch.start_time || "—"} – ${batch.end_time || "—"}`
-                                      : ""}
-                                  </p>
-                                )}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
-                                  <Input
-                                    type="time"
-                                    placeholder="Start"
-                                    value={batch.start_time}
-                                    onChange={(e) =>
-                                      updateBatch(course.id, batch.id, "start_time", e.target.value)
-                                    }
-                                  />
-                                  <Input
-                                    type="time"
-                                    placeholder="End"
-                                    value={batch.end_time}
-                                    onChange={(e) =>
-                                      updateBatch(course.id, batch.id, "end_time", e.target.value)
-                                    }
-                                  />
-                                  <Select
-                                    value={
-                                      (batch.coach_id || "").trim()
-                                        ? batch.coach_id
-                                        : BATCH_COACH_UNASSIGNED
-                                    }
-                                    onValueChange={(value) =>
-                                      updateBatch(
-                                        course.id,
-                                        batch.id,
-                                        "coach_id",
-                                        value === BATCH_COACH_UNASSIGNED ? "" : value
-                                      )
-                                    }
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Coach" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value={BATCH_COACH_UNASSIGNED}>
-                                        No coach assigned
-                                      </SelectItem>
-                                      {coaches.map((coach) => (
-                                        <SelectItem key={coach.id} value={coach.id}>
-                                          {coach.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    type="button"
-                                    onClick={() => removeBatchFromCourse(course.id, batch.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => addBatchToCourse(course.id)}
-                              className="w-full"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Batch
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
-                ) : (
-                  <p className="text-sm text-gray-500 text-center py-4">
-                    {selectedCategoryId ? "No courses found for this category" : "Please select a category to view courses"}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Bottom Right Card - Bank Details */}
+          {/* Bank Details — 50% on large screens */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -1433,6 +1479,7 @@ export default function EditBranch() {
               </div>
             </CardContent>
           </Card>
+          </div>
         </div>
 
         {/* Form Actions */}

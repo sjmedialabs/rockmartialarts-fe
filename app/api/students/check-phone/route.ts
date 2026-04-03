@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBackendProxyBaseUrl } from "@/lib/serverBackendUrl"
+import { extractIndianMobileDigits, isValidIndianMobileNational } from "@/lib/indianMobile"
 
-/** Normalize phone for comparison: digits only, strip +91/0 prefix for Indian numbers */
+/** 10-digit national part for student list queries */
 function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  if (digits.length === 10 && /^[6-9]/.test(digits)) return digits
-  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2)
-  return digits
+  const d = extractIndianMobileDigits(phone)
+  return isValidIndianMobileNational(d) ? d : ""
 }
 
 /**

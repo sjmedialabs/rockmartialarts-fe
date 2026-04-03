@@ -10,6 +10,7 @@ import { useRegistration } from "@/contexts/RegistrationContext"
 import { useCMS } from "@/contexts/CMSContext"
 import { openRazorpayCheckout, type RazorpayPaymentResponse } from "@/lib/razorpay"
 import { submitLead } from "@/lib/submitLead"
+import { normalizeToIndianE164 } from "@/lib/indianMobile"
 
 interface PaymentCalculation {
   course_fee: number
@@ -30,7 +31,7 @@ interface CoursePaymentInfo {
 
 export default function PaymentPage() {
   const router = useRouter()
-  const { registrationData, updateRegistrationData } = useRegistration()
+  const { registrationData, updateRegistrationData, registrationStorageReady } = useRegistration()
   const { cms } = useCMS()
 
   const [paymentInfo, setPaymentInfo] = useState<CoursePaymentInfo | null>(null)
@@ -42,6 +43,11 @@ export default function PaymentPage() {
   const durationLabel =
     registrationData.duration_name ||
     `${registrationData.duration_months || 1} month${(registrationData.duration_months || 1) > 1 ? "s" : ""}`
+
+  const batchLabel = (registrationData.batch_display_label || "").trim()
+
+  const paymentPhoneE164 =
+    normalizeToIndianE164(registrationData.mobile?.trim() || "") || ""
 
   // Fetch payment breakdown from backend only (same source as Razorpay amount)
   useEffect(() => {
@@ -142,12 +148,19 @@ export default function PaymentPage() {
   ])
 
   useEffect(() => {
+    if (!registrationStorageReady) return
     if (loading) return
-    if (!registrationData.mobile?.trim()) return
+    if (!paymentPhoneE164) return
     if (!registrationData.phoneVerificationToken?.trim()) {
       router.replace("/otp-verification?next=" + encodeURIComponent("/register/payment"))
     }
-  }, [loading, registrationData.mobile, registrationData.phoneVerificationToken, router])
+  }, [
+    registrationStorageReady,
+    loading,
+    paymentPhoneE164,
+    registrationData.phoneVerificationToken,
+    router,
+  ])
 
   const subscriptionEndISO = (months: number) => {
     const d = new Date()
@@ -167,7 +180,7 @@ export default function PaymentPage() {
       return
     }
 
-    if (!registrationData.mobile?.trim()) {
+    if (!paymentPhoneE164) {
       setError("Mobile number is required. Go back and complete your profile.")
       return
     }
@@ -185,7 +198,7 @@ export default function PaymentPage() {
       await submitLead({
         name: fullName,
         email: registrationData.email || "",
-        phone: registrationData.mobile || "",
+        phone: paymentPhoneE164,
         course: paymentInfo.course_name || registrationData.course_name || "",
         source: "registration_payment",
       })
@@ -194,7 +207,7 @@ export default function PaymentPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: registrationData.mobile,
+          phone: paymentPhoneE164,
           amount: total,
           name: fullName,
           course_name: paymentInfo.course_name,
@@ -225,7 +238,7 @@ export default function PaymentPage() {
         orderId,
         customerName: registrationData.fullName || fullName,
         customerEmail: registrationData.email,
-        customerContact: registrationData.mobile,
+        customerContact: paymentPhoneE164,
         onSuccess: async (response: RazorpayPaymentResponse) => {
           try {
             if (!response.razorpay_order_id || !response.razorpay_payment_id || !response.razorpay_signature) {
@@ -238,7 +251,7 @@ export default function PaymentPage() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                phone: registrationData.mobile,
+                phone: paymentPhoneE164,
                 name: fullName,
                 course_name: paymentInfo.course_name,
                 duration: paymentInfo.duration,
@@ -288,12 +301,14 @@ export default function PaymentPage() {
   const registrationMediaUrl = cms?.homepage?.registration_media_url
   const registrationMediaType = cms?.homepage?.registration_media_type || "auto"
 
-  if (loading) {
+  if (!registrationStorageReady || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading payment information...</p>
+          <p className="text-gray-600">
+            {!registrationStorageReady ? "Restoring your session…" : "Loading payment information..."}
+          </p>
         </div>
       </div>
     )
@@ -370,6 +385,11 @@ export default function PaymentPage() {
               <div className="text-center border-b border-gray-200 pb-4">
                 <h3 className="text-lg font-semibold text-black mb-1">{paymentInfo.course_name}</h3>
                 <p className="text-sm text-gray-600">{paymentInfo.category_name} • {paymentInfo.branch_name}</p>
+                {batchLabel ? (
+                  <p className="text-sm text-gray-700 font-medium mt-1">
+                    Batch: {batchLabel}
+                  </p>
+                ) : null}
                 <p className="text-sm text-gray-500">Payment Duration: {paymentInfo.duration}</p>
               </div>
 

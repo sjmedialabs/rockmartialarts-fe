@@ -11,16 +11,19 @@ const DIGITS = 6
 function formatApiDetail(data: unknown): string {
   if (!data || typeof data !== "object") return "Request failed"
   const d = (data as { detail?: unknown }).detail
-  if (typeof d === "string") return d
-  if (Array.isArray(d)) {
-    return d.map((x) => (typeof x === "object" && x && "msg" in x ? String((x as { msg?: string }).msg) : String(x))).join(", ")
-  }
-  return "Request failed"
+  let s: string
+  if (typeof d === "string") s = d
+  else if (Array.isArray(d)) {
+    s = d.map((x) => (typeof x === "object" && x && "msg" in x ? String((x as { msg?: string }).msg) : String(x))).join(", ")
+  } else return "Request failed"
+  if (/otp expired|expired.*resend/i.test(s)) return "OTP expired. Please resend."
+  return s
 }
 
 type Props = {
-  phone: string
-  /** 10-digit Indian mobile, no country code */
+  /** E.164 Indian mobile for OTP APIs: +91XXXXXXXXXX */
+  apiPhone: string
+  /** 10-digit Indian mobile for masking (national part only) */
   normalizedMobile: string
   /** True when number is valid, not duplicate, and existence check finished */
   readyForOtp: boolean
@@ -29,7 +32,7 @@ type Props = {
 }
 
 export function RegPhoneOtpSection({
-  phone,
+  apiPhone,
   normalizedMobile,
   readyForOtp,
   isVerified,
@@ -46,7 +49,7 @@ export function RegPhoneOtpSection({
     normalizedMobile.length >= 4 ? `******${normalizedMobile.slice(-4)}` : normalizedMobile
 
   const sendOtp = async () => {
-    if (!readyForOtp || !phone.trim()) return
+    if (!readyForOtp || !apiPhone) return
     setSendBusy(true)
     setErr(null)
     setMsg(null)
@@ -54,7 +57,7 @@ export function RegPhoneOtpSection({
       const res = await fetch("/api/backend/reg-checkout/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: apiPhone }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -93,7 +96,7 @@ export function RegPhoneOtpSection({
       const res = await fetch("/api/backend/reg-checkout/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, otp: code }),
+        body: JSON.stringify({ phone: apiPhone, otp: code }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

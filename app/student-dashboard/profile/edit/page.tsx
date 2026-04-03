@@ -390,6 +390,7 @@ export default function EditStudentProfilePage() {
                     <Label htmlFor="firstName">First Name</Label>
                     <Input
                       id="firstName"
+                      placeholder="Enter first name"
                       value={formData.first_name}
                       onChange={(e) => handleInputChange("first_name", e.target.value)}
                       className="mt-1"
@@ -399,6 +400,7 @@ export default function EditStudentProfilePage() {
                     <Label htmlFor="lastName">Last Name</Label>
                     <Input
                       id="lastName"
+                      placeholder="Enter last name"
                       value={formData.last_name}
                       onChange={(e) => handleInputChange("last_name", e.target.value)}
                       className="mt-1"
@@ -409,6 +411,7 @@ export default function EditStudentProfilePage() {
                     <Input
                       id="email"
                       type="email"
+                      placeholder="Enter your email address"
                       value={studentProfile.email}
                       disabled
                       className="mt-1 bg-gray-50"
@@ -420,6 +423,7 @@ export default function EditStudentProfilePage() {
                     <Input
                       id="phone"
                       type="tel"
+                      placeholder="Enter mobile number"
                       value={formData.phone}
                       onChange={(e) => handleInputChange("phone", e.target.value)}
                       className="mt-1"
@@ -430,6 +434,7 @@ export default function EditStudentProfilePage() {
                     <Input
                       id="dateOfBirth"
                       type="date"
+                      placeholder="Select date"
                       value={formData.date_of_birth}
                       onChange={(e) => handleInputChange("date_of_birth", e.target.value)}
                       className="mt-1"
@@ -467,6 +472,7 @@ export default function EditStudentProfilePage() {
                   <Label htmlFor="street">Street Address</Label>
                   <Input
                     id="street"
+                    placeholder="Enter street address"
                     value={formData.address.street}
                     onChange={(e) => handleNestedInputChange("address", "street", e.target.value)}
                     className="mt-1"
@@ -477,6 +483,7 @@ export default function EditStudentProfilePage() {
                     <Label htmlFor="city">City</Label>
                     <Input
                       id="city"
+                      placeholder="Enter city"
                       value={formData.address.city}
                       onChange={(e) => handleNestedInputChange("address", "city", e.target.value)}
                       className="mt-1"
@@ -486,6 +493,7 @@ export default function EditStudentProfilePage() {
                     <Label htmlFor="state">State</Label>
                     <Input
                       id="state"
+                      placeholder="Enter state"
                       value={formData.address.state}
                       onChange={(e) => handleNestedInputChange("address", "state", e.target.value)}
                       className="mt-1"
@@ -495,6 +503,7 @@ export default function EditStudentProfilePage() {
                     <Label htmlFor="postalCode">Postal Code</Label>
                     <Input
                       id="postalCode"
+                      placeholder="Enter postal code"
                       value={formData.address.postal_code}
                       onChange={(e) => handleNestedInputChange("address", "postal_code", e.target.value)}
                       className="mt-1"
@@ -516,6 +525,7 @@ export default function EditStudentProfilePage() {
                     <Label htmlFor="emergencyName">Contact Name</Label>
                     <Input
                       id="emergencyName"
+                      placeholder="Enter contact full name"
                       value={formData.emergency_contact.name}
                       onChange={(e) => handleNestedInputChange("emergency_contact", "name", e.target.value)}
                       className="mt-1"
@@ -526,6 +536,7 @@ export default function EditStudentProfilePage() {
                     <Input
                       id="emergencyPhone"
                       type="tel"
+                      placeholder="Enter mobile number"
                       value={formData.emergency_contact.phone}
                       onChange={(e) => handleNestedInputChange("emergency_contact", "phone", e.target.value)}
                       className="mt-1"
@@ -538,7 +549,7 @@ export default function EditStudentProfilePage() {
                       onValueChange={(value) => handleNestedInputChange("emergency_contact", "relationship", value)}
                     >
                       <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select relationship" />
+                        <SelectValue placeholder="Select relationship to you" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="parent">Parent</SelectItem>
@@ -567,7 +578,7 @@ export default function EditStudentProfilePage() {
                       id="allergies"
                       value={formData.medical_info.allergies}
                       onChange={(e) => handleNestedInputChange("medical_info", "allergies", e.target.value)}
-                      placeholder="List any allergies..."
+                      placeholder="List any allergies (or leave blank)"
                       className="mt-1"
                     />
                   </div>
@@ -577,7 +588,7 @@ export default function EditStudentProfilePage() {
                       id="medications"
                       value={formData.medical_info.medications}
                       onChange={(e) => handleNestedInputChange("medical_info", "medications", e.target.value)}
-                      placeholder="List current medications..."
+                      placeholder="List current medications (or leave blank)"
                       className="mt-1"
                     />
                   </div>
@@ -587,7 +598,7 @@ export default function EditStudentProfilePage() {
                       id="conditions"
                       value={formData.medical_info.conditions}
                       onChange={(e) => handleNestedInputChange("medical_info", "conditions", e.target.value)}
-                      placeholder="List any medical conditions..."
+                      placeholder="List any medical conditions (or leave blank)"
                       className="mt-1"
                     />
                   </div>
@@ -598,7 +609,7 @@ export default function EditStudentProfilePage() {
                       onValueChange={(value) => handleNestedInputChange("medical_info", "blood_type", value)}
                     >
                       <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select blood type" />
+                        <SelectValue placeholder="Select blood type (optional)" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="A+">A+</SelectItem>

@@ -362,14 +362,31 @@ export default function StudentPaymentsPage() {
     }
   }
 
-  // Resolve course name for a payment (from course_details or enrollments by enrollment_id)
+  // Resolve course name for a payment (API may set top-level course_name; else course_details or enrollment)
   const getCourseName = (p: PaymentRecord) => {
+    if (p.course_name) return p.course_name
     if (p.course_details?.course_name) return p.course_details.course_name
     if (p.enrollment_id && enrollments.length) {
       const en = enrollments.find(e => e.id === p.enrollment_id)
       if (en?.course_name) return en.course_name
     }
     return "—"
+  }
+
+  const getPaymentMethodDisplay = (p: PaymentRecord) => {
+    if (p.gateway_payment_label) return p.gateway_payment_label
+    const tx = p.transaction_id || ""
+    if (tx.startsWith("pay_") && p.payment_method === "digital_wallet") {
+      return "Razorpay"
+    }
+    const raw = (p.gateway_method || "").toLowerCase()
+    if (raw === "upi") return "UPI"
+    if (raw === "card") return "Card"
+    if (raw === "netbanking") return "Net Banking"
+    if (raw === "wallet") return "Wallet"
+    if (raw === "emi") return "EMI"
+    if (raw === "razorpay") return "Razorpay"
+    return p.payment_method.replace(/_/g, " ")
   }
 
   const handleExport = () => {
@@ -381,7 +398,7 @@ export default function StudentPaymentsPage() {
       studentPaymentAPI.formatPaymentType(p.payment_type),
       getCourseName(p),
       formatCurrency(p.amount),
-      p.payment_method.replace(/_/g, ' '),
+      getPaymentMethodDisplay(p),
       p.payment_status
     ])
     
@@ -796,10 +813,10 @@ export default function StudentPaymentsPage() {
                           {formatCurrency(payment.amount)}
                         </td>
                         <td className="py-4 text-sm">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 min-w-[8rem]">
                             {getPaymentMethodIcon(payment.payment_method)}
-                            <span className="capitalize">
-                              {payment.payment_method.replace(/_/g, ' ')}
+                            <span className="text-left leading-snug">
+                              {getPaymentMethodDisplay(payment)}
                             </span>
                           </div>
                         </td>

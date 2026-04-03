@@ -38,7 +38,10 @@ export function normalizeAssignmentsCourses(
               const end = b.end_time ?? (b as { endTime?: unknown }).endTime
               const coach = b.coach_id ?? (b as { coachId?: unknown }).coachId
               const rawFee =
-                b.batch_fee ?? (b as { fee?: unknown }).fee ?? (b as { price?: unknown }).price
+                b.batch_fee ??
+                (b as { batchFee?: unknown }).batchFee ??
+                (b as { fee?: unknown }).fee ??
+                (b as { price?: unknown }).price
               let batch_fee: string | undefined
               if (rawFee != null && String(rawFee).trim() !== "") {
                 batch_fee = String(rawFee)

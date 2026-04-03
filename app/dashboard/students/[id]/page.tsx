@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -575,13 +576,9 @@ export default function StudentDetailPage() {
                 {/* Timestamps */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                   <div>
-                    <h3 className="text-sm font-medium  mb-1">Enrolled</h3>
+                    <h3 className="text-sm font-medium  mb-1">Enrolled (registered)</h3>
                     <p className="text-sm ">
-                      {new Date(student.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {formatRegisteredDateTime(student.created_at)}
                     </p>
                   </div>
 

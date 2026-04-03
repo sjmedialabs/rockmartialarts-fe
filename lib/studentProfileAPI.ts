@@ -44,6 +44,10 @@ export interface StudentProfile {
   full_name: string
   date_of_birth?: string
   gender?: string
+  /** Public URL path e.g. /uploads/images/... */
+  profile_image?: string | null
+  /** Belt/rank when configured in backend (no default in UI) */
+  current_belt?: string | null
   address?: StudentAddress
   emergency_contact?: StudentEmergencyContact
   medical_info?: StudentMedicalInfo
@@ -113,6 +117,30 @@ class StudentProfileAPI extends BaseAPI {
       method: 'GET',
       token
     })
+  }
+
+  /**
+   * Upload profile photo (multipart). JPG/PNG, max ~2MB enforced server-side.
+   */
+  async uploadProfilePhoto(
+    file: File,
+    token: string
+  ): Promise<{ message: string; profile_image: string }> {
+    const form = new FormData()
+    form.append('file', file)
+    const { getBackendApiUrl } = await import('@/lib/config')
+    const url = getBackendApiUrl('auth/profile/photo')
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const detail = typeof data.detail === 'string' ? data.detail : data.message
+      throw new Error(detail || `Upload failed (${res.status})`)
+    }
+    return data
   }
 }
 

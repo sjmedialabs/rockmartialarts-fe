@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
-import { Edit, Mail, Phone, MapPin, Calendar, Award, Clock, User, Heart, AlertCircle } from "lucide-react"
+import { Edit, Mail, Phone, MapPin, Calendar, Clock, User, Heart, AlertCircle, Camera } from "lucide-react"
 import { studentProfileAPI, type StudentProfile } from "@/lib/studentProfileAPI"
+import { StudentProfilePhotoSheet } from "@/components/student-profile-photo-sheet"
 import { getBackendApiUrl } from "@/lib/config"
+import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function StudentProfilePage() {
@@ -19,6 +21,12 @@ export default function StudentProfilePage() {
   const [attendanceRate, setAttendanceRate] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false)
+  const [authToken, setAuthToken] = useState<string | null>(null)
+
+  useEffect(() => {
+    setAuthToken(localStorage.getItem("token"))
+  }, [])
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -90,6 +98,7 @@ export default function StudentProfilePage() {
               full_name: userData.full_name || `${userData.first_name || "Student"} ${userData.last_name || ""}`.trim(),
               date_of_birth: userData.date_of_birth,
               gender: userData.gender,
+              profile_image: userData.profile_image,
               address: userData.address,
               emergency_contact: userData.emergency_contact,
               medical_info: userData.medical_info,
@@ -119,6 +128,22 @@ export default function StudentProfilePage() {
 
   const handleEditProfile = () => {
     router.push("/student-dashboard/profile/edit")
+  }
+
+  const applyProfileImage = (url: string) => {
+    setStudentProfile((prev) => (prev ? { ...prev, profile_image: url } : null))
+    const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null
+    if (rawUser) {
+      try {
+        const userData = JSON.parse(rawUser)
+        localStorage.setItem("user", JSON.stringify({ ...userData, profile_image: url }))
+      } catch {
+        /* ignore */
+      }
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("student-profile-image-updated"))
+    }
   }
 
   if (loading) {
@@ -168,12 +193,15 @@ export default function StudentProfilePage() {
     )
   }
 
-  // Calculate profile stats from actual data (attendance from separate fetch or — for new users)
   const profileStats = {
     coursesEnrolled: studentProfile.enrollments?.length || 0,
-    totalHours: studentProfile.enrollments?.length * 45 || 0, // Estimate based on enrollments
-    attendanceRate: attendanceRate ?? (studentProfile as any).attendance_rate ?? (studentProfile as any).attendance_percentage ?? null,
-    currentBelt: (studentProfile as any).current_belt || "Yellow Belt" // From progress data when available
+    attendanceRate:
+      attendanceRate ??
+      (studentProfile as { attendance_rate?: number }).attendance_rate ??
+      (studentProfile as { attendance_percentage?: number }).attendance_percentage ??
+      null,
+    /** Only when API sends it (e.g. user.current_belt); never show a default belt rank */
+    currentBelt: (studentProfile as { current_belt?: string | null }).current_belt?.trim() || null,
   }
 
   return (
@@ -192,6 +220,16 @@ export default function StudentProfilePage() {
         </Button>
       }
     >
+      {authToken && (
+        <StudentProfilePhotoSheet
+          open={photoSheetOpen}
+          onOpenChange={setPhotoSheetOpen}
+          currentImageSrc={studentProfile.profile_image || ""}
+          fallbackLetter={studentProfile.first_name?.charAt(0)?.toUpperCase() || "S"}
+          token={authToken}
+          onSaved={applyProfileImage}
+        />
+      )}
       <div className="space-y-8">
         {error && (
           <Alert>
@@ -207,17 +245,27 @@ export default function StudentProfilePage() {
           <div className="lg:col-span-1">
             <Card>
               <CardHeader className="text-center">
-                <Avatar className="w-24 h-24 mx-auto mb-4">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white text-2xl font-bold">
-                    {studentProfile.first_name?.charAt(0)?.toUpperCase() || "S"}
+                <button
+                  type="button"
+                  onClick={() => setPhotoSheetOpen(true)}
+                  className="relative mx-auto mb-4 block rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 touch-manipulation"
+                  aria-label="Change profile photo"
+                >
+                  <Avatar className="w-24 h-24 cursor-pointer ring-offset-2 transition-transform hover:scale-[1.02] active:scale-[0.98]">
+                    <AvatarImage src={studentProfile.profile_image || ""} alt="" />
+                    <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white text-2xl font-bold">
+                      {studentProfile.first_name?.charAt(0)?.toUpperCase() || "S"}
                     </AvatarFallback>
                   </Avatar>
+                  <span className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-white shadow-md ring-2 ring-white">
+                    <Camera className="h-4 w-4" aria-hidden />
+                  </span>
+                </button>
                   <CardTitle className="text-xl">{studentProfile.full_name}</CardTitle>
                   <CardDescription>Student ID: {studentProfile.id.slice(-8)}</CardDescription>
-                  <Badge className="bg-yellow-100 text-yellow-800 mt-2">
-                    {profileStats.currentBelt}
-                  </Badge>
+                  {profileStats.currentBelt && (
+                    <Badge className="bg-muted text-foreground mt-2">{profileStats.currentBelt}</Badge>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-3 text-sm">
@@ -252,7 +300,7 @@ export default function StudentProfilePage() {
                   <div className="flex items-center space-x-3 text-sm">
                     <Clock className="w-4 h-4 text-gray-400" />
                     <span className="text-gray-600">
-                      Joined: {new Date(studentProfile.created_at).toLocaleDateString()}
+                      Joined: {formatRegisteredDateTime(studentProfile.created_at)}
                     </span>
                   </div>
                   {studentProfile.gender && (
@@ -273,10 +321,6 @@ export default function StudentProfilePage() {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Courses Enrolled</span>
                     <span className="font-semibold">{profileStats.coursesEnrolled}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Total Hours</span>
-                    <span className="font-semibold">{profileStats.totalHours}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Attendance Rate</span>

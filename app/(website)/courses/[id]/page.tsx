@@ -17,6 +17,7 @@ import {
   Quote,
 } from "lucide-react"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
+import { ShowcaseAchievementCard, type ShowcaseAchievementItem } from "@/components/testimonials"
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -62,6 +63,7 @@ type PageContent = {
 
 type CourseData = {
   id: string
+  showcase_achievements?: ShowcaseAchievementItem[]
   title?: string
   course_name?: string
   code?: string
@@ -151,6 +153,8 @@ function CourseDetailPageInner() {
   const [branchPricingInfo, setBranchPricingInfo] = useState<BranchPricingInfo | null>(null)
   const [branchPricingLoading, setBranchPricingLoading] = useState(false)
   const branchInitDoneRef = useRef(false)
+  const [showcaseAchievements, setShowcaseAchievements] = useState<ShowcaseAchievementItem[]>([])
+  const [showcaseLoading, setShowcaseLoading] = useState(false)
 
   useEffect(() => {
     branchInitDoneRef.current = false
@@ -248,6 +252,42 @@ function CourseDetailPageInner() {
       cancelled = true
     }
   }, [loading, course?.id, effectiveLocationForFetch])
+
+  useEffect(() => {
+    if (!course?.id || !effectiveLocationForFetch) {
+      setShowcaseAchievements([])
+      return
+    }
+    let cancelled = false
+    setShowcaseLoading(true)
+    const load = async () => {
+      try {
+        const r1 = await fetch(
+          `/api/backend/showcase-achievements?course_id=${encodeURIComponent(course.id)}&limit=30`,
+          { cache: "no-store", headers: { "Content-Type": "application/json" } }
+        )
+        const d1 = await r1.json().catch(() => ({}))
+        let list: ShowcaseAchievementItem[] = Array.isArray(d1.achievements) ? d1.achievements : []
+        if (list.length === 0) {
+          const r2 = await fetch(
+            `/api/backend/showcase-achievements?branch_id=${encodeURIComponent(effectiveLocationForFetch)}&limit=30`,
+            { cache: "no-store", headers: { "Content-Type": "application/json" } }
+          )
+          const d2 = await r2.json().catch(() => ({}))
+          list = Array.isArray(d2.achievements) ? d2.achievements : []
+        }
+        if (!cancelled) setShowcaseAchievements(list)
+      } catch {
+        if (!cancelled) setShowcaseAchievements([])
+      } finally {
+        if (!cancelled) setShowcaseLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [course?.id, effectiveLocationForFetch])
 
   /* Loading / Error */
   if (loading) return <main className="min-h-screen bg-[#171A26] flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" /></main>
@@ -721,6 +761,26 @@ function CourseDetailPageInner() {
           </div>
         </section>
       )}
+
+      {/* Student achievements (marketing showcase — MongoDB) */}
+      <section className="py-16 md:py-20 bg-[#1E2130]">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <SectionLabel sub="Celebrate" title="Student Achievements" />
+          {showcaseLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-10 h-10 animate-spin text-[#FFB70F]" />
+            </div>
+          ) : showcaseAchievements.length === 0 ? (
+            <p className="text-center text-gray-500 py-8 text-sm">No achievements yet</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {showcaseAchievements.map((a, i) => (
+                <ShowcaseAchievementCard key={a.id || i} item={a} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ============ 8. TESTIMONIALS ============ */}
       {enabled("testimonials") && testimonials.length > 0 && (

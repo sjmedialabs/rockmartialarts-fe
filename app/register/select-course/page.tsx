@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { getBackendApiUrl } from "@/lib/config"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -10,10 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRegistration } from "@/contexts/RegistrationContext"
 import { useCMS } from "@/contexts/CMSContext"
 import { toast } from "@/components/ui/use-toast"
-import {
-  type BranchCoursePricing,
-  formatCoursePriceLabel,
-} from "@/lib/registrationPricing"
+import type { BranchCoursePricing } from "@/lib/registrationPricing"
 
 interface BranchBatchOption {
   batch_ref: string
@@ -24,6 +21,26 @@ interface BranchBatchOption {
   days?: string[]
   start_time?: string
   end_time?: string
+  trainer_name?: string | null
+}
+
+function sortBatchesByStartTime(batches: BranchBatchOption[]): BranchBatchOption[] {
+  const pad = (t?: string) => {
+    const s = (t || "").trim()
+    if (!s) return "99:99"
+    const [h, m] = s.split(":")
+    return `${(h || "99").padStart(2, "0")}:${(m || "99").padStart(2, "0")}`
+  }
+  return [...batches].sort((a, b) => pad(a.start_time).localeCompare(pad(b.start_time)))
+}
+
+function batchIsPopular(b: BranchBatchOption): boolean {
+  const n = ((b.name || "") + (b.label || "")).toLowerCase()
+  return n.includes("popular")
+}
+
+function formatInr(amount: number): string {
+  return `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 }
 
 interface Course {
@@ -87,6 +104,10 @@ export default function SelectCoursePage() {
   const [masterDurations, setMasterDurations] = useState<DurationOption[] | null>(null)
   const [isLoadingDurations, setIsLoadingDurations] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  /** Real total from GET …/payment-info (same as payment step), not course list pricing. */
+  const [estimateTotal, setEstimateTotal] = useState<number | null>(null)
+  const [estimateLoading, setEstimateLoading] = useState(false)
+  const [estimateError, setEstimateError] = useState<string | null>(null)
 
   // Require branch to be selected first
   useEffect(() => {
@@ -220,7 +241,76 @@ export default function SelectCoursePage() {
 
   const selectedCategory = effectiveCategories.find((cat) => cat.id === formData.category_id)
   const selectedCourse = courses.find((course) => course.id === formData.course_id)
-  const branchBatches = selectedCourse?.branch_batches ?? []
+  const branchBatches = useMemo(
+    () => sortBatchesByStartTime(selectedCourse?.branch_batches ?? []),
+    [selectedCourse?.branch_batches]
+  )
+
+  // Live estimate from API (matches payment page totals; includes batch + registration where applicable)
+  useEffect(() => {
+    if (!branchId || !formData.course_id || !formData.duration) {
+      setEstimateTotal(null)
+      setEstimateError(null)
+      setEstimateLoading(false)
+      return
+    }
+    if (branchBatches.length > 0 && !formData.batch_ref.trim()) {
+      setEstimateTotal(null)
+      setEstimateError(null)
+      setEstimateLoading(false)
+      return
+    }
+
+    const ac = new AbortController()
+    const durationParam = encodeURIComponent(formData.duration)
+    const batchQ =
+      formData.batch_ref.trim().length > 0
+        ? `&batch_ref=${encodeURIComponent(formData.batch_ref.trim())}`
+        : ""
+
+    const run = async () => {
+      try {
+        setEstimateLoading(true)
+        setEstimateError(null)
+        const url = getBackendApiUrl(
+          `courses/${encodeURIComponent(formData.course_id)}/payment-info?branch_id=${encodeURIComponent(branchId)}&duration=${durationParam}${batchQ}`
+        )
+        const res = await fetch(url, { method: "GET", cache: "no-store", signal: ac.signal })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          const detail =
+            typeof json?.detail === "string" ? json.detail : "Could not load estimate."
+          setEstimateTotal(null)
+          setEstimateError(detail)
+          return
+        }
+        const total = json?.pricing?.total_amount
+        if (typeof total === "number" && !Number.isNaN(total)) {
+          setEstimateTotal(total)
+          setEstimateError(null)
+        } else {
+          setEstimateTotal(null)
+          setEstimateError(null)
+        }
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") return
+        setEstimateTotal(null)
+        setEstimateError(null)
+      } finally {
+        setEstimateLoading(false)
+      }
+    }
+
+    void run()
+    return () => ac.abort()
+  }, [
+    branchId,
+    formData.course_id,
+    formData.duration,
+    formData.batch_ref,
+    branchBatches.length,
+  ])
+
   const durationOptions: DurationOption[] =
     (selectedCourse?.available_durations as DurationOption[] | undefined)?.length
       ? (selectedCourse.available_durations as unknown as DurationOption[])
@@ -247,15 +337,14 @@ export default function SelectCoursePage() {
   // Single batch at this branch: pre-select batch_ref
   useEffect(() => {
     if (!selectedCourse?.id) return
-    const bb = selectedCourse.branch_batches
-    if (!bb?.length) return
-    if (bb.length === 1) {
-      const only = bb[0].batch_ref
+    if (!branchBatches?.length) return
+    if (branchBatches.length === 1) {
+      const only = branchBatches[0].batch_ref
       setFormData((prev) =>
         prev.batch_ref === only ? prev : { ...prev, batch_ref: only }
       )
     }
-  }, [selectedCourse?.id, selectedCourse?.branch_batches])
+  }, [selectedCourse?.id, branchBatches])
 
   const handleNextStep = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -333,11 +422,21 @@ export default function SelectCoursePage() {
         return
       }
 
+      const pickedBatch =
+        branchBatches.length > 0
+          ? branchBatches.find((x) => x.batch_ref === formData.batch_ref.trim())
+          : undefined
+      const batchDisplayLabel =
+        branchBatches.length > 0 && pickedBatch
+          ? (pickedBatch.name && pickedBatch.name.trim()) || pickedBatch.label
+          : ""
+
       updateRegistrationData({
         category_id: formData.category_id,
         course_id: formData.course_id,
         duration: formData.duration,
         batch_ref: formData.batch_ref.trim(),
+        batch_display_label: batchDisplayLabel,
         duration_name: selectedDuration?.name || payJson.duration || "",
         duration_months: selectedDuration?.duration_months || 1,
         course_name: selectedCourse?.title || payJson.course_name || "",
@@ -511,12 +610,11 @@ export default function SelectCoursePage() {
                   ) : (
                     courses.map((course) => (
                       <SelectItem key={course.id} value={course.id}>
-                        <div className="flex flex-col">
+                        <div className="flex flex-col py-0.5">
                           <span className="font-medium">{course.title}</span>
-                          <span className="text-xs text-gray-500">{course.code} • {course.difficulty_level}</span>
-                          <span className="text-[14px] font-semibold mt-1">
-                            {formatCoursePriceLabel(course.pricing)}
-                          </span>
+                          {course.difficulty_level ? (
+                            <span className="text-xs text-gray-500">{course.difficulty_level}</span>
+                          ) : null}
                         </div>
                       </SelectItem>
                     ))
@@ -526,42 +624,63 @@ export default function SelectCoursePage() {
               {fieldErrors.course_id && <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.course_id}</p>}
             </div>
 
-            {/* Select batch (when branch defines course batches) */}
+            {/* Select batch — cards (when branch defines course_schedule batches) */}
             {branchBatches.length > 0 && (
-              <div>
-                <Select
-                  value={formData.batch_ref}
-                  onValueChange={(value) => handleSelectChange("batch_ref", value)}
-                  disabled={!formData.course_id}
-                >
-                  <SelectTrigger
-                    className={`w-full !h-[60px] pl-6 pr-10 bg-[#F9F8FF] rounded-xl border-0 py-6 text-[16px] data-[placeholder]:text-black ${fieldErrors.batch_ref ? "!border !border-red-500" : ""}`}
-                  >
-                    <SelectValue placeholder="Select a batch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branchBatches.map((b) => {
-                      const title =
-                        (b.name && String(b.name).trim()) || b.label
-                      const priceStr =
-                        b.batch_fee != null && !Number.isNaN(b.batch_fee)
-                          ? `₹${b.batch_fee.toLocaleString("en-IN")}`
-                          : "Tenure-based fee"
-                      return (
-                      <SelectItem key={b.batch_ref} value={b.batch_ref}>
-                        <div className="flex flex-col text-left">
-                          <span className="font-medium">
-                            {title} — {priceStr}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {(b.name && String(b.name).trim()) ? `${b.label} · ` : ""}
-                            Admission fee is added on the payment step.
-                          </span>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-800 pl-1">Choose a batch</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {branchBatches.map((b) => {
+                    const title = (b.name && String(b.name).trim()) || "Batch"
+                    const selected = formData.batch_ref === b.batch_ref
+                    const trainer =
+                      (b.trainer_name && String(b.trainer_name).trim()) || null
+                    const popular = batchIsPopular(b)
+                    return (
+                      <button
+                        key={b.batch_ref}
+                        type="button"
+                        disabled={!formData.course_id}
+                        onClick={() => {
+                          if (fieldErrors.batch_ref) {
+                            setFieldErrors((prev) => {
+                              const next = { ...prev }
+                              delete next.batch_ref
+                              return next
+                            })
+                          }
+                          setFormData((prev) => ({ ...prev, batch_ref: b.batch_ref }))
+                        }}
+                        className={`text-left rounded-xl border p-4 transition-all shadow-sm ${
+                          selected
+                            ? "border-amber-500 bg-amber-50/90 ring-2 ring-amber-400/40"
+                            : "border-gray-200 bg-[#F9F8FF] hover:border-gray-300"
+                        } ${!formData.course_id ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-semibold text-gray-900">{title}</span>
+                          {popular ? (
+                            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                              Popular
+                            </span>
+                          ) : null}
                         </div>
-                      </SelectItem>
-                    )})}
-                  </SelectContent>
-                </Select>
+                        <p className="text-sm text-gray-700 mt-1">{b.label}</p>
+                        <p className="text-sm text-gray-600 mt-2">
+                          {trainer ? (
+                            <>
+                              <span className="text-gray-500">Trainer:</span> {trainer}
+                            </>
+                          ) : (
+                            <span className="text-gray-400">Trainer TBA</span>
+                          )}
+                        </p>
+                        <span className="mt-3 inline-block text-xs font-semibold text-amber-700">
+                          {selected ? "Selected" : "Select"}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
                 {fieldErrors.batch_ref && (
                   <p className="text-red-500 text-xs mt-1 ml-1">{fieldErrors.batch_ref}</p>
                 )}
@@ -600,13 +719,20 @@ export default function SelectCoursePage() {
             {formData.course_id && formData.duration && selectedCourse ? (
               <p className="text-sm text-gray-600 text-center">
                 <span className="font-medium text-gray-800">Estimate: </span>
-                {formatCoursePriceLabel(selectedCourse.pricing, {
-                  durationId: formData.duration,
-                  durationCode: durationOptions.find((d) => d.id === formData.duration)?.code,
-                  multiplier: durationOptions.find((d) => d.id === formData.duration)?.pricing_multiplier,
-                })}
+                {estimateLoading ? (
+                  <span className="text-gray-500">Calculating…</span>
+                ) : estimateError ? (
+                  <span className="text-amber-700">{estimateError}</span>
+                ) : estimateTotal != null ? (
+                  <span className="font-semibold text-gray-900 tabular-nums">
+                    {formatInr(estimateTotal)}
+                  </span>
+                ) : (
+                  <span className="text-gray-500">—</span>
+                )}
                 <span className="block text-xs text-gray-500 mt-1">
-                  Final amount (incl. registration fee) is confirmed on the payment step.
+                  Based on your batch and tenure (same calculation as the payment step). Final total
+                  is confirmed before you pay.
                 </span>
               </p>
             ) : null}

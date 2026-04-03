@@ -13,16 +13,10 @@ import { Switch } from "@/components/ui/switch"
 import { useRouter, useParams, usePathname } from "next/navigation"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
+import { formatRegisteredDateTime, formatRegisteredDateOnly } from "@/lib/formatRegisteredDate"
 
 function formatEnrollmentDate(iso: string | null | undefined): string {
-  if (iso == null || iso === "") return "-"
-  try {
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return "-"
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
-  } catch {
-    return "-"
-  }
+  return formatRegisteredDateOnly(iso)
 }
 
 interface Student {
@@ -59,6 +53,7 @@ interface Student {
   has_credentials?: boolean
   start_date?: string | null
   end_date?: string | null
+  student_level?: string | null
   address?: {
     line1: string
     area: string
@@ -101,7 +96,7 @@ export default function StudentList() {
   const [listViewFilter, setListViewFilter] = useState<'all' | 'unassigned'>('all')
 // Pagination state
 const [currentPage, setCurrentPage] = useState(1)
-const itemsPerPage = 5
+const itemsPerPage = 15
   const [refreshKey, setRefreshKey] = useState(0)
   const isBranchAdmin = (params?.adminType as string) === "branch-admin" ||
     (typeof pathname === "string" && pathname.startsWith("/branch-admin"))
@@ -179,7 +174,8 @@ const itemsPerPage = 5
           // Add fallback course info from user model if available
           course_info: student.course || null,
           // Prefer API branch_info (has branch_name); fallback to legacy student.branch
-          branch_info: student.branch_info || student.branch || null
+          branch_info: student.branch_info || student.branch || null,
+          student_level: student.student_level ?? null,
         }}) : []
 
         studentsArray.sort((a, b) => {
@@ -763,8 +759,19 @@ const paginatedStudents = filteredStudents.slice(
                 ) : (
                   paginatedStudents.map((student) => (
                     <tr key={student.id} className="border-b hover:bg-gray-50 text-[#6B7A99] text-sm">
-                      <td className="py-4 px-6">{student.full_name || student.student_name || 'N/A'}</td>
-                      <td className="py-4 px-6 whitespace-nowrap">{formatEnrollmentDate(student.created_at)}</td>
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col gap-1">
+                          <span>{student.full_name || student.student_name || 'N/A'}</span>
+                          {adminType === "super-admin" && student.student_level ? (
+                            <Badge variant="outline" className="w-fit text-xs font-medium border-[#4F5077]/30 text-[#4F5077]">
+                              {student.student_level}
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 whitespace-nowrap text-sm max-w-[11rem] sm:max-w-none">
+                        {formatRegisteredDateTime(student.created_at)}
+                      </td>
                       <td className="py-4 px-6 capitalize">{student.gender || 'N/A'}</td>
                       <td className="py-4 px-6">
                         {(() => {

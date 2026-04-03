@@ -59,7 +59,7 @@ export default function CoachesListPage() {
   const [branchesLoading, setBranchesLoading] = useState(false)
 // Pagination state
 const [currentPage, setCurrentPage] = useState(1)
-const itemsPerPage = 5
+const itemsPerPage = 15
 
   // Fetch branches for the assignment modal (preload on mount)
   useEffect(() => {

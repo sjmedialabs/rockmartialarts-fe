@@ -68,10 +68,13 @@ export interface BranchCourseScheduleBatch {
   start_time?: string
   end_time?: string
   coach_id?: string
+  /** Resolved on public branch payloads for display */
+  trainer_name?: string
   name?: string
   batch_name?: string
   /** Per-batch course fee for registration (optional) */
   batch_fee?: number
+  batchFee?: number
 }
 
 export interface BranchCourseScheduleEntry {

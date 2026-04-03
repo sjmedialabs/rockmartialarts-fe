@@ -15,6 +15,8 @@ import {
   User,
   Settings,
   UserPlus,
+  MessageSquare,
+  Trophy,
   type LucideIcon
 } from "lucide-react"
 
@@ -25,6 +27,8 @@ export interface NavItem {
   path: string
   icon?: LucideIcon
   children?: { label: string; path: string; icon?: LucideIcon }[]
+  /** When true, item is shown only under the header ⋮ menu and the sidebar “More” block */
+  overflowOnly?: boolean
 }
 
 export interface HeaderAction {
@@ -40,7 +44,7 @@ const BRANCH_ADMIN_BASE = "/branch-admin/dashboard"
 const SUPER_ADMIN_MENU: NavItem[] = [
   { label: "Dashboard", path: SUPER_ADMIN_BASE, icon: LayoutDashboard },
   { label: "Branches", path: `${SUPER_ADMIN_BASE}/branches`, icon: Building },
-  { label: "Coachs", path: `${SUPER_ADMIN_BASE}/coaches`, icon: Users },
+  { label: "Coaches", path: `${SUPER_ADMIN_BASE}/coaches`, icon: Users },
   {
     label: "Students",
     path: `${SUPER_ADMIN_BASE}/students`,
@@ -63,7 +67,14 @@ const SUPER_ADMIN_MENU: NavItem[] = [
   },
   { label: "Reports", path: `${SUPER_ADMIN_BASE}/reports`, icon: BarChart },
   { label: "Payment Tracking", path: `${SUPER_ADMIN_BASE}/payment-tracking`, icon: CreditCard },
-  { label: "Leads", path: `${SUPER_ADMIN_BASE}/leads`, icon: UserPlus },
+  { label: "Leads", path: `${SUPER_ADMIN_BASE}/leads`, icon: UserPlus, overflowOnly: true },
+  { label: "Testimonials", path: `${SUPER_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
+  {
+    label: "Showcase achievements",
+    path: `${SUPER_ADMIN_BASE}/achievements-showcase`,
+    icon: Trophy,
+    overflowOnly: true,
+  },
   {
     label: "Settings",
     path: `${SUPER_ADMIN_BASE}/settings`,
@@ -78,7 +89,7 @@ const SUPER_ADMIN_MENU: NavItem[] = [
 // Branch admin: no Branches menu, no Add Branch Manager / Add New Branch
 const BRANCH_ADMIN_MENU: NavItem[] = [
   { label: "Dashboard", path: BRANCH_ADMIN_BASE, icon: LayoutDashboard },
-  { label: "Coachs", path: `${BRANCH_ADMIN_BASE}/coaches`, icon: Users },
+  { label: "Coaches", path: `${BRANCH_ADMIN_BASE}/coaches`, icon: Users },
   { label: "Students", path: `${BRANCH_ADMIN_BASE}/students`, icon: GraduationCap },
   { label: "Courses", path: `${BRANCH_ADMIN_BASE}/courses`, icon: BookOpen },
   {
@@ -92,6 +103,13 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
     ],
   },
   { label: "Reports", path: `${BRANCH_ADMIN_BASE}/reports`, icon: BarChart },
+  { label: "Testimonials", path: `${BRANCH_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
+  {
+    label: "Showcase achievements",
+    path: `${BRANCH_ADMIN_BASE}/achievements-showcase`,
+    icon: Trophy,
+    overflowOnly: true,
+  },
 ]
 
 const STUDENT_MENU: NavItem[] = [
@@ -113,6 +131,14 @@ export function getMenuForRole(role: DashboardRole): NavItem[] {
     default:
       return SUPER_ADMIN_MENU
   }
+}
+
+export function getMainNavItems(role: DashboardRole): NavItem[] {
+  return getMenuForRole(role).filter((i) => !i.overflowOnly)
+}
+
+export function getOverflowNavItems(role: DashboardRole): NavItem[] {
+  return getMenuForRole(role).filter((i) => i.overflowOnly)
 }
 
 /** Header action buttons (Add Course, Add Coach, etc.) - super_admin only gets Add Branch Manager / Add New Branch */

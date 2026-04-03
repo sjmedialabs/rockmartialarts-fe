@@ -34,6 +34,8 @@ interface FooterContent {
   address?: string
   phone?: string
   email?: string
+  /** E.164 or local digits; shown as site-wide WhatsApp chat button when set */
+  whatsapp_number?: string
   social_facebook?: string
   social_instagram?: string
   social_twitter?: string
@@ -44,6 +46,8 @@ interface BrandingSettings {
   navbar_logo?: string
   footer_logo?: string
   favicon?: string
+  /** Public full-page loader image/GIF (max 140px wide on site) */
+  site_loader_image?: string
 }
 
 export interface CMSData {

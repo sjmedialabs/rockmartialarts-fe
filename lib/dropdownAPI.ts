@@ -31,6 +31,7 @@ export type DropdownCategoryType =
   | 'banks'
   | 'locations'
   | 'course_durations'
+  | 'student_levels'
 
 export class DropdownAPI extends BaseAPI {
   private readonly endpoint = '/api/dropdown-settings'
@@ -191,6 +192,15 @@ export class DropdownAPI extends BaseAPI {
         { value: '2_years', label: '2 Years', is_active: true, order: 5 },
       ],
       passing_years: [],
+      locations: [
+        { value: 'Hyderabad', label: 'Hyderabad', is_active: true, order: 1 },
+        { value: 'Mumbai', label: 'Mumbai', is_active: true, order: 2 },
+      ],
+      student_levels: [
+        { value: 'Beginner', label: 'Beginner', is_active: true, order: 1 },
+        { value: 'Intermediate', label: 'Intermediate', is_active: true, order: 2 },
+        { value: 'Expert', label: 'Expert', is_active: true, order: 3 },
+      ],
     }
 
     return defaults[category] || []

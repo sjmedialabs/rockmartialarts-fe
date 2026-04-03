@@ -32,20 +32,6 @@ const mentalBenefits = [
   "Improved Discipline and Self-Control",
 ]
 
-const trainers = [
-  { name: "MANISH JADHAV", role: "Kung fu Trainers", img: "/assets/img/courses/kung-fu-trainer.png" },
-  { name: "NAGAMA SHAIKH", role: "Takewondo Trainers", img: "/assets/img/courses/takewondo_trainer.png" },
-  { name: "Gogineni Venkata", role: "Weapons Trainers", img: "/assets/img/courses/weapons_trainers.png" },
-  { name: "Gayatri krishna", role: "Yoga Trainers", img: "/assets/img/courses/yoga_trainers.png" },
-]
-
-const defaultTestimonials = [
-  { name: "Divya Menon", role: "Yoga Instructor & Environmentalist" },
-  { name: "Rosan Gupta", role: "Project Manager" },
-  { name: "Yogitha Narayan", role: "Software developer" },
-  { name: "Divya Menon", role: "Analyst" },
-]
-
 const defaultTestimonialQuote =
   "Kungfu at ROCK has improved my physical and mental strength, stamina, and speed. Self-defense skills have given me confidence to travel alone fearlessly. It's a life skill that I highly recommend for discipline, self-esteem, and fitness. Thank you ROCK team for the support."
 
@@ -107,10 +93,194 @@ function getCourseImage(c: any): string | null {
   return c?.media_resources?.course_image_url || (c?.page_content?.hero_section?.hero_image) || null
 }
 
+function resolveUploadUrl(url?: string | null): string {
+  if (!url) return ""
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) return url
+  return `/api/backend/uploads/${encodeURIComponent(url)}`
+}
+
+const coachImageFallback = "/assets/img/courses/kung-fu-trainer.png"
+
+async function getHomepageAboutFromApi(): Promise<{
+  title?: string
+  subtitle?: string
+  content?: string
+  image?: string
+}> {
+  try {
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    if (siteOrigin) {
+      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/homepage/public`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        return data.about || {}
+      }
+    }
+    const backendUrl =
+      process.env.API_BASE_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "http://127.0.0.1:8003"
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/homepage/public`, {
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    })
+    if (!res.ok) return {}
+    const data = await res.json()
+    return data.about || {}
+  } catch {
+    return {}
+  }
+}
+
+async function getShowcaseTestimonialsFromApi(): Promise<
+  {
+    id?: string
+    student_name?: string
+    student_photo?: string
+    testimonial_text?: string
+    rating?: number
+  }[]
+> {
+  try {
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    const qs = `is_global=true&limit=6`
+    if (siteOrigin) {
+      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/testimonials?${qs}`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        return Array.isArray(data.testimonials) ? data.testimonials : []
+      }
+    }
+    const backendUrl =
+      process.env.API_BASE_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "http://127.0.0.1:8003"
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/testimonials?${qs}`, {
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data.testimonials) ? data.testimonials : []
+  } catch {
+    return []
+  }
+}
+
+async function getShowcaseAchievementsFromApi(): Promise<
+  {
+    id?: string
+    student_name?: string
+    student_photo?: string
+    achievement_title?: string
+    description?: string
+    image?: string
+  }[]
+> {
+  try {
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+    const qs = `is_global=true&limit=12`
+    if (siteOrigin) {
+      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/showcase-achievements?${qs}`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        return Array.isArray(data.achievements) ? data.achievements : []
+      }
+    }
+    const backendUrl =
+      process.env.API_BASE_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "http://127.0.0.1:8003"
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/showcase-achievements?${qs}`, {
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data.achievements) ? data.achievements : []
+  } catch {
+    return []
+  }
+}
+
+async function getHomepageCoaches(): Promise<
+  { name: string; role: string; img: string; about?: string; rating?: number | null }[]
+> {
+  try {
+    const siteOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+
+    if (siteOrigin) {
+      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/coaches/public/homepage?limit=8`, {
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const list = data.coaches ?? []
+        if (!Array.isArray(list)) return []
+        return list.map((c: any) => ({
+          name: c.full_name || "Coach",
+          role: c.designation || "",
+          img: resolveUploadUrl(c.profile_image_url) || coachImageFallback,
+          about: (c.about_short || "").trim(),
+          rating: typeof c.rating === "number" ? c.rating : null,
+        }))
+      }
+    }
+
+    const backendUrl =
+      process.env.API_BASE_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "http://127.0.0.1:8003"
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/coaches/public/homepage?limit=8`, {
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    const list = data.coaches ?? []
+    if (!Array.isArray(list)) return []
+    return list.map((c: any) => ({
+      name: c.full_name || "Coach",
+      role: c.designation || "",
+      img: resolveUploadUrl(c.profile_image_url) || coachImageFallback,
+      about: (c.about_short || "").trim(),
+      rating: typeof c.rating === "number" ? c.rating : null,
+    }))
+  } catch {
+    return []
+  }
+}
+
 /* ---------- component ---------- */
 
 export default async function HomePage() {
-  const [coursesResult, cms] = await Promise.all([getCourses(), getCMSContent()])
+  const [coursesResult, cms, trainers, showcaseTestimonials, showcaseAchievements, homepageAbout] =
+    await Promise.all([
+      getCourses(),
+      getCMSContent(),
+      getHomepageCoaches(),
+      getShowcaseTestimonialsFromApi(),
+      getShowcaseAchievementsFromApi(),
+      getHomepageAboutFromApi(),
+    ])
   const { courses: apiCourses, fromApi } = coursesResult
 
   const homepage = cms?.homepage || {}
@@ -137,22 +307,17 @@ export default async function HomePage() {
   const heroVideo = homepage.hero_video || "/assets/img/slider.mp4"
   const heroImage = homepage.hero_image || ""
 
-  /* Section titles from CMS */
-  const aboutTitle = homepage.about_title || "Advantages of Rock Martial Arts"
-  const aboutSubtitle = homepage.about_subtitle || ""
+  /* About: homepage_content API first, then legacy CMS fields */
+  const aboutTitle = homepageAbout.title?.trim() || homepage.about_title || "Advantages of Rock Martial Arts"
+  const aboutSubtitle = homepageAbout.subtitle?.trim() || homepage.about_subtitle || ""
+  const aboutContentHtml = homepageAbout.content?.trim() || ""
+  const aboutImage = homepageAbout.image?.trim() || ""
   const coursesTitle = homepage.courses_title || "Our Classes"
   const coursesSubtitle = homepage.courses_subtitle || "Choose"
   const testimonialsTitle = homepage.testimonials_title || "Success stories"
   const testimonialsSubtitle = homepage.testimonials_subtitle || "Testimonials"
-  const testimonials =
-    homepage.testimonials && homepage.testimonials.length > 0
-      ? homepage.testimonials.map((t: any) => ({
-          name: t.name || "",
-          role: t.role || "",
-          quote: t.quote,
-          image: t.image,
-        }))
-      : defaultTestimonials
+  const testimonials: { name: string; role: string; quote?: string; image?: string; achievement?: string }[] = []
+
   const ctaTitle = homepage.cta_title || "Learn martial arts with discipline energy enhance your physical and mental well-being with our holistic tai-chi training."
   const ctaSubtitle = homepage.cta_subtitle || ""
   const bottomCtaTitle = homepage.bottom_cta_title || ""
@@ -171,6 +336,8 @@ export default async function HomePage() {
       bottomCtaSubtitle={bottomCtaSubtitle}
       aboutTitle={aboutTitle}
       aboutSubtitle={aboutSubtitle}
+      aboutContentHtml={aboutContentHtml}
+      aboutImage={aboutImage}
       coursesTitle={coursesTitle}
       coursesSubtitle={coursesSubtitle}
       testimonialsTitle={testimonialsTitle}
@@ -179,8 +346,10 @@ export default async function HomePage() {
       physicalBenefits={physicalBenefits}
       mentalBenefits={mentalBenefits}
       trainers={trainers}
-      testimonials={testimonials as { name: string; role: string; quote?: string; image?: string }[]}
+      testimonials={testimonials}
       defaultTestimonialQuote={defaultTestimonialQuote}
+      showcaseTestimonials={showcaseTestimonials}
+      showcaseAchievements={showcaseAchievements}
     />
   )
 }

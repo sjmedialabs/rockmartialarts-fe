@@ -30,6 +30,7 @@ import {
 import Header from "@/components/layout/Header"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { getBackendApiUrl } from "@/lib/config"
+import { loadCourseEnrollmentsForAdmin, mapPageContentReviews } from "@/lib/courseAdminDetail"
 
 interface CourseDetails {
   id: string
@@ -202,11 +203,10 @@ export default function BranchManagerCourseDetailPage() {
 
       setCourse(mappedCourse)
 
-      // Fetch related data in parallel
+      setCourseReviews(mapPageContentReviews(courseData as Record<string, unknown>))
       await Promise.all([
-        fetchEnrolledStudents(token),
+        loadCourseEnrollmentsForAdmin(courseId, token).then(setEnrolledStudents),
         fetchCourseModules(token),
-        fetchCourseReviews(token)
       ])
 
     } catch (err: any) {
@@ -214,43 +214,6 @@ export default function BranchManagerCourseDetailPage() {
       setError(err.message || 'Failed to load course details')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchEnrolledStudents = async (token: string) => {
-    try {
-      // Mock enrolled students - in real app, this would be an API call
-      const mockStudents: EnrolledStudent[] = [
-        {
-          id: 'student-1',
-          student_name: 'John Doe',
-          enrollment_date: '2024-01-15',
-          progress: 75,
-          status: 'active',
-          last_activity: '2024-01-20',
-          grade: 'A'
-        },
-        {
-          id: 'student-2',
-          student_name: 'Jane Smith',
-          enrollment_date: '2024-02-01',
-          progress: 60,
-          status: 'active',
-          last_activity: '2024-01-19'
-        },
-        {
-          id: 'student-3',
-          student_name: 'Mike Johnson',
-          enrollment_date: '2023-12-10',
-          progress: 100,
-          status: 'completed',
-          last_activity: '2024-01-10',
-          grade: 'A+'
-        }
-      ]
-      setEnrolledStudents(mockStudents)
-    } catch (err) {
-      console.error('Error fetching enrolled students:', err)
     }
   }
 
@@ -289,31 +252,6 @@ export default function BranchManagerCourseDetailPage() {
       setCourseModules(mockModules)
     } catch (err) {
       console.error('Error fetching course modules:', err)
-    }
-  }
-
-  const fetchCourseReviews = async (token: string) => {
-    try {
-      // Mock course reviews - in real app, this would be an API call
-      const mockReviews: CourseReview[] = [
-        {
-          id: 'review-1',
-          student_name: 'John Doe',
-          rating: 5,
-          comment: 'Excellent course! The instructor was very knowledgeable and the content was well-structured.',
-          date: '2024-01-15'
-        },
-        {
-          id: 'review-2',
-          student_name: 'Jane Smith',
-          rating: 4,
-          comment: 'Great course overall. Would recommend to anyone looking to learn these skills.',
-          date: '2024-01-10'
-        }
-      ]
-      setCourseReviews(mockReviews)
-    } catch (err) {
-      console.error('Error fetching course reviews:', err)
     }
   }
 

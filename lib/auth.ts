@@ -62,6 +62,9 @@ export const authConfigs = {
 export const SuperAdminAuth = {
   // Store login data in localStorage
   storeLoginData: (loginResponse: SuperAdminLoginResponse) => {
+    if (typeof window === "undefined") {
+      throw new Error("storeLoginData must be called in the browser")
+    }
     const { data } = loginResponse
     
     // Store token information
@@ -88,6 +91,7 @@ export const SuperAdminAuth = {
 
   // Get current user data
   getCurrentUser: (): SuperAdminUser | null => {
+    if (typeof window === "undefined") return null
     try {
       const userStr = localStorage.getItem("user")
       if (!userStr) return null
@@ -102,11 +106,13 @@ export const SuperAdminAuth = {
 
   // Get current token
   getToken: (): string | null => {
+    if (typeof window === "undefined") return null
     return localStorage.getItem("token")
   },
 
   // Check if token is valid
   isTokenValid: (): boolean => {
+    if (typeof window === "undefined") return false
     const token = localStorage.getItem("token")
     const expirationStr = localStorage.getItem("token_expiration")
     
@@ -118,6 +124,9 @@ export const SuperAdminAuth = {
 
   // Get authorization headers for API requests
   getAuthHeaders: (): Record<string, string> => {
+    if (typeof window === "undefined") {
+      return { "Content-Type": "application/json" }
+    }
     const token = localStorage.getItem("token")
     const tokenType = localStorage.getItem("token_type") || "bearer"
     
@@ -131,6 +140,7 @@ export const SuperAdminAuth = {
 
   // Clear all authentication data
   clearAuthData: () => {
+    if (typeof window === "undefined") return
     localStorage.removeItem("token")
     localStorage.removeItem("token_type")
     localStorage.removeItem("expires_in")
@@ -197,10 +207,14 @@ export function getCurrentAuthConfig(): AuthConfig {
 // Backward compatibility exports for superadmin authentication
 export function checkAuth(): { isAuthenticated: boolean } {
   return {
-    isAuthenticated: SuperAdminAuth.isAuthenticated()
+    isAuthenticated:
+      typeof window !== "undefined" && SuperAdminAuth.isAuthenticated(),
   }
 }
 
 export function getAuthHeaders(): Record<string, string> {
+  if (typeof window === "undefined") {
+    return { "Content-Type": "application/json" }
+  }
   return SuperAdminAuth.getAuthHeaders()
 }

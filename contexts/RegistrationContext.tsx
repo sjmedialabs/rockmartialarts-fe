@@ -17,7 +17,9 @@ interface RegistrationData {
   duration: string
   /** Branch course_schedule batch (batch_ref from public API / payment-info) */
   batch_ref: string
-  
+  /** Human-readable batch label for payment summary (optional) */
+  batch_display_label: string
+
   // Course Display Info
   course_name: string
   category_name: string
@@ -48,7 +50,10 @@ interface RegistrationData {
   // Additional fields
   password?: string
   biometric_id?: string
-  branch_details?: { name: string; address: { city: string; state: string } } | null
+  branch_details?: {
+    name: string
+    address: { area?: string; city: string; state: string }
+  } | null
 
   /** JWT from POST /api/reg-checkout/verify-otp (phone verified before Pay Now). */
   phoneVerificationToken?: string
@@ -56,6 +61,8 @@ interface RegistrationData {
 
 interface RegistrationContextType {
   registrationData: RegistrationData
+  /** False until localStorage has been read on the client (avoid treating empty token as missing during hydration). */
+  registrationStorageReady: boolean
   updateRegistrationData: (data: Partial<RegistrationData>) => void
   clearRegistrationData: () => void
   getApiPayload: () => any
@@ -78,6 +85,7 @@ const defaultRegistrationData: RegistrationData = {
   course_id: '',
   duration: '',
   batch_ref: '',
+  batch_display_label: '',
   course_name: '',
   category_name: '',
   course_price: 0,
@@ -104,28 +112,37 @@ const RegistrationContext = createContext<RegistrationContextType | undefined>(u
 
 export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [registrationData, setRegistrationData] = useState<RegistrationData>(defaultRegistrationData)
+  const [registrationStorageReady, setRegistrationStorageReady] = useState(false)
 
-  // Load data from localStorage on mount
+  // Load data from localStorage on mount (must complete before payment page treats missing token as redirect)
   useEffect(() => {
-    const savedData = localStorage.getItem('registrationData')
-    if (savedData) {
-      try {
-        setRegistrationData(JSON.parse(savedData))
-      } catch (error) {
-        console.error('Error parsing saved registration data:', error)
+    try {
+      const savedData = localStorage.getItem("registrationData")
+      if (savedData) {
+        setRegistrationData({ ...defaultRegistrationData, ...JSON.parse(savedData) })
       }
+    } catch (error) {
+      console.error("Error parsing saved registration data:", error)
+    } finally {
+      setRegistrationStorageReady(true)
     }
   }, [])
 
   const updateRegistrationData = (data: Partial<RegistrationData>) => {
-    const updatedData = { ...registrationData, ...data }
-    setRegistrationData(updatedData)
-    localStorage.setItem('registrationData', JSON.stringify(updatedData))
+    setRegistrationData((prev) => {
+      const updatedData = { ...prev, ...data }
+      try {
+        localStorage.setItem("registrationData", JSON.stringify(updatedData))
+      } catch (e) {
+        console.error("Error saving registration data:", e)
+      }
+      return updatedData
+    })
   }
 
   const clearRegistrationData = () => {
     setRegistrationData(defaultRegistrationData)
-    localStorage.removeItem('registrationData')
+    localStorage.removeItem("registrationData")
   }
 
   const getApiPayload = () => {
@@ -172,6 +189,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   return (
     <RegistrationContext.Provider value={{
       registrationData,
+      registrationStorageReady,
       updateRegistrationData,
       clearRegistrationData,
       getApiPayload,

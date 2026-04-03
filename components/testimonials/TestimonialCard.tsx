@@ -1,0 +1,68 @@
+"use client"
+
+export type TestimonialCardItem = {
+  id?: string
+  student_name?: string
+  student_photo?: string | null
+  testimonial_text?: string
+  rating?: number | null
+  /** Legacy / CMS shape */
+  name?: string
+  role?: string
+  quote?: string
+  image?: string
+  achievement?: string
+  content?: string
+}
+
+function resolveUploadUrl(url?: string | null): string {
+  if (!url) return ""
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) return url
+  return `/api/backend/uploads/${encodeURIComponent(url)}`
+}
+
+export function TestimonialCard({ item }: { item: TestimonialCardItem }) {
+  const name = item.student_name || item.name || "Student"
+  const text = item.testimonial_text || item.quote || item.content || ""
+  const photo = item.student_photo || item.image
+  const rating = typeof item.rating === "number" ? item.rating : null
+
+  return (
+    <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center min-h-[280px]">
+      <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0">
+        {photo ? (
+          <img
+            src={resolveUploadUrl(photo)}
+            alt={name}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-700 flex items-center justify-center text-2xl text-gray-400">
+            👤
+          </div>
+        )}
+      </div>
+      <img
+        src="/assets/img/courses/quote.png"
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="w-8 h-8 mb-2 opacity-80"
+      />
+      <p className="text-gray-300 text-sm leading-relaxed mb-4 flex-1 line-clamp-6">{text}</p>
+      <h3 className="text-[#FFB70F] font-semibold">{name}</h3>
+      {item.achievement?.trim() ? (
+        <p className="text-[#FFB70F]/90 text-xs font-medium uppercase tracking-wide mt-1">{item.achievement}</p>
+      ) : null}
+      {item.role?.trim() ? <p className="text-white/80 text-sm mt-1">{item.role}</p> : null}
+      {rating !== null && rating > 0 ? (
+        <p className="mt-2 text-[#FFB70F] text-sm" aria-label={`Rating ${rating} out of 5`}>
+          {"★".repeat(Math.min(5, Math.round(rating)))}
+          <span className="text-gray-500 ml-1">{rating.toFixed(1)}</span>
+        </p>
+      ) : null}
+    </div>
+  )
+}

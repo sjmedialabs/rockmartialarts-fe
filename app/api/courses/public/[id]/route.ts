@@ -70,13 +70,25 @@ async function mergeWithPublicDetail(
   if (!id) return summary
   const detailRes = await fetchJson(`${base}/api/courses/public/detail/${encodeURIComponent(id)}`)
   if (!detailRes.ok || typeof detailRes.data !== "object" || detailRes.data === null) return summary
-  const payload = detailRes.data as { course?: Record<string, unknown> }
+  const payload = detailRes.data as Record<string, unknown>
   const doc = payload.course
   if (!doc || typeof doc !== "object") return summary
   const listBranches = summary.branch_assignments
   const merged: Record<string, unknown> = { ...summary, ...doc }
   if (Array.isArray(listBranches) && listBranches.length > 0) {
     merged.branch_assignments = listBranches
+  }
+  const detailExtras = [
+    "statistics",
+    "curriculum",
+    "enrolled_students",
+    "student_reviews",
+    "student_achievements",
+    "showcase_achievements",
+    "branches_offering",
+  ] as const
+  for (const key of detailExtras) {
+    if (key in payload) merged[key] = payload[key]
   }
   return merged
 }

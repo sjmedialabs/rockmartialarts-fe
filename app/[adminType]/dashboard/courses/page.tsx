@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Edit, ToggleLeft, ToggleRight, ChevronDown, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
+import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 
 interface Course {
   id: string
@@ -48,25 +49,35 @@ interface Course {
 
 export default function CourseListPage() {
   const router = useRouter()
+  const pathname = usePathname()
   const basePath = useDashboardBasePath()
+  const isBranchAdmin =
+    typeof pathname === "string" && pathname.startsWith("/branch-admin")
   const [searchTerm, setSearchTerm] = useState("")
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showBranchDropdown, setShowBranchDropdown] = useState<string | null>(null)
 
-  // Fetch courses from API
+  // Fetch courses from API (branch admin: only courses assigned to managed branches)
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         setLoading(true)
         setError(null)
 
-        const response = await fetch(getBackendApiUrl('courses/public/all'), {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+        let token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
+        if (!token && isBranchAdmin) token = TokenManager.getToken()
+
+        const url = isBranchAdmin ? getBackendApiUrl("courses?active_only=true&limit=100") : getBackendApiUrl("courses/public/all")
+        const headers: Record<string, string> = { "Content-Type": "application/json" }
+        if (isBranchAdmin && token) {
+          headers["Authorization"] = `Bearer ${token}`
+        }
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers,
         })
 
         if (!response.ok) {
@@ -90,7 +101,7 @@ export default function CourseListPage() {
     }
 
     fetchCourses()
-  }, [])
+  }, [isBranchAdmin])
 
 
 
@@ -120,6 +131,7 @@ export default function CourseListPage() {
   }
 
   const handleToggleEnable = async (courseId: string) => {
+    if (isBranchAdmin) return
     try {
       const token = TokenManager.getToken()
       if (!token) {
@@ -171,12 +183,14 @@ export default function CourseListPage() {
       <main className="w-full p-4 lg:px-8 lg:py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-[#4F5077]">Course list</h1>
-          <Button
-            onClick={() => router.push(`${basePath}/create-course`)}
-            className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
-          >
-            + Add Course
-          </Button>
+          {!isBranchAdmin && (
+            <Button
+              onClick={() => router.push(`${basePath}/create-course`)}
+              className="bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg font-medium"
+            >
+              + Add Course
+            </Button>
+          )}
         </div>
 
         <div className="mb-6">
@@ -266,6 +280,7 @@ export default function CourseListPage() {
                           >
                             <Edit className="w-4 h-4 text-gray-600" />
                           </Button>
+                          {!isBranchAdmin && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -278,6 +293,7 @@ export default function CourseListPage() {
                               <ToggleLeft className="w-4 h-4 text-gray-400" />
                             )}
                           </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

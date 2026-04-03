@@ -18,7 +18,8 @@ import NotificationDropdown from "@/components/notification-dropdown"
 import { MobileSidebar } from "@/components/layout/responsive"
 import {
   DashboardRole,
-  getMenuForRole,
+  getMainNavItems,
+  getOverflowNavItems,
   getRoleLabel,
   getBasePath,
   type NavItem,
@@ -36,7 +37,8 @@ export default function Navbar({ role }: NavbarProps) {
   const [profileImage, setProfileImage] = useState<string>("")
 
   const { cms } = useCMS()
-  const menuItems = getMenuForRole(role)
+  const menuItems = getMainNavItems(role)
+  const overflowNavItems = getOverflowNavItems(role)
   const basePath = getBasePath(role)
   const roleLabel = getRoleLabel(role)
 
@@ -147,14 +149,32 @@ export default function Navbar({ role }: NavbarProps) {
                   </DropdownMenuTrigger>
                   <DropdownMenuPortal>
                     <DropdownMenuContent align="end" className="w-56 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200/50 shadow-xl rounded-lg p-2" sideOffset={8}>
+                      {overflowNavItems.map((item) => {
+                        const Icon = item.icon
+                        return (
+                          <DropdownMenuItem
+                            key={item.path}
+                            onClick={() => router.push(item.path)}
+                            className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200 flex items-center gap-2"
+                          >
+                            {Icon && <Icon className="w-4 h-4" />}
+                            {item.label}
+                          </DropdownMenuItem>
+                        )
+                      })}
                       {role === "super_admin" && (
                         <DropdownMenuItem onClick={() => router.push(`${basePath}/categories`)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200">
                           Categories Management
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => router.push(`${basePath}/payment-tracking`)} className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200">
-                        Payment Tracking
-                      </DropdownMenuItem>
+                      {role === "branch_admin" && (
+                        <DropdownMenuItem
+                          onClick={() => router.push(`${basePath}/payment-tracking`)}
+                          className="cursor-pointer hover:bg-gray-100/80 rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
+                        >
+                          Payment Tracking
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenuPortal>
                 </DropdownMenu>

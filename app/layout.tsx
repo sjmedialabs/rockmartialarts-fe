@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/toaster'
 import AccessibilityProvider from '@/components/accessibility-provider'
 import { FixedTopNavWrapper } from '@/components/FixedTopNavWrapper'
 import { TopNavSpacer } from '@/components/TopNavSpacer'
+import { WhatsAppFloatButton } from '@/components/whatsapp-float-button'
 import './globals.css'
 
 // Poppins: preload false — multiple weights each get a preload hint; unused weights spam the console.
@@ -71,6 +72,7 @@ export default function RootLayout({
             <RegistrationProvider>
               <FixedTopNavWrapper />
               <TopNavSpacer>{children}</TopNavSpacer>
+              <WhatsAppFloatButton />
             </RegistrationProvider>
             </CMSProvider>
           </AuthProvider>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBackendApiUrl } from '@/lib/config'
+import { isEnrollmentExpiredByDate } from '@/lib/student-enrollment-status'
 
 export interface SubscriptionStatus {
   isActive: boolean
@@ -65,13 +66,16 @@ export function useStudentSubscription() {
           // Check if profile is active
           const isProfileActive = profile.is_active !== false
 
-          // Check if there's at least one active enrollment
-          const hasActiveEnrollment = profile.enrollments?.some(
-            (enrollment: any) => 
-              enrollment.is_active && 
-              enrollment.payment_status !== 'expired' &&
-              enrollment.payment_status !== 'cancelled'
-          ) || false
+          // At least one enrollment whose subscription period has not ended (ignore stale payment_status=expired)
+          const hasActiveEnrollment =
+            profile.enrollments?.some((enrollment: any) => {
+              const ps = (enrollment.payment_status || '').toLowerCase()
+              if (ps === 'cancelled') return false
+              return !isEnrollmentExpiredByDate({
+                endDate: enrollment.end_date,
+                paymentStatus: enrollment.payment_status,
+              })
+            }) || false
 
           // Expiry date: use latest end_date (or completion_date) from any enrollment for display
           const withDate = (profile.enrollments || []).filter(

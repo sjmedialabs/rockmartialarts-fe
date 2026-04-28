@@ -56,6 +56,18 @@ export interface PaymentFilters {
 
 class PaymentAPI extends BaseAPI {
   /**
+   * Trigger server-side Razorpay reconciliation (super admin only).
+   * Additive: does not change payment flows; just fixes stale statuses.
+   */
+  async syncRazorpayPayments(token?: string): Promise<any> {
+    const authToken = token || TokenManager.getToken()
+    return await this.makeRequest('/api/payments/sync-razorpay', {
+      method: 'POST',
+      token: authToken,
+    })
+  }
+
+  /**
    * Get payment statistics for dashboard
    */
   async getPaymentStats(token?: string, params?: { start_date?: string; end_date?: string; period?: string }): Promise<PaymentStats> {
@@ -156,6 +168,17 @@ class PaymentAPI extends BaseAPI {
     return await this.makeRequest(`/api/payments/${paymentId}`, {
       method: 'GET',
       token: authToken
+    })
+  }
+
+  /**
+   * Cancel a mistaken/pending payment attempt (super admin only)
+   */
+  async cancelPayment(paymentId: string, token?: string): Promise<{ message: string }> {
+    const authToken = token || TokenManager.getToken()
+    return await this.makeRequest(`/api/payments/${paymentId}/cancel`, {
+      method: 'PUT',
+      token: authToken,
     })
   }
 

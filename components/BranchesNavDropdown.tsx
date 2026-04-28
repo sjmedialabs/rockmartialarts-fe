@@ -19,8 +19,11 @@ export type BranchItem = {
   }
 }
 
-function formatLocation(addr: BranchItem["address"]): string {
+/** Second line under branch name: area/locality when set, otherwise city + state */
+function formatBranchSecondaryLine(addr: BranchItem["address"]): string {
   if (!addr) return ""
+  const area = typeof addr.area === "string" ? addr.area.trim() : ""
+  if (area) return area
   return [addr.city, addr.state].filter(Boolean).join(", ")
 }
 
@@ -106,30 +109,31 @@ export function BranchesNavDropdown({ variant = "desktop", onNavigate }: Branche
             </div>
           ) : (
             <ul className="max-h-[70vh] overflow-y-auto">
-              {branches.map((b) => (
-                <li key={b.id}>
-                  <Link
-                    href={`/branches/${branchNameToSlug(displayName(b))}`}
-                    onClick={() => {
-                      setOpen(false)
-                      onNavigate?.()
-                    }}
-                    className="flex items-start gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left"
-                  >
-                    <Building2 className="h-4 w-4 text-[#FFB70F] mt-0.5 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <span className="block font-medium text-white truncate">
-                        {displayName(b)}
-                      </span>
-                      {formatLocation(b.address) && (
-                        <span className="block text-xs text-gray-400 truncate mt-0.5">
-                          {formatLocation(b.address)}
+              {branches.map((b) => {
+                const secondary = formatBranchSecondaryLine(b.address)
+                return (
+                  <li key={b.id}>
+                    <Link
+                      href={`/branches/${branchNameToSlug(displayName(b))}`}
+                      onClick={() => {
+                        setOpen(false)
+                        onNavigate?.()
+                      }}
+                      className="flex items-start gap-2 px-4 py-3 hover:bg-white/10 transition-colors text-left"
+                    >
+                      <Building2 className="h-4 w-4 text-[#FFB70F] mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <span className="block font-medium text-white truncate">
+                          {displayName(b)}
                         </span>
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              ))}
+                        {secondary ? (
+                          <span className="block text-xs text-gray-400 truncate mt-0.5">{secondary}</span>
+                        ) : null}
+                      </div>
+                    </Link>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

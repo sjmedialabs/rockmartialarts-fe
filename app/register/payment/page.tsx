@@ -18,6 +18,9 @@ interface PaymentCalculation {
   total_amount: number
   currency: string
   duration_multiplier: number
+  original_price?: number
+  discount_amount?: number
+  is_flat_price?: boolean
 }
 
 interface CoursePaymentInfo {
@@ -396,7 +399,17 @@ export default function PaymentPage() {
               {/* Total Amount */}
               <div className="text-center">
                 <p className="text-gray-600 text-sm mb-2">Total Payable Amount ({durationLabel})</p>
-                <p className="text-4xl font-bold text-black">₹{paymentInfo.pricing.total_amount.toLocaleString()}</p>
+                {paymentInfo.pricing.is_flat_price && paymentInfo.pricing.original_price ? (
+                  <>
+                    <p className="text-lg text-gray-400 line-through">₹{paymentInfo.pricing.original_price.toLocaleString()}</p>
+                    <p className="text-4xl font-bold text-black">₹{paymentInfo.pricing.total_amount.toLocaleString()}</p>
+                    <p className="text-sm text-green-600 font-medium mt-1">
+                      You save ₹{paymentInfo.pricing.discount_amount?.toLocaleString() || 0} with this offer!
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-4xl font-bold text-black">₹{paymentInfo.pricing.total_amount.toLocaleString()}</p>
+                )}
               </div>
 
               {/* Fee Breakdown */}

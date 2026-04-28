@@ -219,13 +219,26 @@ export default function HomePageView({
         </div>
       </section>
 
-      {/* About: CMS — title, subtitle, rich content (left); image (right). Fallback to legacy benefits lists when no HTML. */}
+      {/* About: image (left); title, subtitle, rich text (right). Mobile: image first. Fallback benefits when no HTML. */}
       <AnimatedSection
         variant="fadeSlideUp"
         className="py-16 md:py-20 bg-[#171A26] relative z-10"
       >
         <div className="container mx-auto px-4 max-w-7xl">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start lg:items-center">
+            <ScrollZoomContinuous>
+              <div className="overflow-hidden rounded-lg">
+                <img
+                  src={
+                    aboutImage
+                      ? resolveUploadUrl(aboutImage)
+                      : "/assets/img/courses/tr_yourself.png"
+                  }
+                  alt={aboutTitle || "About"}
+                  className="w-full h-auto object-cover"
+                />
+              </div>
+            </ScrollZoomContinuous>
             <ScrollZoomContinuous>
               <div>
                 <p className="text-[#FFB70F] uppercase tracking-widest text-sm mb-2">Discover</p>
@@ -265,19 +278,6 @@ export default function HomePageView({
                     </ul>
                   </div>
                 )}
-              </div>
-            </ScrollZoomContinuous>
-            <ScrollZoomContinuous>
-              <div className="overflow-hidden rounded-lg">
-                <img
-                  src={
-                    aboutImage
-                      ? resolveUploadUrl(aboutImage)
-                      : "/assets/img/courses/tr_yourself.png"
-                  }
-                  alt={aboutTitle || "About"}
-                  className="w-full h-auto object-cover"
-                />
               </div>
             </ScrollZoomContinuous>
           </div>

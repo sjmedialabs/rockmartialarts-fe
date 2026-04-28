@@ -11,8 +11,9 @@ interface StudentRouteGuardProps {
 }
 
 /**
- * Route guard for student pages
- * Restricts access to all pages except payments when subscription is inactive
+ * Route guard for student pages.
+ * Restricts access to most pages when subscription is inactive,
+ * but keeps payment and course management pages accessible for renewals/new purchases.
  */
 export default function StudentRouteGuard({ children }: StudentRouteGuardProps) {
   const pathname = usePathname()
@@ -20,8 +21,10 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
   const subscriptionStatus = useStudentSubscription()
   const [showModal, setShowModal] = useState(false)
 
-  // Allow access to payment page regardless of subscription status
-  const isPaymentPage = pathname === '/student-dashboard/payments'
+  // Allow renewal/purchase flows regardless of subscription status
+  const isPaymentPage = pathname.startsWith('/student-dashboard/payments')
+  const isCoursesPage = pathname.startsWith('/student-dashboard/courses')
+  const isSubscriptionAccessPage = isPaymentPage || isCoursesPage
 
   useEffect(() => {
     // Wait for loading to complete
@@ -35,14 +38,14 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
     // Only apply restrictions to students
     if (userData.role !== 'student') return
 
-    // If subscription is inactive and not on payment page
-    if (!subscriptionStatus.isActive && !isPaymentPage) {
+    // If subscription is inactive and not on renewal/purchase pages
+    if (!subscriptionStatus.isActive && !isSubscriptionAccessPage) {
       // Show modal and redirect to payment page
       setShowModal(true)
     } else {
       setShowModal(false)
     }
-  }, [subscriptionStatus, isPaymentPage, router])
+  }, [subscriptionStatus, isSubscriptionAccessPage, router])
 
   // Show loading state while checking subscription
   if (subscriptionStatus.loading) {
@@ -56,8 +59,8 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
     )
   }
 
-  // If subscription is inactive and not on payment page, show only the modal
-  if (!subscriptionStatus.isActive && !isPaymentPage) {
+  // If subscription is inactive and not on allowed renewal/purchase pages, show only the modal
+  if (!subscriptionStatus.isActive && !isSubscriptionAccessPage) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <SubscriptionExpiredModal
@@ -97,6 +100,6 @@ export default function StudentRouteGuard({ children }: StudentRouteGuardProps) 
     )
   }
 
-  // Allow access to payment page or if subscription is active
+  // Allow access to renewal/purchase pages or if subscription is active
   return <>{children}</>
 }

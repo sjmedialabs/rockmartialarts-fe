@@ -39,6 +39,7 @@ interface Student {
     level?: string
     duration?: string
     branch_name?: string
+    branch_id?: string
   }>
   course_info?: {
     category_id: string
@@ -94,6 +95,8 @@ export default function StudentList() {
   const [assignStudentSearch, setAssignStudentSearch] = useState("")
   const [assignStudentDropdownOpen, setAssignStudentDropdownOpen] = useState(false)
   const [listViewFilter, setListViewFilter] = useState<'all' | 'unassigned'>('all')
+  /** Super-admin list filter: branch id or "all" */
+  const [listBranchFilter, setListBranchFilter] = useState<string>("all")
 // Pagination state
 const [currentPage, setCurrentPage] = useState(1)
 const itemsPerPage = 15
@@ -175,6 +178,7 @@ const itemsPerPage = 15
           course_info: student.course || null,
           // Prefer API branch_info (has branch_name); fallback to legacy student.branch
           branch_info: student.branch_info || student.branch || null,
+          branch_id: student.branch_id || student.branch_info?.branch_id,
           student_level: student.student_level ?? null,
         }}) : []
 
@@ -224,6 +228,17 @@ const itemsPerPage = 15
       console.error("Error fetching branches and courses:", error)
     }
   }
+
+  useEffect(() => {
+    if (adminType !== "super-admin") return
+    void fetchBranchesAndCourses()
+  }, [adminType])
+
+  useEffect(() => {
+    if (adminType !== "super-admin") {
+      setListBranchFilter("all")
+    }
+  }, [adminType])
 
   const fetchUnassignedStudents = async () => {
     setUnassignedStudentsLoading(true)
@@ -285,6 +300,19 @@ const itemsPerPage = 15
     if (value === 'unassigned' && unassignedStudents.length === 0) {
       fetchUnassignedStudents()
     }
+  }
+
+  const handleListBranchFilterChange = (value: string) => {
+    setListBranchFilter(value)
+    setCurrentPage(1)
+  }
+
+  const studentMatchesBranchListFilter = (student: Student) => {
+    if (adminType !== "super-admin" || listBranchFilter === "all") return true
+    if (student.branch_info?.branch_id === listBranchFilter) return true
+    if (student.branch_id === listBranchFilter) return true
+    if (student.courses?.some((c) => c.branch_id === listBranchFilter)) return true
+    return false
   }
 
   const handleAssignConfirm = async () => {
@@ -540,10 +568,14 @@ const itemsPerPage = 15
     setSelectedCourses((prev) => (prev.includes(course) ? prev.filter((c) => c !== course) : [...prev, course]))
   }
 
+  const listFiltersActive =
+    Boolean(searchTerm) || (adminType === "super-admin" && listBranchFilter !== "all")
+
   const listBaseStudents = listViewFilter === 'unassigned' ? unassignedStudents : students
 
   // Enhanced search functionality - filter students based on search term
   const filteredStudents = Array.isArray(listBaseStudents) ? listBaseStudents.filter((student) => {
+    if (!studentMatchesBranchListFilter(student)) return false
     if (!searchTerm) return true
 
     const searchLower = searchTerm.toLowerCase()
@@ -621,10 +653,14 @@ const paginatedStudents = filteredStudents.slice(
             <div className="bg-white p-4 rounded-lg shadow border">
               <div className="text-center">
                 <p className="text-sm text-[#4F5077] mb-1">
-                  {listViewFilter === 'unassigned' ? 'Unassigned students' : searchTerm ? `Filtered (${filteredStudents.length}/${listBaseStudents.length})` : 'Total Students'}
+                  {listViewFilter === 'unassigned'
+                    ? 'Unassigned students'
+                    : listFiltersActive
+                      ? `Filtered (${filteredStudents.length}/${listBaseStudents.length})`
+                      : 'Total Students'}
                 </p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {searchTerm ? filteredStudents.length : listBaseStudents.length}
+                  {listFiltersActive ? filteredStudents.length : listBaseStudents.length}
                 </p>
               </div>
             </div>
@@ -671,6 +707,26 @@ const paginatedStudents = filteredStudents.slice(
             </Select>
             {listViewFilter === 'unassigned' && unassignedStudentsLoading && (
               <span className="text-sm text-gray-500">Loading unassigned...</span>
+            )}
+            {adminType === "super-admin" && (
+              <>
+                <span className="text-sm font-medium text-[#4F5077] sm:ml-2">Branch:</span>
+                <Select value={listBranchFilter} onValueChange={handleListBranchFilterChange}>
+                  <SelectTrigger className="w-full sm:w-[200px] min-h-[44px]">
+                    <SelectValue placeholder="All branches" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All branches</SelectItem>
+                    {branches
+                      .filter((b: { id?: string }) => Boolean(b?.id))
+                      .map((b: { id: string; name?: string; branch?: { name?: string } }) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.branch?.name || b.name || "Branch"}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </>
             )}
           </div>
           <div className="relative flex-1 min-w-0 sm:max-w-md">
@@ -743,9 +799,13 @@ const paginatedStudents = filteredStudents.slice(
                   <tr>
                     <td colSpan={11} className="py-8 px-6 text-center text-gray-500">
                       <div className="mb-2">
-                        {searchTerm ? `No students found matching "${searchTerm}"` : 'No data available'}
+                        {searchTerm
+                          ? `No students found matching "${searchTerm}"`
+                          : listBranchFilter !== "all" && adminType === "super-admin"
+                            ? "No students match this branch."
+                            : "No data available"}
                       </div>
-                      {!searchTerm && (
+                      {!searchTerm && !(listBranchFilter !== "all" && adminType === "super-admin") && (
                         <Button
                           onClick={() => router.push(`${basePath}/create-student`)}
                           className="bg-yellow-400 hover:bg-yellow-500 text-black"

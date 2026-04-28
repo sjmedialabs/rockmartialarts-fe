@@ -70,12 +70,6 @@ const SUPER_ADMIN_MENU: NavItem[] = [
   { label: "Leads", path: `${SUPER_ADMIN_BASE}/leads`, icon: UserPlus, overflowOnly: true },
   { label: "Testimonials", path: `${SUPER_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
   {
-    label: "Showcase achievements",
-    path: `${SUPER_ADMIN_BASE}/achievements-showcase`,
-    icon: Trophy,
-    overflowOnly: true,
-  },
-  {
     label: "Settings",
     path: `${SUPER_ADMIN_BASE}/settings`,
     icon: Settings,
@@ -104,12 +98,6 @@ const BRANCH_ADMIN_MENU: NavItem[] = [
   },
   { label: "Reports", path: `${BRANCH_ADMIN_BASE}/reports`, icon: BarChart },
   { label: "Testimonials", path: `${BRANCH_ADMIN_BASE}/testimonials`, icon: MessageSquare, overflowOnly: true },
-  {
-    label: "Showcase achievements",
-    path: `${BRANCH_ADMIN_BASE}/achievements-showcase`,
-    icon: Trophy,
-    overflowOnly: true,
-  },
 ]
 
 const STUDENT_MENU: NavItem[] = [

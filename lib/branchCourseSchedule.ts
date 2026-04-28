@@ -9,10 +9,16 @@ export interface NormalizedCourseAssignment {
     end_time: string
     coach_id: string
     days: string[]
-    /** Optional per-batch course fee (branch course assignment) */
+    /** Optional per-batch course fee (legacy single fee) */
     batch_fee?: string
     /** Optional label e.g. Morning batch */
     batch_name?: string
+    /** Per-duration pricing: { duration_id: fee_amount_string } */
+    fee_per_duration?: Record<string, string>
+    /** Per-duration pricing type: { duration_id: "monthly" | "flat" } */
+    pricing_type_per_duration?: Record<string, string>
+    /** Per-duration availability: { duration_id: boolean } */
+    enabled_per_duration?: Record<string, boolean>
   }[]
 }
 
@@ -49,6 +55,35 @@ export function normalizeAssignmentsCourses(
               const nm = b.batch_name ?? (b as { name?: unknown }).name
               const batch_name =
                 nm != null && String(nm).trim() !== "" ? String(nm).trim() : undefined
+              // Parse per-duration fees
+              const rawFpd = b.fee_per_duration ?? (b as { feePerDuration?: unknown }).feePerDuration
+              let fee_per_duration: Record<string, string> | undefined
+              if (rawFpd && typeof rawFpd === "object" && !Array.isArray(rawFpd)) {
+                fee_per_duration = {}
+                for (const [k, v] of Object.entries(rawFpd as Record<string, unknown>)) {
+                  if (v != null) fee_per_duration[k] = String(v)
+                }
+              }
+              // Parse pricing type per duration
+              const rawPt = b.pricing_type_per_duration ?? (b as { pricingTypePerDuration?: unknown }).pricingTypePerDuration
+              let pricing_type_per_duration: Record<string, string> | undefined
+              if (rawPt && typeof rawPt === "object" && !Array.isArray(rawPt)) {
+                pricing_type_per_duration = {}
+                for (const [k, v] of Object.entries(rawPt as Record<string, unknown>)) {
+                  if (v != null) pricing_type_per_duration[k] = String(v)
+                }
+              }
+              // Parse enabled map per duration
+              const rawEnabled =
+                b.enabled_per_duration ??
+                (b as { enabledPerDuration?: unknown }).enabledPerDuration
+              let enabled_per_duration: Record<string, boolean> | undefined
+              if (rawEnabled && typeof rawEnabled === "object" && !Array.isArray(rawEnabled)) {
+                enabled_per_duration = {}
+                for (const [k, v] of Object.entries(rawEnabled as Record<string, unknown>)) {
+                  enabled_per_duration[k] = v !== false
+                }
+              }
               return {
                 id:
                   typeof b.id === "string" && b.id
@@ -64,6 +99,9 @@ export function normalizeAssignmentsCourses(
                   : [],
                 batch_fee,
                 batch_name,
+                fee_per_duration,
+                pricing_type_per_duration,
+                enabled_per_duration,
               }
             }
           ),
@@ -88,6 +126,9 @@ export function normalizeAssignmentsCourses(
           days: [] as string[],
           batch_fee: "",
           batch_name: "",
+          fee_per_duration: undefined as Record<string, string> | undefined,
+          pricing_type_per_duration: undefined as Record<string, string> | undefined,
+          enabled_per_duration: undefined as Record<string, boolean> | undefined,
         },
       ],
     }))
@@ -130,6 +171,9 @@ export function buildCourseSchedulePayload(
     days: string[]
     batch_fee?: number
     batch_name?: string
+    fee_per_duration?: Record<string, number>
+    pricing_type_per_duration?: Record<string, string>
+    enabled_per_duration?: Record<string, boolean>
   }[]
 }[] {
   return courses.map((c) => ({
@@ -144,6 +188,9 @@ export function buildCourseSchedulePayload(
         days: string[]
         batch_fee?: number
         batch_name?: string
+        fee_per_duration?: Record<string, number>
+        pricing_type_per_duration?: Record<string, string>
+        enabled_per_duration?: Record<string, boolean>
       } = {
         batch_id: b.id,
         start_time: b.start_time,
@@ -154,6 +201,31 @@ export function buildCourseSchedulePayload(
       if (fee !== undefined) row.batch_fee = fee
       const bn = (b.batch_name || "").trim()
       if (bn) row.batch_name = bn
+      // Per-duration fees
+      if (b.fee_per_duration && Object.keys(b.fee_per_duration).length > 0) {
+        const fpd: Record<string, number> = {}
+        for (const [k, v] of Object.entries(b.fee_per_duration)) {
+          const n = parseFloat(String(v))
+          if (!Number.isNaN(n) && n > 0) fpd[k] = n
+        }
+        if (Object.keys(fpd).length > 0) row.fee_per_duration = fpd
+      }
+      // Pricing type per duration
+      if (b.pricing_type_per_duration && Object.keys(b.pricing_type_per_duration).length > 0) {
+        const pt: Record<string, string> = {}
+        for (const [k, v] of Object.entries(b.pricing_type_per_duration)) {
+          if (v === "monthly" || v === "flat") pt[k] = v
+        }
+        if (Object.keys(pt).length > 0) row.pricing_type_per_duration = pt
+      }
+      // Per-duration enabled flags
+      if (b.enabled_per_duration && Object.keys(b.enabled_per_duration).length > 0) {
+        const em: Record<string, boolean> = {}
+        for (const [k, v] of Object.entries(b.enabled_per_duration)) {
+          em[k] = v !== false
+        }
+        if (Object.keys(em).length > 0) row.enabled_per_duration = em
+      }
       return row
     }),
   }))

@@ -21,6 +21,11 @@ import {
 } from "lucide-react"
 import { studentProfileAPI, type StudentEnrollment } from "@/lib/studentProfileAPI"
 import { getBackendApiUrl } from "@/lib/config"
+import {
+  getEnrollmentUiStatus,
+  formatEnrollmentUiStatusLabel,
+  isEnrollmentActivePaid,
+} from "@/lib/student-enrollment-status"
 
 interface AttendanceStats {
   total_classes: number
@@ -167,7 +172,11 @@ export default function StudentProgressPage() {
     )
   }
 
-  const activeCourses = enrollments.filter(e => e.is_active).length
+  const activeCourses = enrollments.filter(e => isEnrollmentActivePaid({
+    isActive: e.is_active,
+    paymentStatus: e.payment_status,
+    endDate: e.end_date
+  })).length
   const attendedClasses = attendanceStats?.attended || 0
   const attendanceRate = attendanceStats?.percentage || 0
   const estimatedHours = Math.round(attendedClasses * 1.5)
@@ -323,6 +332,32 @@ export default function StudentProgressPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {enrollments.map((enrollment) => (
+              (() => {
+                const uiStatus = getEnrollmentUiStatus({
+                  isActive: enrollment.is_active,
+                  paymentStatus: enrollment.payment_status,
+                  endDate: enrollment.end_date
+                })
+                const statusClass =
+                  uiStatus === "active"
+                    ? "bg-green-100 text-green-800"
+                    : uiStatus === "expiring_soon"
+                      ? "bg-amber-100 text-amber-900"
+                      : uiStatus === "expired"
+                        ? "bg-red-100 text-red-800"
+                        : uiStatus === "pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-800"
+                const paymentLabel =
+                  uiStatus === "expired"
+                    ? "Expired"
+                    : enrollment.payment_status === "paid"
+                      ? "Paid"
+                      : enrollment.payment_status === "pending"
+                        ? "Pending"
+                        : enrollment.payment_status
+
+                return (
               <Card key={enrollment.id} className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -337,9 +372,9 @@ export default function StudentProgressPage() {
                     </div>
                     <Badge
                       variant="secondary"
-                      className={enrollment.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
+                      className={statusClass}
                     >
-                      {enrollment.is_active ? "Active" : "Inactive"}
+                      {formatEnrollmentUiStatusLabel(uiStatus)}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -365,17 +400,21 @@ export default function StudentProgressPage() {
                       <Badge
                         variant="outline"
                         className={
-                          enrollment.payment_status === 'paid'
+                          paymentLabel === "Paid"
                             ? "bg-green-50 text-green-700 border-green-200"
+                            : paymentLabel === "Expired"
+                              ? "bg-red-50 text-red-700 border-red-200"
                             : "bg-yellow-50 text-yellow-700 border-yellow-200"
                         }
                       >
-                        {enrollment.payment_status === 'paid' ? 'Paid' : 'Pending'}
+                        {paymentLabel}
                       </Badge>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+                )
+              })()
             ))}
           </div>
         )}

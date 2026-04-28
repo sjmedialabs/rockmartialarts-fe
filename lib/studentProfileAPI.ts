@@ -31,8 +31,15 @@ export interface StudentEnrollment {
   enrollment_date?: string
   start_date?: string
   end_date?: string
+  /** Derived server-side status: active | expired | pending | cancelled | inactive | paused */
+  status?: string
   payment_status: string
   is_active: boolean
+  /** Selected pricing tenure when enrollment was created (matches prepare-checkout `duration`). */
+  duration_id?: string | null
+  duration_months?: number | null
+  fee_amount?: number | null
+  admission_fee?: number | null
 }
 
 export interface StudentProfile {

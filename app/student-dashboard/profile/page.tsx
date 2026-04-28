@@ -14,6 +14,46 @@ import { StudentProfilePhotoSheet } from "@/components/student-profile-photo-she
 import { getBackendApiUrl } from "@/lib/config"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { getEnrollmentUiStatus, formatEnrollmentUiStatusLabel } from "@/lib/student-enrollment-status"
+
+type ProfileEnrollment = StudentProfile["enrollments"][number]
+
+function toMs(value?: string): number {
+  if (!value) return 0
+  const ts = new Date(value).getTime()
+  return Number.isFinite(ts) ? ts : 0
+}
+
+function dedupeProfileEnrollments(enrollments: ProfileEnrollment[] = []): ProfileEnrollment[] {
+  const groups = new Map<string, ProfileEnrollment[]>()
+  for (const e of enrollments) {
+    const key = `${e.course_id}::${e.branch_id || ""}`
+    const bucket = groups.get(key)
+    if (bucket) bucket.push(e)
+    else groups.set(key, [e])
+  }
+
+  const merged: ProfileEnrollment[] = []
+  for (const [, group] of groups) {
+    if (group.length === 1) {
+      merged.push(group[0])
+      continue
+    }
+
+    const paid = group.find((g) => String(g.payment_status || "").toLowerCase() === "paid")
+    const pending = group.find((g) => String(g.payment_status || "").toLowerCase() === "pending")
+    const chosen =
+      paid ||
+      pending ||
+      [...group].sort((a, b) => toMs(b.end_date || b.enrollment_date || b.start_date) - toMs(a.end_date || a.enrollment_date || a.start_date))[0]
+
+    merged.push(chosen)
+  }
+
+  return merged.sort(
+    (a, b) => toMs(b.enrollment_date || b.start_date || b.end_date) - toMs(a.enrollment_date || a.start_date || a.end_date)
+  )
+}
 
 export default function StudentProfilePage() {
   const router = useRouter()
@@ -193,8 +233,10 @@ export default function StudentProfilePage() {
     )
   }
 
+  const visibleEnrollments = dedupeProfileEnrollments(studentProfile.enrollments || [])
+
   const profileStats = {
-    coursesEnrolled: studentProfile.enrollments?.length || 0,
+    coursesEnrolled: visibleEnrollments.length || 0,
     attendanceRate:
       attendanceRate ??
       (studentProfile as { attendance_rate?: number }).attendance_rate ??
@@ -341,24 +383,42 @@ export default function StudentProfilePage() {
                 <CardDescription>Your current training programs</CardDescription>
               </CardHeader>
               <CardContent>
-                {studentProfile.enrollments && studentProfile.enrollments.length > 0 ? (
+                {visibleEnrollments.length > 0 ? (
                   <div className="space-y-4">
-                    {studentProfile.enrollments.map((enrollment, index) => (
-                      <div key={index} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{enrollment.course_name}</h4>
-                          <p className="text-sm text-gray-600">Branch: {enrollment.branch_name}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {enrollment.payment_status}
-                            </Badge>
-                            {enrollment.is_active && (
-                              <Badge className="bg-green-100 text-green-800 text-xs">
-                                Active
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
+                    {visibleEnrollments.map((enrollment, index) => (
+                      <div key={`${enrollment.id || enrollment.course_id}-${index}`} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                        {(() => {
+                          const uiStatus = getEnrollmentUiStatus({
+                            isActive: enrollment.is_active,
+                            paymentStatus: enrollment.payment_status,
+                            endDate: enrollment.end_date
+                          })
+                          const statusClass =
+                            uiStatus === "active"
+                              ? "bg-green-100 text-green-800"
+                              : uiStatus === "expiring_soon"
+                                ? "bg-amber-100 text-amber-900"
+                                : uiStatus === "expired"
+                                  ? "bg-red-100 text-red-800"
+                                  : uiStatus === "pending"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-gray-100 text-gray-800"
+
+                          return (
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{enrollment.course_name}</h4>
+                              <p className="text-sm text-gray-600">Branch: {enrollment.branch_name}</p>
+                              <div className="flex items-center space-x-2 mt-1">
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {enrollment.payment_status}
+                                </Badge>
+                                <Badge className={`text-xs ${statusClass}`}>
+                                  {formatEnrollmentUiStatusLabel(uiStatus)}
+                                </Badge>
+                              </div>
+                            </div>
+                          )
+                        })()}
                         <div className="text-right">
                           <p className="text-sm text-gray-600">Enrolled</p>
                           <p className="text-sm font-semibold text-blue-600">

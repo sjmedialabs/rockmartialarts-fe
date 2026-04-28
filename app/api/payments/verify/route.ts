@@ -45,16 +45,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!enrollmentData?.enrollment_id || enrollmentData?.amount == null) {
+    if (!enrollmentData?.enrollment_id) {
       return NextResponse.json(
-        { error: 'Missing enrollmentData.enrollment_id or enrollmentData.amount' },
+        { error: 'Missing enrollmentData.enrollment_id' },
         { status: 400 }
       )
     }
 
     const confirmBody = {
       enrollment_id: enrollmentData.enrollment_id,
-      amount: Number(enrollmentData.amount),
       razorpay_payment_id,
       razorpay_order_id: razorpay_order_id || undefined,
       razorpay_signature: razorpay_signature || undefined,

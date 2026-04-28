@@ -57,18 +57,20 @@ export default function CourseListPage() {
   const [error, setError] = useState<string | null>(null)
   const [showBranchDropdown, setShowBranchDropdown] = useState<string | null>(null)
 
-  // Fetch courses from API
+  // Fetch courses from API (authenticated – returns ALL courses including inactive)
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         setLoading(true)
         setError(null)
 
-        const response = await fetch(getBackendApiUrl('courses/public/all'), {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+        const token = TokenManager.getToken()
+        const headers: Record<string, string> = { "Content-Type": "application/json" }
+        if (token) headers["Authorization"] = `Bearer ${token}`
+
+        const response = await fetch(getBackendApiUrl("courses?limit=200"), {
+          method: "GET",
+          headers,
         })
 
         if (!response.ok) {
@@ -85,7 +87,7 @@ export default function CourseListPage() {
 
       } catch (error) {
         console.error("Error fetching courses:", error)
-        setError(error instanceof Error ? error.message : 'Failed to fetch courses')
+        setError(error instanceof Error ? error.message : "Failed to fetch courses")
       } finally {
         setLoading(false)
       }
@@ -93,6 +95,42 @@ export default function CourseListPage() {
 
     fetchCourses()
   }, [])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

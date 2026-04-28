@@ -284,9 +284,6 @@ export default function PaymentTrackingPage() {
                   Paid Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
-                  Due Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
                   Payment date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-[#000] uppercase tracking-wider">
@@ -303,7 +300,7 @@ export default function PaymentTrackingPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center">
+                  <td colSpan={8} className="px-6 py-8 text-center">
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
                       <span className="ml-2 text-gray-500">Loading payments...</span>
@@ -312,7 +309,7 @@ export default function PaymentTrackingPage() {
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                     No payments found
                   </td>
                 </tr>
@@ -323,7 +320,6 @@ export default function PaymentTrackingPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.course_name || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{payment.amount?.toLocaleString() || '0'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{payment.amount?.toLocaleString() || '0'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹0</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(payment.payment_date || payment.created_at)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.payment_method || 'N/A'} - {payment.transaction_id || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap">

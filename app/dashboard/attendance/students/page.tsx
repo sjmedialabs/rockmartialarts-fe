@@ -44,6 +44,7 @@ import { SuperAdminAuth } from "@/lib/auth"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { TokenManager } from "@/lib/tokenManager"
 import { formatTimeIST } from "@/lib/formatRegisteredDate"
+import { useToast } from "@/hooks/use-toast"
 
 function getAttendanceAuthHeaders(): Record<string, string> | null {
   if (typeof window === "undefined") return null
@@ -60,6 +61,29 @@ function getAttendanceAuthHeaders(): Record<string, string> | null {
 
 function isAttendanceAuthenticated(): boolean {
   return !!getAttendanceAuthHeaders()
+}
+
+function parseDatetimeLocalToIso(value: string): string | null {
+  if (!value || !value.trim()) return null
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
+}
+
+function computeAttendanceStats(records: AttendanceRecord[]): AttendanceStats {
+  return {
+    total_students: records.length,
+    present_today: records.filter((r) => r.status === "present").length,
+    absent_today: records.filter((r) => r.status === "absent").length,
+    late_today: records.filter((r) => r.status === "late").length,
+    not_marked_today: records.filter((r) => r.status === "not_marked").length,
+    attendance_rate:
+      records.length > 0
+        ? (records.filter((r) => r.status === "present" || r.status === "late").length /
+            records.length) *
+          100
+        : 0,
+  }
 }
 
 interface Student {
@@ -129,6 +153,7 @@ interface Course {
 }
 
 export default function SuperAdminStudentAttendancePage() {
+  const { toast } = useToast()
   const router = useRouter()
   const pathname = usePathname()
   const usesDashboardLayoutNav =
@@ -183,8 +208,12 @@ export default function SuperAdminStudentAttendancePage() {
     to: undefined
   })
 
-  // Saving state for individual records
+  // Saving state for individual records (check-in/out + attendance marks)
   const [saveStatus, setSaveStatus] = useState<Record<string, 'idle' | 'saving' | 'success' | 'error'>>({})
+  /** Which Present/Late/Absent action is in flight for a row (button-level spinner). */
+  const [markActionPending, setMarkActionPending] = useState<
+    Record<string, "present" | "late" | "absent" | null>
+  >({})
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [editingCheckInId, setEditingCheckInId] = useState<string | null>(null)
   const [checkInEditDraft, setCheckInEditDraft] = useState("")
@@ -271,19 +300,22 @@ export default function SuperAdminStudentAttendancePage() {
   }
 
   // Fetch attendance data for selected date
-  const fetchAttendanceData = async () => {
+  const fetchAttendanceData = async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent)
     try {
-      setLoading(true)
-      setError(null)
+      if (!silent) {
+        setLoading(true)
+        setError(null)
+      }
 
       if (!isAttendanceAuthenticated()) {
-        setError("Authentication required")
+        if (!silent) setError("Authentication required")
         return
       }
 
       const headers = getAttendanceAuthHeaders()
       if (!headers) {
-        setError("Authentication required")
+        if (!silent) setError("Authentication required")
         return
       }
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
@@ -365,58 +397,90 @@ export default function SuperAdminStudentAttendancePage() {
       } else {
         const errorText = await response.text()
         console.error("❌ Failed to fetch attendance data:", response.status, errorText)
-        setError(`Failed to fetch attendance data: ${response.status}`)
+        if (silent) {
+          toast({
+            title: "Could not refresh table",
+            description: `Server returned ${response.status}.`,
+            variant: "destructive",
+          })
+        } else {
+          setError(`Failed to fetch attendance data: ${response.status}`)
+        }
       }
 
     } catch (error) {
       console.error("❌ Error fetching attendance data:", error)
-      setError("Failed to load attendance data. Please check your connection and try again.")
-      setAttendanceRecords([])
-      setAttendanceStats({
-        total_students: 0,
-        present_today: 0,
-        absent_today: 0,
-        late_today: 0,
-        not_marked_today: 0,
-        attendance_rate: 0
-      })
+      if (!silent) {
+        setError("Failed to load attendance data. Please check your connection and try again.")
+        setAttendanceRecords([])
+        setAttendanceStats({
+          total_students: 0,
+          present_today: 0,
+          absent_today: 0,
+          late_today: 0,
+          not_marked_today: 0,
+          attendance_rate: 0
+        })
+      } else {
+        toast({
+          title: "Could not refresh attendance",
+          description: "Your change may have saved; try Refresh if counts look wrong.",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
   }
 
   // Handle attendance marking with improved error handling and user feedback
   const handleMarkAttendance = async (recordId: string, status: "present" | "absent" | "late") => {
     try {
-      setSaveStatus(prev => ({ ...prev, [recordId]: 'saving' }))
-      setError(null) // Clear any previous errors
-
-      console.log("🔄 Superadmin marking attendance for record:", recordId, "status:", status)
+      setMarkActionPending((prev) => ({ ...prev, [recordId]: status }))
+      setSaveStatus((prev) => ({ ...prev, [recordId]: "saving" }))
+      setError(null)
 
       if (!isAttendanceAuthenticated()) {
-        setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
-        setError("Authentication required. Please log in again.")
+        setSaveStatus((prev) => ({ ...prev, [recordId]: "error" }))
+        toast({
+          title: "Authentication required",
+          description: "Please log in again.",
+          variant: "destructive",
+        })
         return
       }
 
-      const record = attendanceRecords.find(r => r.id === recordId)
+      const record = attendanceRecords.find((r) => r.id === recordId)
       if (!record) {
-        setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
-        setError("Attendance record not found. Please refresh the page.")
+        setSaveStatus((prev) => ({ ...prev, [recordId]: "error" }))
+        toast({
+          title: "Record not found",
+          description: "Refresh the page and try again.",
+          variant: "destructive",
+        })
         return
       }
 
-      // Validate required fields
       if (!record.course_id || !record.branch_id) {
-        setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
-        setError("Missing course or branch information. Please contact support.")
+        setSaveStatus((prev) => ({ ...prev, [recordId]: "error" }))
+        toast({
+          title: "Missing data",
+          description: "Course or branch is missing for this student.",
+          variant: "destructive",
+        })
         return
       }
 
       const headers = getAttendanceAuthHeaders()
       if (!headers) {
-        setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
-        setError("Authentication required. Please log in again.")
+        setSaveStatus((prev) => ({ ...prev, [recordId]: "error" }))
+        toast({
+          title: "Authentication required",
+          description: "Please log in again.",
+          variant: "destructive",
+        })
         return
       }
 
@@ -429,92 +493,80 @@ export default function SuperAdminStudentAttendancePage() {
         attendance_date: `${record.date}T10:00:00Z`,
         status: status,
         check_in_time: status !== "absent" ? checkIso : null,
-        notes: `Marked by superadmin on ${format(new Date(), 'PPP')}`
+        notes: `Marked by superadmin on ${format(new Date(), "PPP")}`,
       }
 
-      console.log(`💾 Saving attendance for ${record.student_name} with status: ${status}`)
-      console.log("📤 Attendance data:", attendanceData)
-
       const response = await fetch(`/api/backend/attendance/mark`, {
-        method: 'POST',
+        method: "POST",
         headers,
-        body: JSON.stringify(attendanceData)
+        body: JSON.stringify(attendanceData),
       })
 
-      console.log(`📥 Response status: ${response.status}`)
-
       if (response.ok) {
-        const result = await response.json()
-        console.log(`✅ Successfully saved attendance for ${record.student_name}:`, result)
+        const notesStr = attendanceData.notes as string
+        setSaveStatus((prev) => ({ ...prev, [recordId]: "success" }))
+        setSuccessMessage(`Attendance marked as ${status.toUpperCase()} for ${record.student_name}`)
+        toast({
+          title: "Attendance saved",
+          description: `${record.student_name} — ${status}`,
+        })
 
-        setSaveStatus(prev => ({ ...prev, [recordId]: 'success' }))
-        setSuccessMessage(`✅ Attendance marked as ${status.toUpperCase()} for ${record.student_name}`)
-
-        // Update local state immediately for better UX
-        setAttendanceRecords(prev =>
-          prev.map(r =>
+        setAttendanceRecords((prev) => {
+          const next = prev.map((r) =>
             r.id === recordId
               ? {
                   ...r,
-                  status: status,
+                  status,
                   check_in_iso: status !== "absent" ? checkIso : null,
+                  check_out_iso: status === "absent" ? null : r.check_out_iso,
+                  check_out_time: status === "absent" ? undefined : r.check_out_time,
                   check_in_time: status !== "absent" ? formatTimeIST(new Date()) : undefined,
-                  notes: attendanceData.notes
+                  notes: notesStr,
                 }
               : r
           )
-        )
-
-        // Update statistics with the new data
-        setAttendanceStats(prevStats => {
-          const updatedRecords = attendanceRecords.map(r =>
-            r.id === recordId ? { ...r, status } : r
-          )
-
-          const newStats = {
-            total_students: updatedRecords.length,
-            present_today: updatedRecords.filter(r => r.status === "present").length,
-            absent_today: updatedRecords.filter(r => r.status === "absent").length,
-            late_today: updatedRecords.filter(r => r.status === "late").length,
-            not_marked_today: updatedRecords.filter(r => r.status === "not_marked").length,
-            attendance_rate: updatedRecords.length > 0 ?
-              (updatedRecords.filter(r => r.status === "present" || r.status === "late").length / updatedRecords.length) * 100 : 0
-          }
-
-          console.log("📊 Updated stats:", newStats)
-          return newStats
+          setAttendanceStats(computeAttendanceStats(next))
+          return next
         })
 
-        // Clear success status after delay
-        setTimeout(() => {
-          setSaveStatus(prev => ({ ...prev, [recordId]: 'idle' }))
-        }, 3000)
+        void fetchAttendanceData({ silent: true })
 
-        // Refresh data to ensure consistency
         setTimeout(() => {
-          fetchAttendanceData()
-        }, 1000)
-
+          setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
+        }, 2500)
       } else {
         const errorText = await response.text()
-        console.error(`❌ Failed to save attendance for ${record.student_name}: ${response.status} ${errorText}`)
-
         let errorMessage = "Failed to save attendance"
         try {
-          const errorJson = JSON.parse(errorText)
+          const errorJson = JSON.parse(errorText) as { detail?: string; message?: string }
           errorMessage = errorJson.detail || errorJson.message || errorMessage
         } catch {
-          errorMessage = `${errorMessage}: ${response.status}`
+          errorMessage = `${errorMessage} (${response.status})`
         }
 
-        setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
-        setError(`❌ ${errorMessage}`)
+        setSaveStatus((prev) => ({ ...prev, [recordId]: "error" }))
+        setError(errorMessage)
+        toast({
+          title: "Could not save attendance",
+          description: errorMessage,
+          variant: "destructive",
+        })
       }
-
     } catch (error) {
       console.error("❌ Error marking attendance:", error)
-      setSaveStatus(prev => ({ ...prev, [recordId]: 'error' }))
-      setError(`❌ Network error: ${error instanceof Error ? error.message : 'Please check your connection and try again.'}`)
+      setSaveStatus((prev) => ({ ...prev, [recordId]: "error" }))
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "Please check your connection and try again."
+      setError(msg)
+      toast({
+        title: "Network error",
+        description: msg,
+        variant: "destructive",
+      })
+    } finally {
+      setMarkActionPending((prev) => ({ ...prev, [recordId]: null }))
     }
   }
 
@@ -525,7 +577,7 @@ export default function SuperAdminStudentAttendancePage() {
     record: AttendanceRecord,
     role: "present" | "late" | "absent"
   ) => {
-    if (saveStatus[record.id] === "saving") return true
+    if (saveStatus[record.id] === "saving" || markActionPending[record.id] != null) return true
     if (canChangeAttendanceStatus) return false
     if (isAttendanceStatusFinal(record.status)) {
       return record.status !== role
@@ -537,11 +589,23 @@ export default function SuperAdminStudentAttendancePage() {
     const record = attendanceRecords.find((r) => r.id === recordId)
     if (!record || record.status === "absent" || record.status === "not_marked") return
     if (!canEditCheckInTime) return
+    const tInNew = new Date(iso).getTime()
+    if (Number.isNaN(tInNew)) {
+      toast({
+        title: "Invalid check-in time",
+        description: "Choose a valid date and time.",
+        variant: "destructive",
+      })
+      return
+    }
     if (record.check_out_iso) {
-      const tIn = new Date(iso).getTime()
+      const tIn = tInNew
       const tOut = new Date(record.check_out_iso).getTime()
       if (!(tOut > tIn)) {
-        setError("Check-out must be after check-in. Adjust check-out or clear it first.")
+        const msg =
+          "Check-out must be after check-in. Adjust check-out or clear it first."
+        setError(msg)
+        toast({ title: "Invalid times", description: msg, variant: "destructive" })
         return
       }
     }
@@ -550,6 +614,11 @@ export default function SuperAdminStudentAttendancePage() {
       const headers = getAttendanceAuthHeaders()
       if (!headers) {
         setError("Authentication required")
+        toast({
+          title: "Authentication required",
+          description: "Please log in again.",
+          variant: "destructive",
+        })
         return
       }
       const attendanceData: Record<string, unknown> = {
@@ -572,7 +641,14 @@ export default function SuperAdminStudentAttendancePage() {
       })
       if (!response.ok) {
         const t = await response.text()
-        throw new Error(t || `Failed (${response.status})`)
+        let detail = t || `Failed (${response.status})`
+        try {
+          const j = JSON.parse(t) as { detail?: string }
+          if (typeof j.detail === "string") detail = j.detail
+        } catch {
+          /* keep text */
+        }
+        throw new Error(detail)
       }
       setAttendanceRecords((prev) =>
         prev.map((r) =>
@@ -588,34 +664,63 @@ export default function SuperAdminStudentAttendancePage() {
       )
       setEditingCheckInId(null)
       setSuccessMessage("Check-in time updated")
+      toast({ title: "Check-in saved", description: "Time updated successfully." })
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update check-in time")
+      const msg = e instanceof Error ? e.message : "Failed to update check-in time"
+      setError(msg)
+      toast({ title: "Could not save check-in", description: msg, variant: "destructive" })
     } finally {
       setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
     }
   }
 
-  const handleUpdateCheckOutTime = async (recordId: string, _iso: string) => {
+  const handleUpdateCheckOutTime = async (recordId: string, draftLocal: string) => {
     const record = attendanceRecords.find((r) => r.id === recordId)
     if (!record || record.status === "absent" || record.status === "not_marked") return
     if (!canEditCheckInTime) return
-    const iso = new Date(_iso).toISOString()
+
+    const iso = parseDatetimeLocalToIso(draftLocal)
+    if (!iso) {
+      const msg = "Enter a valid check-out date and time."
+      setError(msg)
+      toast({ title: "Invalid check-out time", description: msg, variant: "destructive" })
+      return
+    }
+
     const cinBase = record.check_in_iso
     if (!cinBase) {
-      setError("Set check-in time before check-out.")
+      const msg =
+        "Check-in is not recorded for this student. Mark present or set check-in before check-out."
+      setError(msg)
+      toast({ title: "Cannot check out", description: msg, variant: "destructive" })
       return
     }
+
     const tIn = new Date(cinBase).getTime()
     const tOut = new Date(iso).getTime()
-    if (!(tOut > tIn)) {
-      setError("Check-out must be after check-in.")
+    if (Number.isNaN(tIn) || Number.isNaN(tOut)) {
+      const msg = "Could not read check-in or check-out time. Try refreshing the page."
+      setError(msg)
+      toast({ title: "Invalid data", description: msg, variant: "destructive" })
       return
     }
+    if (!(tOut > tIn)) {
+      const msg = "Check-out must be after check-in."
+      setError(msg)
+      toast({ title: "Invalid times", description: msg, variant: "destructive" })
+      return
+    }
+
     try {
       setSaveStatus((prev) => ({ ...prev, [recordId]: "saving" }))
       const headers = getAttendanceAuthHeaders()
       if (!headers) {
         setError("Authentication required")
+        toast({
+          title: "Authentication required",
+          description: "Please log in again.",
+          variant: "destructive",
+        })
         return
       }
       const attendanceData: Record<string, unknown> = {
@@ -625,7 +730,7 @@ export default function SuperAdminStudentAttendancePage() {
         branch_id: record.branch_id,
         attendance_date: `${record.date}T10:00:00Z`,
         status: record.status,
-        check_in_time: record.check_in_iso,
+        check_in_time: cinBase,
         check_out_time: iso,
         notes: record.notes || `Check-out time updated ${format(new Date(), "PPp")}`,
       }
@@ -636,8 +741,18 @@ export default function SuperAdminStudentAttendancePage() {
       })
       if (!response.ok) {
         const t = await response.text()
-        throw new Error(t || `Failed (${response.status})`)
+        let detail = t || `Failed (${response.status})`
+        try {
+          const j = JSON.parse(t) as { detail?: string }
+          if (typeof j.detail === "string") detail = j.detail
+        } catch {
+          /* keep text */
+        }
+        throw new Error(detail)
       }
+      const payload = await response.json().catch(() => null) as
+        | { action?: string; message?: string }
+        | null
       setAttendanceRecords((prev) =>
         prev.map((r) =>
           r.id === recordId
@@ -652,8 +767,15 @@ export default function SuperAdminStudentAttendancePage() {
       )
       setEditingCheckOutId(null)
       setSuccessMessage("Check-out time updated")
+      toast({
+        title: "Check-out saved",
+        description: payload?.message || "Check-out time updated successfully.",
+      })
+      void fetchAttendanceData({ silent: true })
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update check-out time")
+      const msg = e instanceof Error ? e.message : "Failed to update check-out time"
+      setError(msg)
+      toast({ title: "Could not save check-out", description: msg, variant: "destructive" })
     } finally {
       setSaveStatus((prev) => ({ ...prev, [recordId]: "idle" }))
     }
@@ -1096,12 +1218,14 @@ export default function SuperAdminStudentAttendancePage() {
                                     </span>
                                   </div>
                                 </div>
-                                <div className="ml-4">
+                                <div className="ml-4 min-w-0">
                                   <div className="text-sm font-semibold text-gray-900">
                                     {record.student_name}
                                   </div>
-                                  <div className="text-sm text-gray-500">
-                                    {record.email}
+                                  <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[16rem]">
+                                    {record.branch_name}
+                                    <span className="text-gray-400 mx-1">•</span>
+                                    {record.course_name}
                                   </div>
                                 </div>
                               </div>
@@ -1150,8 +1274,17 @@ export default function SuperAdminStudentAttendancePage() {
                                       type="button"
                                       size="sm"
                                       className="h-7 text-xs"
+                                      disabled={saveStatus[record.id] === "saving"}
                                       onClick={() => {
-                                        const iso = new Date(checkInEditDraft).toISOString()
+                                        const iso = parseDatetimeLocalToIso(checkInEditDraft)
+                                        if (!iso) {
+                                          toast({
+                                            title: "Invalid check-in time",
+                                            description: "Choose a valid date and time.",
+                                            variant: "destructive",
+                                          })
+                                          return
+                                        }
                                         void handleUpdateCheckInTime(record.id, iso)
                                       }}
                                     >
@@ -1219,6 +1352,7 @@ export default function SuperAdminStudentAttendancePage() {
                                       type="button"
                                       size="sm"
                                       className="h-7 text-xs"
+                                      disabled={saveStatus[record.id] === "saving"}
                                       onClick={() => {
                                         void handleUpdateCheckOutTime(record.id, checkOutEditDraft)
                                       }}
@@ -1280,7 +1414,8 @@ export default function SuperAdminStudentAttendancePage() {
                                   }`}
                                   disabled={isStatusButtonDisabled(record, "present")}
                                 >
-                                  {saveStatus[record.id] === 'saving' ? (
+                                  {saveStatus[record.id] === "saving" &&
+                                  markActionPending[record.id] === "present" ? (
                                     <RefreshCw className="h-3 w-3 animate-spin mr-1" />
                                   ) : (
                                     <CheckCircle className="h-3 w-3 mr-1" />
@@ -1298,7 +1433,8 @@ export default function SuperAdminStudentAttendancePage() {
                                   }`}
                                   disabled={isStatusButtonDisabled(record, "late")}
                                 >
-                                  {saveStatus[record.id] === 'saving' ? (
+                                  {saveStatus[record.id] === "saving" &&
+                                  markActionPending[record.id] === "late" ? (
                                     <RefreshCw className="h-3 w-3 animate-spin mr-1" />
                                   ) : (
                                     <Clock className="h-3 w-3 mr-1" />
@@ -1316,7 +1452,8 @@ export default function SuperAdminStudentAttendancePage() {
                                   }`}
                                   disabled={isStatusButtonDisabled(record, "absent")}
                                 >
-                                  {saveStatus[record.id] === 'saving' ? (
+                                  {saveStatus[record.id] === "saving" &&
+                                  markActionPending[record.id] === "absent" ? (
                                     <RefreshCw className="h-3 w-3 animate-spin mr-1" />
                                   ) : (
                                     <XCircle className="h-3 w-3 mr-1" />

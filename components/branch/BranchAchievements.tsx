@@ -11,8 +11,24 @@ interface BranchAchievementsProps {
   branchId: string
 }
 
+function enrollmentAchievementToShowcase(
+  a: Record<string, unknown>
+): ShowcaseAchievementItem {
+  const images = a.images as string[] | undefined
+  const firstImg = Array.isArray(images) && images.length > 0 ? images[0] : undefined
+  return {
+    id: a.id as string | undefined,
+    student_name: (a.student_name as string) || "Student",
+    student_photo: null,
+    achievement_title: (a.title as string) || "Achievement",
+    description: (a.description as string) || null,
+    image: (firstImg as string) || null,
+  }
+}
+
 export function BranchAchievements({ branchId }: BranchAchievementsProps) {
-  const [achievements, setAchievements] = useState<ShowcaseAchievementItem[]>([])
+  const [showcaseItems, setShowcaseItems] = useState<ShowcaseAchievementItem[]>([])
+  const [fromStudentRecords, setFromStudentRecords] = useState<ShowcaseAchievementItem[]>([])
   const [loading, setLoading] = useState(true)
   const [skip, setSkip] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -22,22 +38,32 @@ export function BranchAchievements({ branchId }: BranchAchievementsProps) {
     let cancelled = false
     setLoading(true)
     setSkip(0)
-    fetch(
-      getBackendApiUrl(
-        `showcase-achievements?branch_id=${encodeURIComponent(branchId)}&skip=0&limit=${LIMIT}`
-      )
+    const showcaseUrl = getBackendApiUrl(
+      `showcase-achievements?branch_id=${encodeURIComponent(branchId)}&skip=0&limit=${LIMIT}`
     )
-      .then((res) => (res.ok ? res.json() : { achievements: [] }))
-      .then((data) => {
-        if (!cancelled) {
-          const list = data.achievements || []
-          setAchievements(list)
-          setHasMore(list.length >= LIMIT)
-          setSkip(list.length)
-        }
+    const recordsUrl = getBackendApiUrl(
+      `achievements/public/branch/${encodeURIComponent(branchId)}?skip=0&limit=50`
+    )
+    Promise.all([
+      fetch(showcaseUrl).then((res) => (res.ok ? res.json() : { achievements: [] })),
+      fetch(recordsUrl).then((res) => (res.ok ? res.json() : { achievements: [] })),
+    ])
+      .then(([showcaseData, recordsData]) => {
+        if (cancelled) return
+        const list = showcaseData.achievements || []
+        setShowcaseItems(list)
+        setHasMore(list.length >= LIMIT)
+        setSkip(list.length)
+        const raw = recordsData.achievements || []
+        setFromStudentRecords(
+          Array.isArray(raw) ? raw.map((a: Record<string, unknown>) => enrollmentAchievementToShowcase(a)) : []
+        )
       })
       .catch(() => {
-        if (!cancelled) setAchievements([])
+        if (!cancelled) {
+          setShowcaseItems([])
+          setFromStudentRecords([])
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -46,6 +72,8 @@ export function BranchAchievements({ branchId }: BranchAchievementsProps) {
       cancelled = true
     }
   }, [branchId])
+
+  const achievements = [...showcaseItems, ...fromStudentRecords]
 
   const loadMore = () => {
     fetch(
@@ -60,7 +88,7 @@ export function BranchAchievements({ branchId }: BranchAchievementsProps) {
           setHasMore(false)
           return
         }
-        setAchievements((prev) => [...prev, ...list])
+        setShowcaseItems((prev) => [...prev, ...list])
         setSkip((s) => s + list.length)
         if (list.length < LIMIT) setHasMore(false)
       })
@@ -82,8 +110,11 @@ export function BranchAchievements({ branchId }: BranchAchievementsProps) {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {achievements.map((a) => (
-                <ShowcaseAchievementCard key={a.id || `${a.achievement_title}-${a.student_name}`} item={a} />
+              {achievements.map((a, idx) => (
+                <ShowcaseAchievementCard
+                  key={a.id ? `${a.id}-${idx}` : `ach-${idx}-${a.achievement_title ?? ""}`}
+                  item={a}
+                />
               ))}
             </div>
             {hasMore && (

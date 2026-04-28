@@ -190,15 +190,24 @@ async function getShowcaseAchievementsFromApi(): Promise<
   try {
     const siteOrigin =
       process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
-    const qs = `is_global=true&limit=12`
+    const qs = `limit=6`
     if (siteOrigin) {
-      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/showcase-achievements?${qs}`, {
+      const res = await fetch(`${siteOrigin.replace(/\/$/, "")}/api/backend/achievements/public/global?${qs}`, {
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
       })
       if (res.ok) {
         const data = await res.json()
-        return Array.isArray(data.achievements) ? data.achievements : []
+        const items = Array.isArray(data.achievements) ? data.achievements : []
+        // Map student_achievements format to ShowcaseAchievementItem format
+        return items.map((a: any) => ({
+          id: a.id,
+          student_name: a.student_name || "Student",
+          student_photo: null,
+          achievement_title: a.title || "Achievement",
+          description: a.description || null,
+          image: Array.isArray(a.images) && a.images.length > 0 ? a.images[0] : null,
+        }))
       }
     }
     const backendUrl =
@@ -206,13 +215,21 @@ async function getShowcaseAchievementsFromApi(): Promise<
       process.env.NEXT_PUBLIC_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_BASE_URL ||
       "http://127.0.0.1:8003"
-    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/showcase-achievements?${qs}`, {
+    const res = await fetch(`${backendUrl.replace(/\/$/, "")}/api/achievements/public/global?${qs}`, {
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
     if (!res.ok) return []
     const data = await res.json()
-    return Array.isArray(data.achievements) ? data.achievements : []
+    const items = Array.isArray(data.achievements) ? data.achievements : []
+    return items.map((a: any) => ({
+      id: a.id,
+      student_name: a.student_name || "Student",
+      student_photo: null,
+      achievement_title: a.title || "Achievement",
+      description: a.description || null,
+      image: Array.isArray(a.images) && a.images.length > 0 ? a.images[0] : null,
+    }))
   } catch {
     return []
   }

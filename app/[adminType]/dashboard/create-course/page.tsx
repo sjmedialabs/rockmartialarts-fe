@@ -49,6 +49,14 @@ export default function CreateCoursePage() {
   ])
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [branchPrices, setBranchPrices] = useState<any[]>([])
+  // Tenure-based pricing state
+  type MasterDuration = { id: string; name: string; code: string; duration_months: number; display_order: number }
+  const [masterDurations, setMasterDurations] = useState<MasterDuration[]>([])
+  const [addedTenures, setAddedTenures] = useState<string[]>([])
+  const [feeByDurationId, setFeeByDurationId] = useState<Record<string, string>>({})
+  const [flatPriceByDurationId, setFlatPriceByDurationId] = useState<Record<string, string>>({})
+  const [addedBranchTenures, setAddedBranchTenures] = useState<Record<number, string[]>>({})
+  const [enableMultipleTenures, setEnableMultipleTenures] = useState(true)
   const [formData, setFormData] = useState({
     courseTitle: "",
     courseCode: "",
@@ -59,7 +67,6 @@ export default function CreateCoursePage() {
     maxStudents: "",
     minAge: "",
     maxAge: "",
-    price: "",
     currency: "INR",
     branchSpecificPricing: false,
     equipmentRequired: "",
@@ -169,6 +176,35 @@ export default function CreateCoursePage() {
     fetchDifficultyLevels()
   }, [toast])
 
+  // Fetch master durations for tenure pricing
+  useEffect(() => {
+    const fetchMasterDurations = async () => {
+      try {
+        const token = TokenManager.getToken()
+        const response = await fetch(getBackendApiUrl('durations?active_only=true'), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          const durations = (data.durations || []).map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            code: d.code,
+            duration_months: d.duration_months,
+            display_order: d.display_order || 0,
+          }))
+          setMasterDurations(durations)
+        }
+      } catch (error) {
+        console.error('Error fetching master durations:', error)
+      }
+    }
+    fetchMasterDurations()
+  }, [])
+
   // Auto-generate course code from title
   useEffect(() => {
     if (formData.courseTitle) {
@@ -248,15 +284,7 @@ export default function CreateCoursePage() {
         return
       }
 
-      if (!formData.price || parseFloat(formData.price) <= 0) {
-        toast({
-          title: "Validation Error", 
-          description: "Please enter a valid price.",
-          variant: "destructive"
-        })
-        setIsSubmitting(false)
-        return
-      }
+
 
       if (!formData.category) {
         toast({
@@ -292,10 +320,9 @@ export default function CreateCoursePage() {
           promo_video_url: (formData as any).promoVideoUrl || ""
         },
         pricing: {
-          currency: formData.currency,
-          amount: parseFloat(formData.price),
-          branch_specific_pricing: formData.branchSpecificPricing,
-          branch_prices: branchPrices.map(bp => ({ branch_id: bp.branch_id, amount: parseFloat(bp.price) || 0, currency: bp.currency })),
+          currency: "INR",
+          amount: 0,
+          branch_specific_pricing: false,
         },
         settings: {
           offers_certification: (formData as any).offersCertification || true,
@@ -460,8 +487,8 @@ export default function CreateCoursePage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 gap-6">
+          <div>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -1002,213 +1029,55 @@ export default function CreateCoursePage() {
             </Card>
           </div>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-[#4F5077]">Pricing & Availability</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-[#7D8592]">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Course Price *</Label>
-                  <div className="flex space-x-2">
-                    <Select
-                      value={formData.currency}
-                      onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                    >
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="INR">INR</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      id="price"
-                      type="number"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder="8500"
-                      className="flex-1"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="branchSpecificPricing">Branch-specific pricing</Label>
-                  <Switch
-                    id="branchSpecificPricing"
-                    checked={formData.branchSpecificPricing}
-                    onCheckedChange={(checked) => setFormData({ ...formData, branchSpecificPricing: checked })}
-                  />
-                </div>
-
-                {/* Branch-Specific Pricing Section */}
-                {formData.branchSpecificPricing && (
-                  <div className="space-y-4 border-t pt-4">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-md font-semibold">Branch-Specific Prices</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setBranchPrices([...branchPrices, { branch_id: '', price: '', currency: 'INR' }])
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Branch Price
-                      </Button>
-                    </div>
-
-                    {branchPrices.map((branchPrice, index) => (
-                      <Card key={index} className="p-4 space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Branch Price #{index + 1}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const newPrices = branchPrices.filter((_, i) => i !== index)
-                              setBranchPrices(newPrices)
-                            }}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div className="md:col-span-2">
-                            <Label>Branch</Label>
-                            <Select
-                              value={branchPrice.branch_id ? String(branchPrice.branch_id) : ''}
-                              onValueChange={(value) => {
-                                const newPrices = [...branchPrices]
-                                newPrices[index].branch_id = value
-                                setBranchPrices(newPrices)
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select branch" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {loadingBranches ? (
-                                  <SelectItem value="loading" disabled>
-                                    Loading branches...
-                                  </SelectItem>
-                                ) : branches.length > 0 ? (
-                                  branches.map((branch) => (
-                                    <SelectItem key={branch.id} value={String(branch.id)}>
-                                      {branch.branch?.name || branch.name || `Branch ${branch.id}`}
-                                    </SelectItem>
-                                  ))
-                                ) : (
-                                  <SelectItem value="none" disabled>
-                                    No branches available
-                                  </SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label>Price</Label>
-                            <Input
-                              type="number"
-                              value={branchPrice.price}
-                              onChange={(e) => {
-                                const newPrices = [...branchPrices]
-                                newPrices[index].price = e.target.value
-                                setBranchPrices(newPrices)
-                              }}
-                              placeholder="0.00"
-                              min="0"
-                              step="0.01"
-                            />
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-
-                    {branchPrices.length === 0 && (
-                      <div className="text-center py-6 text-gray-500 border-2 border-dashed rounded-lg">
-                        <p className="text-sm">No branch-specific prices added yet.</p>
-                        <p className="text-xs">Click "Add Branch Price" to set prices for specific branches.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-[#4F5077]">Course Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-[#7D8592]">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Course Title:</span>
-                    <span className="font-medium">{formData.courseTitle || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Course Code:</span>
-                    <span className="font-medium">{formData.courseCode || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Category:</span>
-                    <span className="font-medium">
-                      {categories.find(cat => cat.id === formData.category)?.name || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Difficulty Level:</span>
-                    <span className="font-medium">{formData.difficultyLevel || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium">
-                      {courseDurations.find(d => d.value === formData.duration)?.label || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Max Students:</span>
-                    <span className="font-medium">{formData.maxStudents || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Age Range:</span>
-                    <span className="font-medium">
-                      {formData.minAge || '—'} - {formData.maxAge || '—'} years
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Price:</span>
-                    <span className="font-medium">
-                      {formData.currency} {formData.price || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Branch Specific Pricing:</span>
-                    <span className="font-medium">{formData.branchSpecificPricing ? 'Yes' : 'No'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Prerequisites:</span>
-                    <span className="font-medium">{prerequisites.length} items</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Modules:</span>
-                    <span className="font-medium">{modules.length} modules</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
+
+        {/* Course Overview — full width */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-[#4F5077]">Course Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[#7D8592]">
+              <div className="text-sm">
+                <span className="text-gray-600 block">Course Title</span>
+                <span className="font-medium">{formData.courseTitle || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Course Code</span>
+                <span className="font-medium">{formData.courseCode || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Category</span>
+                <span className="font-medium">{categories.find(cat => cat.id === formData.category)?.name || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Difficulty Level</span>
+                <span className="font-medium">{formData.difficultyLevel || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Duration</span>
+                <span className="font-medium">{courseDurations.find(d => d.value === formData.duration)?.label || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Max Students</span>
+                <span className="font-medium">{formData.maxStudents || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Age Range</span>
+                <span className="font-medium">{formData.minAge || '—'} - {formData.maxAge || '—'} years</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Prerequisites</span>
+                <span className="font-medium">{prerequisites.length} items</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Modules</span>
+                <span className="font-medium">{modules.length} modules</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4">Pricing is managed from Branch → Course Assignments.</p>
+          </CardContent>
+        </Card>
       </main>
 
       {showSuccessPopup && (

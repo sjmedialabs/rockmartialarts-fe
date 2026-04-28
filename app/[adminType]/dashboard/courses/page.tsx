@@ -69,9 +69,9 @@ export default function CourseListPage() {
         let token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
         if (!token && isBranchAdmin) token = TokenManager.getToken()
 
-        const url = isBranchAdmin ? getBackendApiUrl("courses?active_only=true&limit=100") : getBackendApiUrl("courses/public/all")
+        const url = isBranchAdmin ? getBackendApiUrl("courses?active_only=true&limit=100") : getBackendApiUrl("courses?limit=200")
         const headers: Record<string, string> = { "Content-Type": "application/json" }
-        if (isBranchAdmin && token) {
+        if (token) {
           headers["Authorization"] = `Bearer ${token}`
         }
 

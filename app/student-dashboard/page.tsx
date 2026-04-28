@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { getBackendApiUrl } from "@/lib/config"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
+import { getEnrollmentUiStatus, formatEnrollmentUiStatusLabel } from "@/lib/student-enrollment-status"
 
 export default function StudentDashboard() {
   const router = useRouter()
@@ -38,6 +39,8 @@ export default function StudentDashboard() {
   const [attendanceData, setAttendanceData] = useState<any>(null)
   const [enrollmentData, setEnrollmentData] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [myAchievements, setMyAchievements] = useState<{ id: string; title: string; description?: string | null }[]>([])
+  const [achievementsLoading, setAchievementsLoading] = useState(false)
 
   useEffect(() => {
     // Check if user is logged in
@@ -103,6 +106,39 @@ export default function StudentDashboard() {
           })
 
           setEnrollmentData(profileData.enrollments || [])
+
+          const sid = profileData.id || ""
+          if (sid) {
+            setAchievementsLoading(true)
+            fetch(getBackendApiUrl(`achievements/student/${encodeURIComponent(sid)}`), {
+              method: "GET",
+              headers,
+            })
+              .then(async (achRes) => {
+                if (!achRes.ok) return { achievements: [] }
+                return achRes.json()
+              })
+              .then((achJson) => {
+                const raw = achJson?.achievements
+                const list = Array.isArray(raw)
+                  ? raw.map((a: {
+                      id?: string
+                      _id?: string
+                      title?: string
+                      achievement_title?: string
+                      description?: string | null
+                    }, idx: number) => ({
+                      id: a.id || a._id || `achievement-${idx}`,
+                      title: a.title || a.achievement_title || "Achievement",
+                      description: a.description ?? null,
+                    }))
+                  : []
+                // Keep all valid rows and avoid dropping legacy docs that only have Mongo `_id`.
+                setMyAchievements(list.filter((a: { title: string }) => !!a.title))
+              })
+              .catch(() => setMyAchievements([]))
+              .finally(() => setAchievementsLoading(false))
+          }
         } else {
           console.error("❌ Profile API failed:", profileResponse.status, profileResponse.statusText)
           throw new Error(`Failed to fetch profile: ${profileResponse.status}`)
@@ -134,7 +170,6 @@ export default function StudentDashboard() {
             overallProgress: roundedProgress,
             attendanceRate: roundedProgress,
             totalHours: Math.round((attendanceResult.statistics?.attended || 0) * 1.5),
-            achievements: 0,
             rank: 0,
             streakDays: 0,
             nextClassTime: "",
@@ -153,7 +188,6 @@ export default function StudentDashboard() {
             overallProgress: 0,
             attendanceRate: 0,
             totalHours: 0,
-            achievements: 0,
             rank: 0,
             streakDays: 0,
             nextClassTime: "No upcoming classes",
@@ -433,6 +467,38 @@ export default function StudentDashboard() {
               </CardContent>
             </Card>
 
+            {/* Achievements (from coaches / branch admins) */}
+            <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
+              <CardHeader className="bg-gradient-to-r from-amber-50 to-yellow-50 border-b border-amber-100">
+                <CardTitle className="flex items-center space-x-2">
+                  <Award className="w-5 h-5 text-amber-600" />
+                  <span>Your achievements</span>
+                </CardTitle>
+                <CardDescription>Awards and milestones added by your academy</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                {achievementsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : myAchievements.length === 0 ? (
+                  <p className="text-sm text-gray-500">No achievements yet. Keep training — your coaches can add them here.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {myAchievements.slice(0, 6).map((a) => (
+                      <li key={a.id} className="border border-amber-100 rounded-lg p-3 bg-amber-50/30">
+                        <p className="font-medium text-gray-900">{a.title}</p>
+                        {a.description?.trim() ? (
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-3">{a.description}</p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {myAchievements.length > 6 ? (
+                  <p className="text-xs text-gray-500 mt-3">Showing 6 of {myAchievements.length}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+
             {/* Quick Actions */}
             <Card className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-all">
               <CardHeader>
@@ -530,7 +596,15 @@ export default function StudentDashboard() {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 truncate">{enrollment.course_name}</p>
                             <p className="text-sm text-gray-600">{enrollment.branch_name || 'Branch'}</p>
-                            <p className="text-xs text-gray-500 mt-1">{enrollment.is_active ? 'Active' : 'Inactive'}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatEnrollmentUiStatusLabel(
+                                getEnrollmentUiStatus({
+                                  isActive: enrollment.is_active,
+                                  paymentStatus: enrollment.payment_status,
+                                  endDate: enrollment.end_date
+                                })
+                              )}
+                            </p>
                           </div>
                         </div>
                       </div>

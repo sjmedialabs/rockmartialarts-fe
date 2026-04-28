@@ -72,6 +72,7 @@ export default function EditCoursePage() {
   const [masterDurations, setMasterDurations] = useState<MasterDuration[]>([])
   /** Fee amount per duration id (used when tenures are duration ids from master data) */
   const [feeByDurationId, setFeeByDurationId] = useState<Record<string, string>>({})
+  const [flatPriceByDurationId, setFlatPriceByDurationId] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState({
     courseTitle: "",
     courseCode: "",
@@ -681,11 +682,17 @@ export default function EditCoursePage() {
       }
 
       const feePerDurationPayload: Record<string, number> = {}
+      const flatPricePayload: Record<string, number> = {}
       addedTenures.forEach((id) => {
         const v = feeByDurationId[id]
         if (v !== "" && v !== undefined) {
           const n = parseFloat(String(v))
           if (!Number.isNaN(n)) feePerDurationPayload[id] = n
+        }
+        const fp = flatPriceByDurationId[id]
+        if (fp !== "" && fp !== undefined) {
+          const n = parseFloat(String(fp))
+          if (!Number.isNaN(n)) flatPricePayload[id] = n
         }
       })
       const firstAmount = addedTenures.length > 0 && feeByDurationId[addedTenures[0]] ? parseFloat(String(feeByDurationId[addedTenures[0]])) : 0
@@ -918,8 +925,8 @@ export default function EditCoursePage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 gap-6">
+          <div>
             {isBranchFeeOnly ? (
               <Card>
                 <CardHeader>
@@ -1511,381 +1518,53 @@ export default function EditCoursePage() {
             )}
           </div>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-[#4F5077]">Pricing & Availability</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-[#7D8592]">
-                {!isBranchFeeOnly && (
-                <div className="space-y-3">
-                  <Label className="font-medium">Course fees by tenure (India – INR)</Label>
-                  <p className="text-xs text-muted-foreground">Tenure options are based on the course duration selected above. Add fees for the tenures you offer.</p>
-                  {!formData.duration ? (
-                    <p className="text-sm text-muted-foreground py-2">Select course duration above to set fees.</p>
-                  ) : (
-                    <>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Label className="sr-only">Add tenure</Label>
-                        <Select
-                          value=""
-                          onValueChange={(value) => {
-                            if (value && !addedTenures.includes(value) && allowedTenureIds.has(value))
-                              setAddedTenures([...addedTenures, value])
-                          }}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Add tenure" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allowedTenureOptions.filter((d) => !addedTenures.includes(d.id)).map((d) => (
-                              <SelectItem key={d.id} value={d.id}>
-                                {d.name}
-                              </SelectItem>
-                            ))}
-                            {allowedTenureOptions.length > 0 && allowedTenureOptions.every((d) => addedTenures.includes(d.id)) && (
-                              <SelectItem value="_none" disabled>
-                                All tenures added
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        {addedTenures.filter((id) => allowedTenureIds.has(id)).map((id) => {
-                          const d = masterDurations.find((x) => x.id === id) || allowedTenureOptions.find((x) => x.id === id)
-                          const value = feeByDurationId[id] ?? ""
-                          return (
-                            <div key={id} className="flex items-center gap-2">
-                              <Label className="w-24 shrink-0">{d?.name ?? id}</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="Enter amount"
-                                className="max-w-[160px] placeholder:text-muted-foreground"
-                                value={value}
-                                onChange={(e) => setFeeByDurationId((prev) => ({ ...prev, [id]: e.target.value }))}
-                              />
-                              <span className="text-muted-foreground text-sm">INR</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-500 hover:text-red-700"
-                                onClick={() => {
-                                  setAddedTenures(addedTenures.filter((k) => k !== id))
-                                  setFeeByDurationId((prev) => { const next = { ...prev }; delete next[id]; return next })
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )
-                        })}
-                        {addedTenures.filter((id) => allowedTenureIds.has(id)).length === 0 && (
-                          <p className="text-sm text-muted-foreground">Add at least one tenure using the dropdown above.</p>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-                )}
-
-                {!isBranchFeeOnly && (
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="branchSpecificPricing">Branch-specific pricing</Label>
-                  <Switch
-                    id="branchSpecificPricing"
-                    checked={formData.branchSpecificPricing}
-                    onCheckedChange={(checked) => setFormData({ ...formData, branchSpecificPricing: checked })}
-                  />
-                </div>
-                )}
-
-                {isBranchFeeOnly && (
-                  <p className="text-xs text-muted-foreground">
-                    Add tenures and amounts for your branch. Global course fees are set by a super admin.
-                  </p>
-                )}
-
-                {/* Branch-Specific Pricing Section */}
-                {(formData.branchSpecificPricing || isBranchFeeOnly) && (
-                  <div className="space-y-4 border-t pt-4">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-md font-semibold">Branch-specific fees (add tenures per branch)</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newIndex = branchPrices.length
-                          setBranchPrices([
-                            ...branchPrices,
-                            { branch_id: "", fee_per_duration: {} }
-                          ])
-                          setAddedBranchTenures((prev) => ({ ...prev, [newIndex]: [] }))
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Branch
-                      </Button>
-                    </div>
-
-                    {branchPrices.map((branchPrice, index) => {
-                      const branchTenures = addedBranchTenures[index] || []
-                      return (
-                        <Card key={index} className="p-4 space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">Branch #{index + 1}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setBranchPrices(branchPrices.filter((_, i) => i !== index))
-                                setAddedBranchTenures((prev) => {
-                                  const next: Record<number, string[]> = {}
-                                  Object.keys(prev).forEach((k) => {
-                                    const i = parseInt(k, 10)
-                                    if (i < index) next[i] = prev[i]
-                                    if (i > index) next[i - 1] = prev[i]
-                                  })
-                                  return next
-                                })
-                              }}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="space-y-3">
-                            <div>
-                              <Label>Branch</Label>
-                              <Select
-                                value={(branchPrice as any).branch_id ? String((branchPrice as any).branch_id) : ""}
-                                onValueChange={(value) => {
-                                  const newPrices = [...branchPrices]
-                                  ;(newPrices[index] as any).branch_id = value
-                                  setBranchPrices(newPrices)
-                                }}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Enter branch" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {loadingBranches ? (
-                                    <SelectItem value="loading" disabled>Loading branches...</SelectItem>
-                                  ) : branches.length > 0 ? (
-                                    branches.map((branch) => (
-                                      <SelectItem key={branch.id} value={String(branch.id)}>
-                                        {branch.branch?.name || branch.name || `Branch ${branch.id}`}
-                                      </SelectItem>
-                                    ))
-                                  ) : (
-                                    <SelectItem value="none" disabled>No branches available</SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label className="text-xs text-muted-foreground">Tenures for this branch</Label>
-                              {!formData.duration ? (
-                                <p className="text-xs text-muted-foreground mt-1">Select course duration first.</p>
-                              ) : (
-                                <>
-                                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                                    <Select
-                                      value=""
-                                      onValueChange={(value) => {
-                                        if (value && !branchTenures.includes(value) && allowedTenureIds.has(value)) {
-                                          setAddedBranchTenures((prev) => ({ ...prev, [index]: [...(prev[index] || []), value] }))
-                                        }
-                                      }}
-                                    >
-                                      <SelectTrigger className="w-[140px]">
-                                        <SelectValue placeholder="Add tenure" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {allowedTenureOptions.filter((d) => !branchTenures.includes(d.id)).map((d) => (
-                                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                                        ))}
-                                        {allowedTenureOptions.length > 0 && allowedTenureOptions.every((d) => branchTenures.includes(d.id)) && (
-                                          <SelectItem value="_none" disabled>All added</SelectItem>
-                                        )}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div className="space-y-2 mt-2">
-                                    {branchTenures.filter((id) => allowedTenureIds.has(id)).map((id) => {
-                                      const d = masterDurations.find((x) => x.id === id) || allowedTenureOptions.find((x) => x.id === id)
-                                      const fd = (branchPrice as any).fee_per_duration || {}
-                                      const value = fd[id] ?? ""
-                                      return (
-                                        <div key={id} className="flex items-center gap-2">
-                                          <Label className="w-20 shrink-0 text-xs">{d?.name ?? id}</Label>
-                                          <Input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            placeholder="Enter amount"
-                                            className="max-w-[120px] h-8 placeholder:text-muted-foreground"
-                                            value={value}
-                                            onChange={(e) => {
-                                              const newPrices = [...branchPrices]
-                                              const bp = newPrices[index] as any
-                                              bp.fee_per_duration = { ...(bp.fee_per_duration || {}), [id]: e.target.value }
-                                              setBranchPrices(newPrices)
-                                            }}
-                                          />
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 w-8 p-0 text-red-500"
-                                            onClick={() => {
-                                              setAddedBranchTenures((prev) => ({
-                                                ...prev,
-                                                [index]: (prev[index] || []).filter((k) => k !== id)
-                                              }))
-                                              const newPrices = [...branchPrices]
-                                              const bp = newPrices[index] as any
-                                              bp.fee_per_duration = { ...(bp.fee_per_duration || {}) }
-                                              delete bp.fee_per_duration[id]
-                                              setBranchPrices(newPrices)
-                                            }}
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </Card>
-                      )
-                    })}
-
-                    {branchPrices.length === 0 && (
-                      <div className="text-center py-6 text-gray-500 border-2 border-dashed rounded-lg">
-                        <p className="text-sm">No branch-specific prices added yet.</p>
-                        <p className="text-xs">Click &quot;Add Branch&quot; and add tenures per branch.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {isBranchFeeOnly && (
-                  <div className="pt-4 border-t flex flex-wrap gap-3">
-                    <Button
-                      type="button"
-                      className="bg-yellow-400 hover:bg-yellow-500 text-white"
-                      disabled={isSubmitting}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        void handleSubmit(e as unknown as React.FormEvent)
-                      }}
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Save branch fees"
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isSubmitting}
-                      onClick={() => router.push(`${coursesBasePath}/courses`)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-
-              </CardContent>
-            </Card>
-
-            {!isBranchFeeOnly && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-[#4F5077]">Course Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-[#7D8592]">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Course Title:</span>
-                    <span className="font-medium">{formData.courseTitle || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Course Code:</span>
-                    <span className="font-medium">{formData.courseCode || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Category:</span>
-                    <span className="font-medium">
-                      {categories.find(cat => cat.id === formData.category)?.name || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Difficulty Level:</span>
-                    <span className="font-medium">{formData.difficultyLevel || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium">
-                      {courseDurations.find(d => d.value === formData.duration)?.label || '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Max Students:</span>
-                    <span className="font-medium">{formData.maxStudents || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Age Range:</span>
-                    <span className="font-medium">
-                      {formData.minAge || '—'} - {formData.maxAge || '—'} years
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Fees (tenure):</span>
-                    <span className="font-medium text-right">
-                      {addedTenures.length > 0
-                        ? addedTenures
-                            .map((id) => {
-                              const d = masterDurations.find((x) => x.id === id) || allowedTenureOptions.find((x) => x.id === id)
-                              const v = feeByDurationId[id]
-                              return v ? `${d?.name ?? id} ₹${v}` : null
-                            })
-                            .filter(Boolean)
-                            .join(", ") || "—"
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Branch Specific Pricing:</span>
-                    <span className="font-medium">{formData.branchSpecificPricing ? 'Yes' : 'No'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Prerequisites:</span>
-                    <span className="font-medium">{prerequisites.length} items</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Modules:</span>
-                    <span className="font-medium">{modules.length} modules</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            )}
-          </div>
         </div>
+
+        {/* Course Overview — full width */}
+        {!isBranchFeeOnly && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-[#4F5077]">Course Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[#7D8592]">
+              <div className="text-sm">
+                <span className="text-gray-600 block">Course Title</span>
+                <span className="font-medium">{formData.courseTitle || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Course Code</span>
+                <span className="font-medium">{formData.courseCode || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Category</span>
+                <span className="font-medium">{categories.find(cat => cat.id === formData.category)?.name || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Difficulty Level</span>
+                <span className="font-medium">{formData.difficultyLevel || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Duration</span>
+                <span className="font-medium">{courseDurations.find(d => d.value === formData.duration)?.label || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Max Students</span>
+                <span className="font-medium">{formData.maxStudents || '—'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Age Range</span>
+                <span className="font-medium">{formData.minAge || '—'} - {formData.maxAge || '—'} years</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 block">Prerequisites</span>
+                <span className="font-medium">{prerequisites.length} items</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4">Pricing is managed from Branch → Course Assignments.</p>
+          </CardContent>
+        </Card>
+        )}
       </main>
 
       {showSuccessPopup && (

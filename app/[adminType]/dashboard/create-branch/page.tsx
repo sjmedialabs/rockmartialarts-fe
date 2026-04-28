@@ -79,6 +79,7 @@ interface CourseBatch {
   days: string[]
   batch_name?: string
   batch_fee?: string
+  fee_per_duration?: Record<string, string>
 }
 
 interface SelectedCourse {
@@ -150,6 +151,7 @@ export default function CreateBranchPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
   const [coaches, setCoaches] = useState<{ id: string; name: string }[]>([])
+  const [masterDurations, setMasterDurations] = useState<{ id: string; name: string; code: string; duration_months: number }[]>([])
   const [isLoadingCoaches, setIsLoadingCoaches] = useState(true)
   const [locations, setLocations] = useState<{ id: string; name: string; state: string }[]>([])
   const [isLoadingLocations, setIsLoadingLocations] = useState(true)
@@ -345,6 +347,18 @@ export default function CreateBranchPage() {
     loadData()
   }, [])
 
+  // Fetch master durations for per-duration pricing
+  useEffect(() => {
+    fetch(getBackendApiUrl("durations/public/all"))
+      .then((res) => res.ok ? res.json() : { durations: [] })
+      .then((data) => {
+        setMasterDurations((data.durations || []).map((d: any) => ({
+          id: d.id, name: d.name, code: d.code, duration_months: d.duration_months
+        })))
+      })
+      .catch(() => {})
+  }, [])
+
   const loadCountries = async () => {
     try {
       setIsLoadingCountries(true)
@@ -432,6 +446,7 @@ export default function CreateBranchPage() {
                 days: [],
                 batch_name: "",
                 batch_fee: "",
+                fee_per_duration: {},
               }]
             }
           ]
@@ -460,6 +475,7 @@ export default function CreateBranchPage() {
                     days: [],
                     batch_name: "",
                     batch_fee: "",
+                    fee_per_duration: {},
                   }
                 ]
               }
@@ -1149,18 +1165,86 @@ export default function CreateBranchPage() {
                                       </SelectContent>
                                     </Select>
                                   </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-xs text-gray-600">Batch fee (₹)</Label>
-                                    <Input
-                                      type="text"
-                                      inputMode="decimal"
-                                      placeholder="Optional — overrides tenure fee"
-                                      value={batch.batch_fee ?? ""}
-                                      onChange={(e) =>
-                                        updateBatch(course.id, batch.id, "batch_fee", e.target.value)
-                                      }
-                                      className="h-9"
-                                    />
+                                  <div className="space-y-2 col-span-full">
+                                    <Label className="text-xs text-gray-600 font-medium">Duration Pricing (₹)</Label>
+                                    <div className="space-y-2">
+                                      {masterDurations.map((dur) => {
+                                        const fpd = batch.fee_per_duration || {}
+                                        const ptd = batch.pricing_type_per_duration || {}
+                                        const pricingType = ptd[dur.id] || "monthly"
+                                        const updateBatchField = (field: string, value: any) => {
+                                          const newCourses = formData.assignments.courses.map((c: any) => {
+                                            if (c.course_id !== course.id) return c
+                                            return {
+                                              ...c,
+                                              batches: c.batches.map((b: any) => {
+                                                if (b.id !== batch.id) return b
+                                                return { ...b, [field]: value }
+                                              })
+                                            }
+                                          })
+                                          setFormData((prev: any) => ({
+                                            ...prev,
+                                            assignments: { ...prev.assignments, courses: newCourses }
+                                          }))
+                                        }
+                                        return (
+                                          <div key={dur.id} className="flex items-center gap-2 py-1 border-b border-gray-100 last:border-0">
+                                            <span className="text-xs text-gray-700 w-24 shrink-0 font-medium">{dur.name}</span>
+                                            <Input
+                                              type="text"
+                                              inputMode="decimal"
+                                              placeholder={pricingType === "flat" ? "Flat price" : "Monthly fee"}
+                                              value={fpd[dur.id] ?? ""}
+                                              onChange={(e) => {
+                                                updateBatchField("fee_per_duration", {
+                                                  ...(batch.fee_per_duration || {}),
+                                                  [dur.id]: e.target.value
+                                                })
+                                              }}
+                                              className="h-7 w-28 text-sm"
+                                            />
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              <button
+                                                type="button"
+                                                className={`px-2 py-0.5 text-xs rounded-l border ${pricingType === "monthly" ? "bg-blue-100 text-blue-800 border-blue-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}
+                                                onClick={() => {
+                                                  updateBatchField("pricing_type_per_duration", {
+                                                    ...(batch.pricing_type_per_duration || {}),
+                                                    [dur.id]: "monthly"
+                                                  })
+                                                }}
+                                              >
+                                                Monthly
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className={`px-2 py-0.5 text-xs rounded-r border ${pricingType === "flat" ? "bg-green-100 text-green-800 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}
+                                                onClick={() => {
+                                                  updateBatchField("pricing_type_per_duration", {
+                                                    ...(batch.pricing_type_per_duration || {}),
+                                                    [dur.id]: "flat"
+                                                  })
+                                                }}
+                                              >
+                                                Flat
+                                              </button>
+                                            </div>
+                                            {fpd[dur.id] && pricingType === "monthly" && dur.duration_months > 1 && (
+                                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                = ₹{(parseFloat(fpd[dur.id]) * dur.duration_months).toLocaleString("en-IN")} total
+                                              </span>
+                                            )}
+                                            {fpd[dur.id] && pricingType === "flat" && (
+                                              <span className="text-xs text-green-600 whitespace-nowrap">Fixed price</span>
+                                            )}
+                                          </div>
+                                        )
+                                      })}
+                                      {masterDurations.length === 0 && (
+                                        <p className="text-xs text-muted-foreground">No durations configured. Add them in Settings → Master Data.</p>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 <div className="flex justify-end">

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Database, Clock, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Database, Clock, Plus, Trash2, Pencil } from "lucide-react"
 import DashboardHeader from "@/components/dashboard-header"
 import { DropdownSettingsManager } from "@/components/dropdown-settings-manager"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,6 +19,8 @@ export default function DropdownSettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [durations, setDurations] = useState<DurationItem[]>([])
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<{ name: string; code: string; duration_months: string; display_order: string }>({ name: "", code: "", duration_months: "", display_order: "" })
   const [loadingDurations, setLoadingDurations] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newName, setNewName] = useState("")
@@ -83,7 +85,8 @@ export default function DropdownSettingsPage() {
           duration_months: months,
           display_order: Number.isNaN(order) ? 0 : order,
           is_active: true,
-          pricing_multiplier: 1
+          // Per-month scaling: legacy/base fee uses this × monthly rate (same as old 3M/6M/1Y rows).
+          pricing_multiplier: months,
         })
       })
       const data = await res.json().catch(() => ({}))
@@ -123,6 +126,52 @@ export default function DropdownSettingsPage() {
       }
     } catch {
       toast({ title: "Error", description: "Could not remove duration", variant: "destructive" })
+    }
+  }
+
+  const startEditing = (d: DurationItem) => {
+    setEditingId(d.id)
+    setEditForm({ name: d.name, code: d.code, duration_months: String(d.duration_months), display_order: String(d.display_order) })
+  }
+
+  const cancelEditing = () => {
+    setEditingId(null)
+    setEditForm({ name: "", code: "", duration_months: "", display_order: "" })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return
+    const token = TokenManager.getToken()
+    if (!token) return
+    const months = parseInt(editForm.duration_months, 10)
+    if (!editForm.name.trim() || !editForm.code.trim() || Number.isNaN(months) || months < 1) {
+      toast({ title: "Validation", description: "Name, code, and valid months are required.", variant: "destructive" })
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch(getBackendApiUrl(`durations/${editingId}`), {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          code: editForm.code.trim(),
+          duration_months: months,
+          display_order: parseInt(editForm.display_order, 10) || 0,
+        }),
+      })
+      if (res.ok) {
+        toast({ title: "Updated", description: `Duration "${editForm.name}" updated.` })
+        cancelEditing()
+        loadDurations()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast({ title: "Error", description: data.detail || data.message || "Update failed", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Update failed", variant: "destructive" })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -245,23 +294,78 @@ export default function DropdownSettingsPage() {
                       {durations.map((d) => (
                         <li
                           key={d.id}
-                          className="flex items-center justify-between gap-4 py-2 px-3 rounded-md border bg-background text-sm"
+                          className="py-2 px-3 rounded-md border bg-background text-sm"
                         >
-                          <span>
-                            <span className="font-medium">{d.name}</span>
-                            <span className="text-muted-foreground ml-2">
-                              ({d.duration_months} month{d.duration_months !== 1 ? "s" : ""}) — {d.code} — order {d.display_order}
-                            </span>
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteDuration(d.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {editingId === d.id ? (
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <Input
+                                  value={editForm.name}
+                                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                  placeholder="Name"
+                                  className="h-8 text-sm"
+                                />
+                                <Input
+                                  value={editForm.code}
+                                  onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                                  placeholder="Code"
+                                  className="h-8 text-sm"
+                                />
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={editForm.duration_months}
+                                  onChange={(e) => setEditForm({ ...editForm, duration_months: e.target.value })}
+                                  placeholder="Months"
+                                  className="h-8 text-sm"
+                                />
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={editForm.display_order}
+                                  onChange={(e) => setEditForm({ ...editForm, display_order: e.target.value })}
+                                  placeholder="Order"
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button type="button" size="sm" onClick={handleSaveEdit} disabled={saving}>
+                                  {saving ? "Saving…" : "Save"}
+                                </Button>
+                                <Button type="button" size="sm" variant="outline" onClick={cancelEditing}>
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-4">
+                              <span>
+                                <span className="font-medium">{d.name}</span>
+                                <span className="text-muted-foreground ml-2">
+                                  ({d.duration_months} month{d.duration_months !== 1 ? "s" : ""}) — {d.code} — order {d.display_order}
+                                </span>
+                              </span>
+                              <div className="flex gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => startEditing(d)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleDeleteDuration(d.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>

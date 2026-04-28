@@ -52,14 +52,18 @@ function formatPrice(course: BranchCourseItem): string {
     }
     if (amounts.length) {
       const min = Math.min(...amounts)
-      const max = Math.max(...amounts)
-      if (min === max) parts.push(`${sym}${min}`)
-      else parts.push(`From ${sym}${min}`)
+      const tenureCount = amounts.length
+      if (tenureCount > 1) {
+        parts.push(`Starting from ${sym}${min.toLocaleString("en-IN")}/month`)
+        parts.push(`Available in ${tenureCount} tenures`)
+      } else {
+        parts.push(`${sym}${min.toLocaleString("en-IN")}`)
+      }
     }
   }
   let out: string
   if (parts.length) out = parts.join(" · ")
-  else if (amount != null) out = `From ${sym}${amount}`
+  else if (amount != null) out = `From ${sym}${amount.toLocaleString("en-IN")}`
   else out = "Contact for fees"
   return stripUuidFromPriceDisplay(out)
 }

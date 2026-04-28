@@ -1,43 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getBackendProxyBaseUrl } from '@/lib/serverBackendUrl'
 
+/**
+ * Creates a real Razorpay order for a pending LMS enrollment.
+ * Amount is always taken from the enrollment on the server (never trust client money fields).
+ */
 export async function POST(req: NextRequest) {
+  const BACKEND_URL = getBackendProxyBaseUrl().replace(/\/$/, '')
   try {
-    const body = await req.json()
-    const { amount, currency = 'INR', enrollmentData } = body
-
-    if (!amount || !enrollmentData) {
-      return NextResponse.json({ error: 'Amount and enrollment data required' }, { status: 400 })
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Authorization header required' }, { status: 401 })
     }
 
-    // Mock Razorpay order creation
-    const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    
-    const order = {
-      id: orderId,
-      entity: 'order',
-      amount: amount * 100,
-      amount_paid: 0,
-      amount_due: amount * 100,
-      currency,
-      receipt: `receipt_${Date.now()}`,
-      status: 'created',
-      attempts: 0,
-      notes: {
-        course_id: enrollmentData.course_id,
-        branch_id: enrollmentData.branch_id,
-        duration_months: enrollmentData.duration_months
+    const body = await req.json().catch(() => ({}))
+    const enrollmentId =
+      (typeof body.enrollment_id === 'string' && body.enrollment_id) ||
+      (typeof body.enrollmentData?.enrollment_id === 'string' && body.enrollmentData.enrollment_id)
+
+    if (!enrollmentId) {
+      return NextResponse.json(
+        { error: 'Missing enrollment_id (complete checkout preparation first).' },
+        { status: 400 }
+      )
+    }
+
+    const res = await fetch(`${BACKEND_URL}/api/payments/students/razorpay/create-order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: authHeader,
       },
-      created_at: Math.floor(Date.now() / 1000)
+      body: JSON.stringify({ enrollment_id: enrollmentId }),
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const message =
+        typeof data?.detail === 'string'
+          ? data.detail
+          : Array.isArray(data?.detail)
+            ? data.detail.map((o: { msg?: string }) => o?.msg).filter(Boolean).join('; ') ||
+              'Could not create payment order'
+            : data?.message ?? data?.error ?? 'Could not create payment order'
+      console.error('[create-order] backend error', res.status, message, { enrollmentId })
+      return NextResponse.json({ error: message }, { status: res.status })
+    }
+
+    const order = data?.order
+    if (!order?.id || typeof order.amount !== 'number') {
+      console.error('[create-order] invalid backend payload', data)
+      return NextResponse.json({ error: 'Invalid order response from server' }, { status: 502 })
+    }
+
+    const key = typeof data.key === 'string' ? data.key : ''
+    if (!key) {
+      console.error('[create-order] missing Razorpay key_id from backend')
+      return NextResponse.json(
+        { error: 'Payment gateway is not fully configured on the server.' },
+        { status: 503 }
+      )
     }
 
     return NextResponse.json({
       success: true,
-      order,
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || ''
+      order: {
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+      },
+      key,
     })
-
-  } catch (error) {
-    console.error('Error creating order:', error)
+  } catch (e) {
+    console.error('[create-order]', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

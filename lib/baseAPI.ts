@@ -45,6 +45,8 @@ export class BaseAPI {
     // Build authentication headers
     const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
       ...headers
     }
 
@@ -74,6 +76,7 @@ export class BaseAPI {
     const config: RequestInit = {
       method,
       headers: defaultHeaders,
+      cache: 'no-store',
       signal: AbortSignal.timeout(this.timeout)
     }
 

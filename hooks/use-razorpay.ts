@@ -3,7 +3,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { loadRazorpayScript } from '@/lib/razorpay'
 
 interface RazorpayOptions {
-  amount: number
+  /** @deprecated Amount is derived from the enrollment on the server when creating the Razorpay order. */
+  amount?: number
   currency?: string
   enrollmentData: any
   onSuccess: (response: any) => void
@@ -31,32 +32,39 @@ export function useRazorpay() {
         throw new Error('Failed to load Razorpay. Please refresh and try again.')
       }
 
-      // Create order on backend
+      const enrollmentId = options.enrollmentData?.enrollment_id
+      if (!enrollmentId) {
+        throw new Error('Missing enrollment. Complete checkout preparation first.')
+      }
+
       const orderResponse = await fetch('/api/payments/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          amount: options.amount,
-          currency: options.currency || 'INR',
-          enrollmentData: options.enrollmentData
-        })
+        body: JSON.stringify({ enrollment_id: enrollmentId }),
       })
 
       if (!orderResponse.ok) {
         const err = await orderResponse.json().catch(() => ({}))
-        throw new Error(err?.error || err?.detail || 'Failed to create order')
+        const msg = err?.error || err?.detail || 'Failed to create order'
+        console.error('[useRazorpay] create-order failed', orderResponse.status, err)
+        throw new Error(typeof msg === 'string' ? msg : 'Payment failed, please try again')
       }
 
       const { order, key } = await orderResponse.json()
+
+      if (!order?.id || typeof order.amount !== 'number' || order.amount < 100) {
+        console.error('[useRazorpay] invalid order payload', { order, key: !!key })
+        throw new Error('Payment failed, please try again')
+      }
 
       // Open Razorpay checkout
       const razorpayOptions = {
         key,
         amount: order.amount,
-        currency: order.currency,
+        currency: order.currency || 'INR',
         name: 'Rock Martial Arts',
         description: `Enrollment: ${options.enrollmentData.course_name}`,
         order_id: order.id,
@@ -97,20 +105,30 @@ export function useRazorpay() {
           color: '#f59e0b'
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: function () {
             setLoading(false)
             options.onFailure({ message: 'Payment cancelled' })
-          }
-        }
+          },
+        },
       }
 
       const razorpay = new window.Razorpay(razorpayOptions)
+      razorpay.on('payment.failed', function (response: { error?: { description?: string; code?: string } }) {
+        console.error('[useRazorpay] payment.failed', response)
+        setLoading(false)
+        const desc = response?.error?.description || response?.error?.code || 'Payment failed, please try again'
+        options.onFailure(new Error(desc))
+      })
       razorpay.open()
       setLoading(false)
 
     } catch (error) {
       setLoading(false)
-      options.onFailure(error)
+      const friendly =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Payment failed, please try again'
+      options.onFailure(error instanceof Error ? error : new Error(friendly))
     }
   }, [token])
 

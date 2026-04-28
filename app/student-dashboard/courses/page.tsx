@@ -47,6 +47,7 @@ import { studentProfileAPI } from "@/lib/studentProfileAPI"
 import { courseAPI } from "@/lib/courseAPI"
 import { branchAPI } from "@/lib/branchAPI"
 import { getBackendApiUrl } from "@/lib/config"
+import { isEnrollmentActivePaid, isEnrollmentExpiredByDate } from "@/lib/student-enrollment-status"
 
 /** Load branch + duration accurate total from payment-info (backend applies batch/branch fees). */
 async function enrichAvailableCoursePricing(
@@ -146,6 +147,193 @@ interface Branch {
   name: string
   address: string
   code?: string
+  assignments?: {
+    course_schedule?: Array<{
+      course_id?: string
+      batches?: unknown[]
+    }>
+  }
+}
+
+interface BranchBatchOption {
+  batch_ref: string
+  name?: string | null
+  label: string
+  enabled_per_duration?: Record<string, boolean>
+  fee_per_duration?: Record<string, string | number | null>
+}
+
+interface AdminDurationOption {
+  id: string
+  label: string
+  months: number
+  code: string
+}
+
+function durationKeyVariants(duration: AdminDurationOption): string[] {
+  const normalizedLabel = duration.label.trim().toLowerCase()
+  return Array.from(
+    new Set(
+      [
+        duration.id,
+        duration.code,
+        normalizedLabel,
+      ]
+        .map((v) => String(v || "").trim())
+        .filter(Boolean)
+    )
+  )
+}
+
+function parseEnabledFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value
+  if (typeof value === "number") return value !== 0
+  if (typeof value === "string") {
+    const s = value.trim().toLowerCase()
+    if (["false", "0", "no", "off", "disabled"].includes(s)) return false
+    if (["true", "1", "yes", "on", "enabled"].includes(s)) return true
+  }
+  return value !== false
+}
+
+function hasDurationFeeConfigured(duration: AdminDurationOption, batch?: BranchBatchOption): boolean {
+  const feeMap = batch?.fee_per_duration
+  if (!feeMap || Object.keys(feeMap).length === 0) return true
+  const normalizedFeeMap: Record<string, string | number | null> = {}
+  for (const [k, v] of Object.entries(feeMap)) {
+    normalizedFeeMap[String(k).trim().toLowerCase()] = v
+  }
+  for (const key of durationKeyVariants(duration)) {
+    const raw = normalizedFeeMap[key.toLowerCase()]
+    if (raw == null) continue
+    const n =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string"
+          ? parseFloat(raw.trim())
+          : NaN
+    if (Number.isFinite(n) && n >= 0) return true
+  }
+  return false
+}
+
+function isDurationEnabledForBatch(duration: AdminDurationOption, batch?: BranchBatchOption): boolean {
+  const enabledMap = batch?.enabled_per_duration
+  if (!enabledMap || Object.keys(enabledMap).length === 0) {
+    // Fallback for payloads that expose only per-duration fee maps.
+    return hasDurationFeeConfigured(duration, batch)
+  }
+  const normalizedEnabledMap: Record<string, boolean> = {}
+  for (const [k, v] of Object.entries(enabledMap)) {
+    normalizedEnabledMap[String(k).trim().toLowerCase()] = parseEnabledFlag(v)
+  }
+  for (const key of durationKeyVariants(duration)) {
+    const mapValue = normalizedEnabledMap[key.toLowerCase()]
+    if (mapValue === false) return false
+    if (mapValue === true) return true
+  }
+  // If enabled map exists but doesn't include this duration key, use fee-map fallback.
+  return hasDurationFeeConfigured(duration, batch)
+}
+
+async function isDurationCheckoutEnabled(args: {
+  token: string
+  courseId: string
+  branchId: string
+  durationKeys: string[]
+  batchRef?: string
+}): Promise<boolean> {
+  try {
+    const uniqueKeys = Array.from(
+      new Set(args.durationKeys.map((k) => String(k || "").trim()).filter(Boolean))
+    )
+    for (const key of uniqueKeys) {
+      const body: Record<string, unknown> = {
+        course_id: args.courseId,
+        branch_id: args.branchId,
+        duration: key,
+      }
+      if (args.batchRef && args.batchRef.trim()) {
+        body.batch_ref = args.batchRef.trim()
+      }
+      const res = await fetch(getBackendApiUrl("payments/student-checkout-quote"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${args.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) continue
+      const json = await res.json().catch(() => ({}))
+      const total = json?.pricing?.total_amount
+      if (typeof total === "number" && Number.isFinite(total) && total > 0) {
+        return true
+      }
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+function parseTimeSafe(value?: string): number {
+  if (!value) return 0
+  const ts = new Date(value).getTime()
+  return Number.isFinite(ts) ? ts : 0
+}
+
+function pickLatestByEndDate(items: EnrolledCourse[]): EnrolledCourse {
+  return [...items].sort((a, b) => parseTimeSafe(b.end_date) - parseTimeSafe(a.end_date))[0] || items[0]
+}
+
+function mergeDuplicateEnrollments(items: EnrolledCourse[]): EnrolledCourse[] {
+  const groups = new Map<string, EnrolledCourse[]>()
+  for (const item of items) {
+    const key = `${item.course_id}::${item.branch_id || ""}`
+    const bucket = groups.get(key)
+    if (bucket) bucket.push(item)
+    else groups.set(key, [item])
+  }
+
+  const merged: EnrolledCourse[] = []
+  for (const [, group] of groups) {
+    if (group.length === 1) {
+      merged.push(group[0])
+      continue
+    }
+
+    const anyActivePaid = group.some((g) =>
+      isEnrollmentActivePaid({
+        isActive: g.is_active,
+        paymentStatus: g.payment_status,
+        endDate: g.end_date,
+      })
+    )
+    const anyPaid = group.some((g) => String(g.payment_status || "").toLowerCase() === "paid")
+    const anyPending = group.some((g) => String(g.payment_status || "").toLowerCase() === "pending")
+    const latestByEnd = pickLatestByEndDate(group)
+    const latestByStart = [...group].sort(
+      (a, b) => parseTimeSafe(b.start_date || b.enrollment_date) - parseTimeSafe(a.start_date || a.enrollment_date)
+    )[0]
+
+    merged.push({
+      ...latestByEnd,
+      enrollment_id: latestByStart.enrollment_id,
+      start_date: latestByStart.start_date || latestByEnd.start_date,
+      enrollment_date: latestByStart.enrollment_date || latestByEnd.enrollment_date,
+      end_date: latestByEnd.end_date,
+      is_active: anyActivePaid || latestByEnd.is_active,
+      payment_status: anyPaid ? "paid" : anyPending ? "pending" : latestByEnd.payment_status,
+      progress: typeof latestByEnd.progress === "number" ? latestByEnd.progress : 0,
+    })
+  }
+
+  return merged.sort(
+    (a, b) =>
+      parseTimeSafe(b.start_date || b.enrollment_date || b.end_date) -
+      parseTimeSafe(a.start_date || a.enrollment_date || a.end_date)
+  )
 }
 
 export default function StudentCoursesPage() {
@@ -163,6 +351,9 @@ export default function StudentCoursesPage() {
   const [showEnrollDialog, setShowEnrollDialog] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<AvailableCourse | null>(null)
   const [selectedBranch, setSelectedBranch] = useState("")
+  const [batchOptions, setBatchOptions] = useState<BranchBatchOption[]>([])
+  const [selectedBatchRef, setSelectedBatchRef] = useState("")
+  const [adminDurationOptions, setAdminDurationOptions] = useState<AdminDurationOption[]>([])
   const [durationOptions, setDurationOptions] = useState<
     { id: string; label: string; months: number; code: string }[]
   >([])
@@ -170,6 +361,12 @@ export default function StudentCoursesPage() {
   const [enrollAmount, setEnrollAmount] = useState<number | null>(null)
   const [enrollPricingLoading, setEnrollPricingLoading] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
+
+  // Beneficiary state (subscribe for others)
+  const [beneficiaryType, setBeneficiaryType] = useState("self")
+  const [beneficiaryName, setBeneficiaryName] = useState("")
+  const [beneficiaryPhone, setBeneficiaryPhone] = useState("")
+  const [beneficiaryRelationship, setBeneficiaryRelationship] = useState("")
 
   // Branch change request dialog
   const [showBranchChangeDialog, setShowBranchChangeDialog] = useState(false)
@@ -224,7 +421,8 @@ export default function StudentCoursesPage() {
           code: b.branch?.code || b.code,
           email: b.branch?.email || b.email,
           phone: b.branch?.phone || b.phone,
-          is_active: b.is_active
+          is_active: b.is_active,
+          assignments: b.assignments || b.branch?.assignments,
         }))
         
         console.log("✅ Transformed branches:", transformedBranches.length, transformedBranches)
@@ -245,7 +443,7 @@ export default function StudentCoursesPage() {
       const profileResponse = await studentProfileAPI.getProfile(token)
       const enrollments = profileResponse.profile.enrollments || []
       
-      const enrolledData: EnrolledCourse[] = enrollments.map((e: any) => ({
+      const enrolledRaw: EnrolledCourse[] = enrollments.map((e: any) => ({
         enrollment_id: e.id,
         course_id: e.course_id,
         course_name: e.course_name,
@@ -259,6 +457,7 @@ export default function StudentCoursesPage() {
         // Progress should come from backend once available; keep stable (0) instead of random.
         progress: typeof e.progress === "number" ? Math.round(e.progress) : 0
       }))
+      const enrolledData = mergeDuplicateEnrollments(enrolledRaw)
       
       console.log("✅ Loaded enrolled courses:", enrolledData.length)
       setEnrolledCourses(enrolledData)
@@ -387,14 +586,71 @@ export default function StudentCoursesPage() {
     router.push("/login")
   }
 
+  const handleRenewEnrollment = (enrollment: EnrolledCourse) => {
+    // Pre-populate the enrollment dialog for renewal
+    const course = availableCourses.find(
+      (c) => c.id === enrollment.course_id && c.branch_id === enrollment.branch_id
+    ) || availableCourses.find((c) => c.id === enrollment.course_id)
+    if (course) {
+      setSelectedCourse(course)
+      setSelectedBranch(enrollment.branch_id || course.branch_id || branches[0]?.id || "")
+      setBatchOptions([])
+      setSelectedBatchRef("")
+      setAdminDurationOptions([])
+      setDurationOptions([])
+      setSelectedDurationKey("")
+      setEnrollAmount(null)
+      setShowEnrollDialog(true)
+    } else {
+      // Fallback: build a minimal AvailableCourse from enrollment data
+      const minimalCourse: AvailableCourse = {
+        id: enrollment.course_id,
+        title: enrollment.course_name,
+        description: "",
+        difficulty_level: "",
+        category_id: "",
+        branch_id: enrollment.branch_id,
+        branch_name: enrollment.branch_name,
+        pricing: { amount: 0, currency: "INR" },
+        is_enrolled: true,
+        enrollment: enrollment,
+      }
+      setSelectedCourse(minimalCourse)
+      setSelectedBranch(enrollment.branch_id || branches[0]?.id || "")
+      setBatchOptions([])
+      setSelectedBatchRef("")
+      setAdminDurationOptions([])
+      setDurationOptions([])
+      setSelectedDurationKey("")
+      setEnrollAmount(null)
+      setShowEnrollDialog(true)
+    }
+  }
+
   const handleEnrollClick = (course: AvailableCourse) => {
     if (course.is_enrolled) {
-      router.push("/student-dashboard/payments")
+      // Open enrollment dialog for renewal instead of redirecting
+      if (course.enrollment) {
+        handleRenewEnrollment(course.enrollment)
+      } else {
+        setSelectedCourse(course)
+        setSelectedBranch(course.branch_id || branches[0]?.id || "")
+        setBatchOptions([])
+        setSelectedBatchRef("")
+        setAdminDurationOptions([])
+        setDurationOptions([])
+        setSelectedDurationKey("")
+        setEnrollAmount(null)
+        setShowEnrollDialog(true)
+      }
       return
     }
     console.log("📋 Opening enrollment dialog. Branches available:", branches.length, branches)
     setSelectedCourse(course)
     setSelectedBranch(course.branch_id || branches[0]?.id || "")
+    setBatchOptions([])
+    setSelectedBatchRef("")
+    setAdminDurationOptions([])
     setDurationOptions([])
     setSelectedDurationKey("")
     setEnrollAmount(null)
@@ -407,9 +663,12 @@ export default function StudentCoursesPage() {
     else router.push("/student-dashboard/payments")
   }
 
-  // Load duration catalog when enrollment dialog opens / course or branch changes
+  // Load admin-configured batch + duration options for selected branch/course
   useEffect(() => {
     if (!showEnrollDialog || !selectedCourse || !selectedBranch) {
+      setBatchOptions([])
+      setSelectedBatchRef("")
+      setAdminDurationOptions([])
       setDurationOptions([])
       setSelectedDurationKey("")
       return
@@ -417,25 +676,137 @@ export default function StudentCoursesPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(
-          getBackendApiUrl(`durations/public/by-course/${selectedCourse.id}?active_only=true&include_pricing=true`)
-        )
-        const data = await res.json().catch(() => ({}))
-        const durations: any[] = Array.isArray(data.durations) ? data.durations : []
-        const opts = durations
-          .map((d: any) => ({
-            id: String(d.id),
-            label: String(d.name || d.code || ""),
-            months: typeof d.duration_months === "number" ? d.duration_months : parseInt(String(d.duration_months), 10) || 0,
-            code: String(d.code || d.id),
+        const token = localStorage.getItem("token")
+        const normalizeEnabledMap = (raw: unknown): Record<string, boolean> | undefined => {
+          if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined
+          return Object.fromEntries(
+            Object.entries(raw as Record<string, unknown>).map(([k, v]) => [
+              String(k),
+              parseEnabledFlag(v),
+            ])
+          )
+        }
+        const normalizeFeeMap = (raw: unknown): Record<string, string | number | null> | undefined => {
+          if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined
+          return Object.fromEntries(
+            Object.entries(raw as Record<string, unknown>).map(([k, v]) => [
+              String(k),
+              v as string | number | null,
+            ])
+          )
+        }
+        const pickCourseBatches = (courseRaw: any): any[] => {
+          if (!courseRaw || typeof courseRaw !== "object") return []
+          if (Array.isArray(courseRaw.branch_batches)) return courseRaw.branch_batches
+          if (Array.isArray(courseRaw.batches)) return courseRaw.batches
+          if (Array.isArray(courseRaw.course_schedule)) {
+            const schedMatch = courseRaw.course_schedule.find(
+              (row: any) => String(row?.course_id || "") === String(selectedCourse.id)
+            )
+            if (Array.isArray(schedMatch?.batches)) return schedMatch.batches
+          }
+          return []
+        }
+
+        let branchCourse: any = selectedCourse
+        let batchesRaw: any[] = []
+
+        // Source of truth for admin batch-duration enable flags: branch assignments course_schedule.
+        const branchFromState = branches.find((b) => String(b.id) === String(selectedBranch))
+        const scheduleRows = branchFromState?.assignments?.course_schedule
+        if (Array.isArray(scheduleRows)) {
+          const row = scheduleRows.find(
+            (s) => String(s?.course_id || "") === String(selectedCourse.id)
+          )
+          if (Array.isArray(row?.batches)) {
+            batchesRaw = row.batches
+          }
+        }
+
+        if (batchesRaw.length === 0) {
+          batchesRaw = pickCourseBatches(branchCourse)
+        }
+
+        // Fallback to authenticated branch-courses API (same source used on this page),
+        // not the public by-branch API, so admin batch enable flags are preserved.
+        if (batchesRaw.length === 0 && token) {
+          const authRes = await fetch(getBackendApiUrl(`branches/${selectedBranch}/courses`), {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          })
+          const authData = await authRes.json().catch(() => ({}))
+          const courses: any[] = Array.isArray(authData?.courses) ? authData.courses : []
+          const found = courses.find((c) => String(c?.id || "") === String(selectedCourse.id))
+          if (found) {
+            branchCourse = found
+            batchesRaw = pickCourseBatches(found)
+          }
+        }
+
+        const batches = batchesRaw
+          .map((b: any) => ({
+            batch_ref: String(b.batch_ref || b.batch_id || b.id || "").trim(),
+            name: typeof b.name === "string" ? b.name : null,
+            label: String(
+              (typeof b.label === "string" && b.label.trim()) ||
+              (typeof b.batch_name === "string" && b.batch_name.trim()) ||
+              (typeof b.name === "string" && b.name.trim()) ||
+              (b.start_time && b.end_time ? `${b.start_time} - ${b.end_time}` : "") ||
+              ""
+            ),
+            enabled_per_duration: normalizeEnabledMap(b.enabled_per_duration ?? b.enabledPerDuration),
+            fee_per_duration: normalizeFeeMap(b.fee_per_duration ?? b.feePerDuration),
           }))
-          .filter((o: { id: string; label: string; months: number }) => o.id && o.label && o.months > 0)
+          .filter((b: BranchBatchOption) => b.batch_ref && b.label)
+
+        let durationsRaw: any[] = Array.isArray(branchCourse?.available_durations)
+          ? branchCourse.available_durations
+          : []
+
+        // Fallback: if branch course payload does not expose durations, load the
+        // course duration catalog directly and still apply batch-level filtering later.
+        if (durationsRaw.length === 0) {
+          const headers: Record<string, string> = {}
+          if (token) headers.Authorization = `Bearer ${token}`
+          const dRes = await fetch(
+            getBackendApiUrl(
+              `durations/public/by-course/${selectedCourse.id}?active_only=true&include_pricing=true&branch_id=${selectedBranch}`
+            ),
+            { headers }
+          )
+          const dData = await dRes.json().catch(() => ({}))
+          durationsRaw = Array.isArray(dData?.durations) ? dData.durations : []
+        }
+
+        const durations = durationsRaw
+          .map((d: any) => ({
+            id: String(d.id || d.duration_id || ""),
+            label: String(d.name || d.label || d.code || ""),
+            months:
+              typeof d.duration_months === "number"
+                ? d.duration_months
+                : parseInt(String(d.duration_months), 10) || 0,
+            code: String(d.code || d.id || d.duration_id || ""),
+          }))
+          .filter((o: AdminDurationOption) => o.id && o.label && o.months > 0)
+
         if (!cancelled) {
-          setDurationOptions(opts)
-          setSelectedDurationKey(opts[0]?.id || opts[0]?.code || "")
+          setBatchOptions(batches)
+          setSelectedBatchRef((prev) => {
+            const currentBatchStillValid = batches.some((b) => b.batch_ref === prev)
+            if (currentBatchStillValid) return prev
+            return batches.length === 1 ? batches[0].batch_ref : ""
+          })
+
+          setAdminDurationOptions(durations)
         }
       } catch {
         if (!cancelled) {
+          setBatchOptions([])
+          setSelectedBatchRef("")
+          setAdminDurationOptions([])
           setDurationOptions([])
           setSelectedDurationKey("")
         }
@@ -444,7 +815,75 @@ export default function StudentCoursesPage() {
     return () => {
       cancelled = true
     }
-  }, [showEnrollDialog, selectedCourse?.id, selectedBranch])
+  }, [showEnrollDialog, selectedCourse?.id, selectedBranch, branches])
+
+  // Duration becomes selectable only after batch selection (when batches exist).
+  // Final allow-list comes from checkout quote API (source of truth for enabled durations).
+  useEffect(() => {
+    if (!showEnrollDialog || !selectedCourse || !selectedBranch) {
+      setDurationOptions([])
+      setSelectedDurationKey("")
+      return
+    }
+    if (batchOptions.length > 0 && !selectedBatchRef) {
+      setDurationOptions([])
+      setSelectedDurationKey("")
+      return
+    }
+    const token = localStorage.getItem("token")
+    const selectedBatch = batchOptions.find((b) => b.batch_ref === selectedBatchRef)
+    const filteredDurations =
+      batchOptions.length > 0
+        ? adminDurationOptions.filter((d) => isDurationEnabledForBatch(d, selectedBatch))
+        : adminDurationOptions
+    if (!token) {
+      setDurationOptions(filteredDurations)
+      setSelectedDurationKey((prev) => {
+        if (!filteredDurations.length) return ""
+        if (filteredDurations.some((d) => d.id === prev || d.code === prev)) return prev
+        return filteredDurations[0].id
+      })
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      const checks = await Promise.all(
+        filteredDurations.map(async (d) => {
+          const ok = await isDurationCheckoutEnabled({
+            token,
+            courseId: selectedCourse.id,
+            branchId: selectedBranch,
+            durationKeys: [d.id, d.code, d.label],
+            batchRef: selectedBatchRef || undefined,
+          })
+          return ok ? d : null
+        })
+      )
+      if (cancelled) return
+      const quoteEnabled = checks.filter((d): d is AdminDurationOption => !!d)
+      // If quote API key matching fails for all options, keep admin-enabled durations
+      // so valid plans are still selectable.
+      const finalDurations =
+        quoteEnabled.length > 0 ? quoteEnabled : filteredDurations
+      setDurationOptions(finalDurations)
+      setSelectedDurationKey((prev) => {
+        if (!finalDurations.length) return ""
+        if (finalDurations.some((d) => d.id === prev || d.code === prev)) return prev
+        return finalDurations[0].id
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    showEnrollDialog,
+    selectedCourse?.id,
+    selectedBranch,
+    batchOptions,
+    selectedBatchRef,
+    adminDurationOptions,
+  ])
 
   // Total from payment-info (must run after durations exist; matches prepare-student-checkout)
   useEffect(() => {
@@ -470,24 +909,35 @@ export default function StudentCoursesPage() {
           (o) => o.id === selectedDurationKey || o.code === selectedDurationKey
         )
         const durParam = opt?.code || opt?.id || selectedDurationKey
-        const qs = new URLSearchParams({
+        const quoteBody: any = {
+          course_id: selectedCourse.id,
           branch_id: selectedBranch,
           duration: durParam,
+          ...(selectedBatchRef.trim() ? { batch_ref: selectedBatchRef.trim() } : {}),
+        }
+        if (beneficiaryType !== "self") {
+          quoteBody.beneficiary = {
+            beneficiary_type: beneficiaryType,
+            beneficiary_name: beneficiaryName.trim() || undefined,
+            beneficiary_phone: beneficiaryPhone.trim() || undefined,
+            beneficiary_relationship: beneficiaryRelationship.trim() || undefined,
+          }
+        }
+        const res = await fetch(getBackendApiUrl("payments/student-checkout-quote"), {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(quoteBody),
         })
-        const url = getBackendApiUrl(`courses/${selectedCourse.id}/payment-info?${qs.toString()}`)
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
         if (!res.ok || cancelled) {
           if (!cancelled) setEnrollAmount(null)
           return
         }
         const data = await res.json().catch(() => ({}))
         const p = data?.pricing
-        const total =
-          typeof p?.total_amount === "number"
-            ? p.total_amount
-            : typeof p?.course_fee === "number"
-              ? p.course_fee + (typeof p?.admission_fee === "number" ? p.admission_fee : 0)
-              : null
+        const total = typeof p?.total_amount === "number" ? p.total_amount : null
         if (!cancelled && typeof total === "number" && total > 0 && !Number.isNaN(total)) {
           setEnrollAmount(total)
         } else if (!cancelled) setEnrollAmount(null)
@@ -506,11 +956,20 @@ export default function StudentCoursesPage() {
     selectedBranch,
     selectedDurationKey,
     durationOptions,
+    beneficiaryType,
+    beneficiaryName,
+    beneficiaryPhone,
+    beneficiaryRelationship,
+    selectedBatchRef,
   ])
 
   const handleEnrollSubmit = async () => {
     if (!selectedCourse || !selectedBranch || !selectedDurationKey) {
       alert("Please select course, branch, and duration")
+      return
+    }
+    if (batchOptions.length > 0 && !selectedBatchRef.trim()) {
+      alert("Please select a batch before choosing duration")
       return
     }
     if (enrollAmount == null || enrollAmount <= 0) {
@@ -549,6 +1008,15 @@ export default function StudentCoursesPage() {
           course_id: selectedCourse.id,
           branch_id: selectedBranch,
           duration: durationForApi,
+          ...(selectedBatchRef.trim() ? { batch_ref: selectedBatchRef.trim() } : {}),
+          ...(beneficiaryType !== "self" && beneficiaryName.trim() ? {
+            beneficiary: {
+              beneficiary_type: beneficiaryType,
+              beneficiary_name: beneficiaryName.trim(),
+              beneficiary_phone: beneficiaryPhone.trim() || undefined,
+              beneficiary_relationship: beneficiaryRelationship.trim() || undefined,
+            }
+          } : {}),
         }),
       })
       const prepJson = await prepRes.json().catch(() => ({}))
@@ -575,7 +1043,6 @@ export default function StudentCoursesPage() {
 
       // Initiate Razorpay payment
       await initiatePayment({
-        amount: prepAmount,
         currency: 'INR',
         enrollmentData,
         onSuccess: (result: any) => {
@@ -672,9 +1139,12 @@ export default function StudentCoursesPage() {
     })
   }
 
-  const getStatusBadge = (isActive: boolean, paymentStatus: string) => {
-    if (!isActive || paymentStatus === 'expired') {
+  const getStatusBadge = (isActive: boolean, paymentStatus: string, endDate: string) => {
+    if (isEnrollmentExpiredByDate({ paymentStatus, endDate })) {
       return <Badge variant="destructive">Expired</Badge>
+    }
+    if (!isActive) {
+      return <Badge variant="outline">Inactive</Badge>
     }
     if (paymentStatus === 'pending') {
       return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pending Payment</Badge>
@@ -771,7 +1241,13 @@ export default function StudentCoursesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {enrolledCourses.filter(c => c.is_active && c.payment_status === 'paid').length}
+                {enrolledCourses.filter(
+                  c => isEnrollmentActivePaid({
+                    isActive: c.is_active,
+                    paymentStatus: c.payment_status,
+                    endDate: c.end_date
+                  })
+                ).length}
               </div>
             </CardContent>
           </Card>
@@ -842,7 +1318,7 @@ export default function StudentCoursesPage() {
                             <span>{course.branch_name}</span>
                           </div>
                         </div>
-                        {getStatusBadge(course.is_active, course.payment_status)}
+                        {getStatusBadge(course.is_active, course.payment_status, course.end_date)}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
@@ -875,7 +1351,7 @@ export default function StudentCoursesPage() {
                         </div>
                       )}
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -893,6 +1369,16 @@ export default function StudentCoursesPage() {
                           >
                             <CreditCard className="h-4 w-4 mr-2" />
                             Complete Payment
+                          </Button>
+                        )}
+                        {(course.payment_status === 'paid' || course.payment_status === 'expired' || !course.is_active) && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleRenewEnrollment(course)}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Renew Subscription
                           </Button>
                         )}
                       </div>
@@ -957,9 +1443,9 @@ export default function StudentCoursesPage() {
                         {course.is_enrolled ? (
                           <Button
                             className="w-full bg-emerald-700 hover:bg-emerald-800"
-                            onClick={() => router.push("/student-dashboard/payments")}
+                            onClick={() => handleEnrollClick(course)}
                           >
-                            <ArrowRight className="h-4 w-4 mr-2" />
+                            <RefreshCw className="h-4 w-4 mr-2" />
                             Renew
                           </Button>
                         ) : (
@@ -985,12 +1471,19 @@ export default function StudentCoursesPage() {
           if (!open) {
             setDurationOptions([])
             setSelectedDurationKey("")
+            setBatchOptions([])
+            setSelectedBatchRef("")
+            setAdminDurationOptions([])
             setEnrollAmount(null)
+            setBeneficiaryType("self")
+            setBeneficiaryName("")
+            setBeneficiaryPhone("")
+            setBeneficiaryRelationship("")
           }
         }}
       >
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>
               {selectedCourse ? `Enroll in ${selectedCourse.title}` : "Enroll in a course"}
             </DialogTitle>
@@ -998,7 +1491,7 @@ export default function StudentCoursesPage() {
               Choose course, branch, and duration. Pricing comes from your branch and admin fee settings.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 px-6 overflow-y-auto min-h-0">
             <div className="space-y-2">
               <Label htmlFor="course">Select course</Label>
               <Select
@@ -1011,6 +1504,11 @@ export default function StudentCoursesPage() {
                   if (c) {
                     setSelectedCourse(c)
                     setSelectedBranch(c.branch_id || branches[0]?.id || "")
+                    setBatchOptions([])
+                    setSelectedBatchRef("")
+                    setAdminDurationOptions([])
+                    setDurationOptions([])
+                    setSelectedDurationKey("")
                   }
                 }}
               >
@@ -1019,7 +1517,6 @@ export default function StudentCoursesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {availableCourses
-                    .filter((c) => !c.is_enrolled)
                     .map((course) => (
                       <SelectItem
                         key={courseRowKey(course)}
@@ -1036,7 +1533,17 @@ export default function StudentCoursesPage() {
 
             <div className="space-y-2">
               <Label htmlFor="branch">Select Branch</Label>
-              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+              <Select
+                value={selectedBranch}
+                onValueChange={(v) => {
+                  setSelectedBranch(v)
+                  setBatchOptions([])
+                  setSelectedBatchRef("")
+                  setAdminDurationOptions([])
+                  setDurationOptions([])
+                  setSelectedDurationKey("")
+                }}
+              >
                 <SelectTrigger className="text-gray-900 dark:text-gray-100">
                   <SelectValue placeholder={branches.length === 0 ? "Loading branches..." : "Choose a branch"} />
                 </SelectTrigger>
@@ -1060,10 +1567,34 @@ export default function StudentCoursesPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="batch">Select batch</Label>
+              {batchOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  No batch selection required for this course.
+                </p>
+              ) : (
+                <Select value={selectedBatchRef} onValueChange={setSelectedBatchRef}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a batch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batchOptions.map((b) => (
+                      <SelectItem key={b.batch_ref} value={b.batch_ref}>
+                        {(b.name && b.name.trim()) || b.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="duration">Course duration</Label>
               {durationOptions.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-2">
-                  No durations configured for this course. Please contact support.
+                  {batchOptions.length > 0 && !selectedBatchRef
+                    ? "Please select a batch to view available durations."
+                    : "No admin-enabled durations configured for this course. Please contact support."}
                 </p>
               ) : (
                 <Select value={selectedDurationKey} onValueChange={setSelectedDurationKey}>
@@ -1080,6 +1611,56 @@ export default function StudentCoursesPage() {
                 </Select>
               )}
             </div>
+
+            <div className="space-y-2">
+              <Label>Who is this for?</Label>
+              <Select value={beneficiaryType} onValueChange={(v) => { setBeneficiaryType(v); if (v === "self") { setBeneficiaryName(""); setBeneficiaryPhone(""); setBeneficiaryRelationship(""); } }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="self">Self</SelectItem>
+                  <SelectItem value="family">Family</SelectItem>
+                  <SelectItem value="friend">Friend</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {beneficiaryType !== "self" && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="space-y-2">
+                  <Label>Beneficiary Name *</Label>
+                  <input
+                    type="text"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={beneficiaryName}
+                    onChange={(e) => setBeneficiaryName(e.target.value)}
+                    placeholder="Full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone (optional)</Label>
+                  <input
+                    type="tel"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={beneficiaryPhone}
+                    onChange={(e) => setBeneficiaryPhone(e.target.value)}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Relationship</Label>
+                  <input
+                    type="text"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={beneficiaryRelationship}
+                    onChange={(e) => setBeneficiaryRelationship(e.target.value)}
+                    placeholder="e.g., Son, Daughter, Friend"
+                  />
+                </div>
+              </div>
+            )}
 
             {selectedCourse && (
               <div className="rounded-lg bg-blue-50 p-4">
@@ -1099,7 +1680,7 @@ export default function StudentCoursesPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6 pt-3 border-t shrink-0">
             <Button variant="outline" onClick={() => setShowEnrollDialog(false)}>
               Cancel
             </Button>
@@ -1110,6 +1691,7 @@ export default function StudentCoursesPage() {
                 !selectedCourse ||
                 !selectedBranch ||
                 branches.length === 0 ||
+                (batchOptions.length > 0 && !selectedBatchRef.trim()) ||
                 enrollPricingLoading ||
                 enrollAmount == null ||
                 enrollAmount <= 0 ||
@@ -1126,14 +1708,14 @@ export default function StudentCoursesPage() {
 
       {/* Branch Change Dialog */}
       <Dialog open={showBranchChangeDialog} onOpenChange={setShowBranchChangeDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Request Branch Change</DialogTitle>
             <DialogDescription>
               Request to change branch for {changingEnrollment?.course_name}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 px-6 overflow-y-auto min-h-0">
             <div className="rounded-lg bg-gray-50 p-3">
               <div className="text-sm">
                 <span className="font-medium">Current Branch: </span>
@@ -1167,7 +1749,7 @@ export default function StudentCoursesPage() {
               </AlertDescription>
             </Alert>
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6 pt-3 border-t shrink-0">
             <Button variant="outline" onClick={() => setShowBranchChangeDialog(false)}>
               Cancel
             </Button>

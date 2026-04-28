@@ -29,7 +29,7 @@ export interface RazorpayPaymentResponse {
 
 export interface RazorpayInstance {
   open: () => void
-  on: (event: string, handler: () => void) => void
+  on: (event: string, handler: (response: unknown) => void) => void
 }
 
 declare global {
@@ -84,9 +84,9 @@ export const initializeRazorpay = async (
  */
 export const openRazorpayCheckout = async (
   paymentDetails: {
-    /** Amount in rupees (used when amountPaise is not set). */
-    amount: number
-    /** If set, passed to Razorpay as-is (already in paise). */
+    /** Amount in rupees (used only when amountPaise is not set and no order_id). */
+    amount?: number
+    /** Authoritative amount in paise from Razorpay order (avoids double ×100). */
     amountPaise?: number
     currency?: string
     name: string
@@ -97,6 +97,7 @@ export const openRazorpayCheckout = async (
     orderId?: string
     onSuccess: (response: RazorpayPaymentResponse) => void
     onDismiss?: () => void
+    onPaymentFailure?: (message: string) => void
   }
 ): Promise<void> => {
   const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
@@ -105,10 +106,18 @@ export const openRazorpayCheckout = async (
     throw new Error('Razorpay Key ID not configured')
   }
 
-  const amountPaise =
-    typeof paymentDetails.amountPaise === "number"
-      ? Math.round(paymentDetails.amountPaise)
-      : Math.round(paymentDetails.amount * 100)
+  let amountPaise: number
+  if (typeof paymentDetails.amountPaise === 'number') {
+    amountPaise = Math.round(paymentDetails.amountPaise)
+  } else if (typeof paymentDetails.amount === 'number') {
+    amountPaise = Math.round(paymentDetails.amount * 100)
+  } else {
+    throw new Error('Missing payment amount')
+  }
+
+  if (!Number.isFinite(amountPaise) || amountPaise < 100) {
+    throw new Error('Invalid payment amount')
+  }
 
   const options: RazorpayOptions = {
     key: keyId,
@@ -136,6 +145,15 @@ export const openRazorpayCheckout = async (
   if (!razorpay) {
     throw new Error('Failed to initialize Razorpay')
   }
+
+  razorpay.on('payment.failed', (response: { error?: { description?: string; code?: string } }) => {
+    console.error('[openRazorpayCheckout] payment.failed', response)
+    const msg =
+      response?.error?.description ||
+      response?.error?.code ||
+      'Payment failed, please try again'
+    paymentDetails.onPaymentFailure?.(msg)
+  })
 
   razorpay.open()
 }

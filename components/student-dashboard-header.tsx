@@ -8,6 +8,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { usePermissions } from "@/hooks/use-permissions"
 import NotificationDropdown from "@/components/notification-dropdown"
+import { useCMS } from "@/contexts/CMSContext"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import {
   Menu,
   Home,
@@ -38,6 +40,7 @@ export default function StudentDashboardHeader({
   const [isNavigating, setIsNavigating] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [profileImage, setProfileImage] = useState<string>("")
+  const { cms } = useCMS()
 
   const readProfileImage = () => {
     try {
@@ -162,6 +165,7 @@ export default function StudentDashboardHeader({
 
   // Filter navigation items based on permissions
   const navigationItems = allNavigationItems.filter(item => hasPermission(item.permissionId))
+  const navbarLogo = resolvePublicAssetUrl(cms?.branding?.navbar_logo) || "/logo.png"
 
 
   return (
@@ -172,7 +176,7 @@ export default function StudentDashboardHeader({
           <div className="flex items-center space-x-2 min-w-0 flex-shrink-0">
             <div className="flex-shrink-0">
               <img
-                src="/logo.png"
+                src={navbarLogo}
                 alt="Logo"
                 className="xl:w-[95px] w-[80px] h-auto"
               />
@@ -194,7 +198,7 @@ export default function StudentDashboardHeader({
                   <div className="p-4 border-b border-gray-200/60">
                     <div className="flex items-center space-x-3">
                       <img
-                        src="/logo.png"
+                        src={navbarLogo}
                         alt="Logo"
                         className="w-8 h-8"
                       />

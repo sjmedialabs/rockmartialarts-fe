@@ -79,10 +79,16 @@ interface EnrollmentHistory {
   id: string
   course_name: string
   enrollment_date: string
+  start_date?: string
+  end_date?: string
   completion_date?: string
   status: string
   progress: number
   grade?: string
+  is_active?: boolean
+  payment_status?: string
+  updated_at?: string
+  created_at?: string
 }
 
 interface PaymentRecord {
@@ -94,6 +100,8 @@ interface PaymentRecord {
   description: string
   notes?: string
   transaction_id?: string
+  updated_at?: string
+  created_at?: string
 }
 
 interface AttendanceRecord {
@@ -116,6 +124,20 @@ export default function StudentDetailPage() {
   const [enrollmentsLoading, setEnrollmentsLoading] = useState(true)
   const [paymentsLoading, setPaymentsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const deriveEnrollmentStatus = (enrollment: any): string => {
+    const explicit = String(enrollment?.status || "").toLowerCase()
+    const active = enrollment?.is_active !== false
+    const paymentStatus = String(enrollment?.payment_status || "").toLowerCase()
+    if (paymentStatus === 'cancelled' || paymentStatus === 'canceled') return 'cancelled'
+    if (paymentStatus === 'paused') return 'paused'
+    if (paymentStatus === 'expired') return 'expired'
+    if (!active) return 'inactive'
+    if (['completed', 'paused', 'cancelled', 'inactive', 'active'].includes(explicit)) {
+      return explicit
+    }
+    return 'active'
+  }
 
   useEffect(() => {
     fetchStudentDetails()
@@ -223,10 +245,16 @@ export default function StudentDetailPage() {
           id: enrollment.id || `enrollment-${Date.now()}`,
           course_name: enrollment.course_name || 'Unknown Course',
           enrollment_date: enrollment.enrollment_date || enrollment.created_at || new Date().toISOString(),
+          start_date: enrollment.start_date,
+          end_date: enrollment.end_date,
           completion_date: enrollment.completion_date,
-          status: enrollment.status || 'active',
+          status: deriveEnrollmentStatus(enrollment),
           progress: enrollment.progress || 0,
-          grade: enrollment.grade
+          grade: enrollment.grade,
+          is_active: enrollment.is_active,
+          payment_status: enrollment.payment_status,
+          updated_at: enrollment.updated_at,
+          created_at: enrollment.created_at,
         }))
 
         setEnrollmentHistory(history)
@@ -267,6 +295,8 @@ export default function StudentDetailPage() {
           description: payment.description || `${payment.course_name || 'Course'} - ${payment.payment_type || 'Payment'}`,
           notes: payment.notes,
           transaction_id: payment.transaction_id,
+          updated_at: payment.updated_at,
+          created_at: payment.created_at,
         }))
 
         setPaymentHistory(history)
@@ -341,6 +371,10 @@ export default function StudentDetailPage() {
         return <Clock className="w-4 h-4 text-blue-600" />
       case 'paused':
         return <AlertCircle className="w-4 h-4 text-yellow-600" />
+      case 'inactive':
+        return <Clock className="w-4 h-4 text-gray-500" />
+      case 'expired':
+        return <XCircle className="w-4 h-4 text-red-600" />
       case 'cancelled':
         return <XCircle className="w-4 h-4 text-red-600" />
       default:
@@ -428,6 +462,27 @@ export default function StudentDetailPage() {
   if (!student) {
     return null
   }
+
+  const parseTimestamp = (v?: string) => {
+    if (!v) return Number.NaN
+    const t = new Date(v).getTime()
+    return Number.isNaN(t) ? Number.NaN : t
+  }
+  const latestTimestamp = [
+    parseTimestamp(student.updated_at),
+    ...enrollmentHistory.flatMap((e) => [
+      parseTimestamp(e.updated_at),
+      parseTimestamp(e.created_at),
+      parseTimestamp(e.enrollment_date),
+      parseTimestamp(e.end_date),
+    ]),
+    ...paymentHistory.flatMap((p) => [
+      parseTimestamp(p.updated_at),
+      parseTimestamp(p.created_at),
+      parseTimestamp(p.payment_date),
+    ]),
+  ].reduce((max, current) => (Number.isFinite(current) && current > max ? current : max), Number.NEGATIVE_INFINITY)
+  const latestUpdatedDate = Number.isFinite(latestTimestamp) ? new Date(latestTimestamp) : new Date(student.updated_at)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -585,10 +640,12 @@ export default function StudentDetailPage() {
                   <div>
                     <h3 className="text-sm font-medium  mb-1">Last Updated</h3>
                     <p className="text-sm ">
-                      {new Date(student.updated_at).toLocaleDateString('en-US', {
+                      {latestUpdatedDate.toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'long',
-                        day: 'numeric'
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
                       })}
                     </p>
                   </div>
@@ -640,8 +697,10 @@ export default function StudentDetailPage() {
                               className={`text-xs ${
                                 enrollment.status === 'completed' ? 'bg-green-100 text-green-800' :
                                 enrollment.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                                enrollment.status === 'inactive' ? 'bg-gray-100 text-gray-700' :
                                 enrollment.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
+                                enrollment.status === 'expired' ? 'bg-red-100 text-red-800' :
+                                'bg-slate-100 text-slate-700'
                               }`}
                             >
                               {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
@@ -659,6 +718,28 @@ export default function StudentDetailPage() {
                               day: 'numeric'
                             })}</span>
                           </div>
+                          {enrollment.start_date && (
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4" />
+                              <span className="font-medium">Start:</span>
+                              <span>{new Date(enrollment.start_date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}</span>
+                            </div>
+                          )}
+                          {enrollment.end_date && (
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4" />
+                              <span className="font-medium">End:</span>
+                              <span>{new Date(enrollment.end_date).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}</span>
+                            </div>
+                          )}
                           {enrollment.completion_date && (
                             <div className="flex items-center space-x-1">
                               <CheckCircle className="w-4 h-4 text-green-600" />
@@ -877,7 +958,7 @@ export default function StudentDetailPage() {
                           variant="outline"
                           size="sm"
                           className="mt-2"
-                          onClick={() => router.push(`/dashboard/payments?student_id=${studentId}`)}
+                          onClick={() => router.push(`/dashboard/payment-tracking?student_id=${studentId}`)}
                         >
                           View All Payments
                         </Button>
@@ -949,7 +1030,7 @@ export default function StudentDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/payments?student_id=${studentId}`)}
+                  onClick={() => router.push(`/dashboard/payment-tracking?student_id=${studentId}`)}
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
                   View Payment History

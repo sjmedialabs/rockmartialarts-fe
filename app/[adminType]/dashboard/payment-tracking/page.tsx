@@ -205,25 +205,49 @@ export default function PaymentTrackingPage() {
   const fetchStats = async () => {
     try {
       const token = TokenManager.getToken()
-      const qs = new URLSearchParams()
-      if (periodStart) qs.set("start_date", periodStart)
-      if (periodEnd) qs.set("end_date", periodEnd)
-      if (branchFilter !== "all") qs.set("branch_id", branchFilter)
-      qs.set("_ts", String(Date.now()))
-      const response = await fetch(getBackendApiUrl(`payments/stats?${qs.toString()}`), {
+      const qsScoped = new URLSearchParams()
+      if (periodStart) qsScoped.set("start_date", periodStart)
+      if (periodEnd) qsScoped.set("end_date", periodEnd)
+      if (branchFilter !== "all") qsScoped.set("branch_id", branchFilter)
+      qsScoped.set("_ts", String(Date.now()))
+
+      const headers: HeadersInit = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      }
+
+      const scopedRes = await fetch(getBackendApiUrl(`payments/stats?${qsScoped.toString()}`), {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
+        headers,
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        setStats(data)
+      if (!scopedRes.ok) return
+
+      const scopedData = await scopedRes.json()
+
+      // Headline "Total Revenue (All time)" = all branches, all dates (real paid total from DB).
+      // Branch / period filters still apply to other stats + table via scopedData.
+      if (isSuperAdmin) {
+        const gQs = new URLSearchParams()
+        gQs.set("_ts", String(Date.now()))
+        const globalRes = await fetch(getBackendApiUrl(`payments/stats?${gQs.toString()}`), {
+          cache: "no-store",
+          headers,
+        })
+        if (globalRes.ok) {
+          const globalData = await globalRes.json()
+          const total = Number(globalData.total_collected)
+          setStats({
+            ...scopedData,
+            total_collected: Number.isFinite(total) ? total : 0,
+          })
+          return
+        }
       }
+
+      setStats(scopedData)
     } catch (error) {
       console.error("Error fetching payment stats:", error)
     }

@@ -48,6 +48,7 @@ import { courseAPI } from "@/lib/courseAPI"
 import { branchAPI } from "@/lib/branchAPI"
 import { getBackendApiUrl } from "@/lib/config"
 import { isEnrollmentActivePaid, isEnrollmentExpiredByDate } from "@/lib/student-enrollment-status"
+import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
 
 /** Load branch + duration accurate total from payment-info (backend applies batch/branch fees). */
 async function enrichAvailableCoursePricing(
@@ -283,57 +284,8 @@ function parseTimeSafe(value?: string): number {
   return Number.isFinite(ts) ? ts : 0
 }
 
-function pickLatestByEndDate(items: EnrolledCourse[]): EnrolledCourse {
-  return [...items].sort((a, b) => parseTimeSafe(b.end_date) - parseTimeSafe(a.end_date))[0] || items[0]
-}
-
 function mergeDuplicateEnrollments(items: EnrolledCourse[]): EnrolledCourse[] {
-  const groups = new Map<string, EnrolledCourse[]>()
-  for (const item of items) {
-    const key = `${item.course_id}::${item.branch_id || ""}`
-    const bucket = groups.get(key)
-    if (bucket) bucket.push(item)
-    else groups.set(key, [item])
-  }
-
-  const merged: EnrolledCourse[] = []
-  for (const [, group] of groups) {
-    if (group.length === 1) {
-      merged.push(group[0])
-      continue
-    }
-
-    const anyActivePaid = group.some((g) =>
-      isEnrollmentActivePaid({
-        isActive: g.is_active,
-        paymentStatus: g.payment_status,
-        endDate: g.end_date,
-      })
-    )
-    const anyPaid = group.some((g) => String(g.payment_status || "").toLowerCase() === "paid")
-    const anyPending = group.some((g) => String(g.payment_status || "").toLowerCase() === "pending")
-    const latestByEnd = pickLatestByEndDate(group)
-    const latestByStart = [...group].sort(
-      (a, b) => parseTimeSafe(b.start_date || b.enrollment_date) - parseTimeSafe(a.start_date || a.enrollment_date)
-    )[0]
-
-    merged.push({
-      ...latestByEnd,
-      enrollment_id: latestByStart.enrollment_id,
-      start_date: latestByStart.start_date || latestByEnd.start_date,
-      enrollment_date: latestByStart.enrollment_date || latestByEnd.enrollment_date,
-      end_date: latestByEnd.end_date,
-      is_active: anyActivePaid || latestByEnd.is_active,
-      payment_status: anyPaid ? "paid" : anyPending ? "pending" : latestByEnd.payment_status,
-      progress: typeof latestByEnd.progress === "number" ? latestByEnd.progress : 0,
-    })
-  }
-
-  return merged.sort(
-    (a, b) =>
-      parseTimeSafe(b.start_date || b.enrollment_date || b.end_date) -
-      parseTimeSafe(a.start_date || a.enrollment_date || a.end_date)
-  )
+  return mergeEnrollmentsByCourseBranch(items) as EnrolledCourse[]
 }
 
 export default function StudentCoursesPage() {

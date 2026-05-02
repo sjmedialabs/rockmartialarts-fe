@@ -88,6 +88,8 @@ export const openRazorpayCheckout = async (
     amount?: number
     /** Authoritative amount in paise from Razorpay order (avoids double ×100). */
     amountPaise?: number
+    /** Prefer server-returned publishable key (matches `/api/payments/create-order` / reg-checkout). */
+    razorpayKeyId?: string
     currency?: string
     name: string
     description: string
@@ -100,7 +102,11 @@ export const openRazorpayCheckout = async (
     onPaymentFailure?: (message: string) => void
   }
 ): Promise<void> => {
-  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+  const keyId =
+    (typeof paymentDetails.razorpayKeyId === 'string' && paymentDetails.razorpayKeyId.trim()) ||
+    (typeof process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID === 'string' &&
+      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.trim()) ||
+    ''
 
   if (!keyId) {
     throw new Error('Razorpay Key ID not configured')

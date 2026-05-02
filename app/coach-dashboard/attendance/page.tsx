@@ -23,6 +23,7 @@ import { format } from "date-fns"
 import CoachDashboardHeader from "@/components/coach-dashboard-header"
 import { checkCoachAuth, getCoachAuthHeaders } from "@/lib/coachAuth"
 import { cn } from "@/lib/utils"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface AttendanceRecord {
   id: string
@@ -67,76 +68,7 @@ export default function CoachAttendancePage() {
   const [historicalRecords, setHistoricalRecords] = useState<AttendanceRecord[]>([])
   const [loadingHistorical, setLoadingHistorical] = useState(false)
 
-  // TEMPORARY: Skip auth for testing button functionality
-  // Set to false to restore normal authentication
-  const skipAuth = false
-
-
-
-
-
   useEffect(() => {
-    if (skipAuth) {
-      console.log("🧪 TESTING MODE: Skipping authentication")
-      const mockCoach = {
-        id: "test-coach-id",
-        full_name: "Test Coach",
-        email: "test@example.com",
-        branch_id: "test-branch-id"
-      }
-      setCoachData(mockCoach)
-      // Create some mock attendance data
-      const mockRecords = [
-        {
-          id: "1",
-          student_id: "student1",
-          student_name: "John Doe",
-          course_id: "course1",
-          course_name: "Karate Basics",
-          status: "absent" as const,
-          date: new Date().toISOString().split('T')[0],
-          attendance_date: new Date().toISOString().split('T')[0]
-        },
-        {
-          id: "2",
-          student_id: "student2",
-          student_name: "Jane Smith",
-          course_id: "course1",
-          course_name: "Karate Basics",
-          status: "present" as const,
-          date: new Date().toISOString().split('T')[0],
-          attendance_date: new Date().toISOString().split('T')[0]
-        },
-        {
-          id: "3",
-          student_id: "student3",
-          student_name: "Mike Johnson",
-          course_id: "course1",
-          course_name: "Karate Basics",
-          status: "late" as const,
-          date: new Date().toISOString().split('T')[0],
-          attendance_date: new Date().toISOString().split('T')[0]
-        }
-      ]
-
-      // Set mock statistics
-      const mockStats: AttendanceStats = {
-        total_students: mockRecords.length,
-        present_today: mockRecords.filter(r => r.status === "present").length,
-        absent_today: mockRecords.filter(r => r.status === "absent").length,
-        late_today: mockRecords.filter(r => r.status === "late").length,
-        attendance_rate: mockRecords.length > 0 ?
-          (mockRecords.filter(r => r.status === "present" || r.status === "late").length / mockRecords.length) * 100 : 0
-      }
-
-      setAttendanceRecords(mockRecords)
-      setFilteredRecords(mockRecords)
-      setAttendanceStats(mockStats)
-      setLoading(false)
-      console.log("🧪 TESTING MODE: Mock data loaded successfully", mockRecords.length, "students")
-      return
-    }
-
     // Use the robust coach authentication check
     const authResult = checkCoachAuth()
 
@@ -170,7 +102,7 @@ export default function CoachAttendancePage() {
 
   // Effect to reload data when selected date changes
   useEffect(() => {
-    if (!skipAuth && coachData) {
+    if (coachData) {
       const authResult = checkCoachAuth()
       if (authResult.isAuthenticated && authResult.token && authResult.coach) {
         fetchAttendanceData(authResult.token, authResult.coach.id)
@@ -201,13 +133,18 @@ export default function CoachAttendancePage() {
       const endDateStr = endDate.toISOString().split('T')[0]
 
       // Fetch historical attendance reports
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/attendance/reports?branch_id=${branchId}&start_date=${startDateStr}&end_date=${endDateStr}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authResult.token}`,
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        getBackendApiUrl(
+          `attendance/reports?branch_id=${encodeURIComponent(branchId)}&start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}`
+        ),
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${authResult.token}`,
+            "Content-Type": "application/json",
+          },
         }
-      })
+      )
 
       if (!response.ok) {
         throw new Error(`Failed to fetch historical attendance: ${response.status} ${response.statusText}`)
@@ -277,7 +214,7 @@ export default function CoachAttendancePage() {
       const selectedDateStr = selectedDate.toISOString().split('T')[0]
 
       // Fetch attendance data using the unified endpoint
-      const attendanceResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/attendance/students?date=${selectedDateStr}`, {
+      const attendanceResponse = await fetch(getBackendApiUrl(`attendance/students?date=${encodeURIComponent(selectedDateStr)}`), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -384,7 +321,6 @@ export default function CoachAttendancePage() {
       setAttendanceStats(stats)
 
       if (attendanceRecords.length === 0) {
-        // Check if we have debug info from the API
         const debugInfo = attendanceData.debug_info
         if (debugInfo) {
           console.log("🔍 Debug info from API:", debugInfo)
@@ -392,6 +328,8 @@ export default function CoachAttendancePage() {
         } else {
           setError("No students found. Please ensure you have students assigned to your courses or contact the administrator.")
         }
+      } else {
+        setError(null)
       }
 
     } catch (error) {
@@ -401,47 +339,16 @@ export default function CoachAttendancePage() {
       if (error instanceof Error && error.message.includes('401')) {
         setError("Authentication failed. Please log in again as a coach.")
       } else if (error instanceof Error && error.message.includes('Failed to fetch')) {
-        setError("Backend server is not available. Using demo data for testing.")
-
-        // Provide demo data when backend is not available
-        const demoRecords: AttendanceRecord[] = [
-          {
-            id: "demo_1",
-            student_name: "John Smith",
-            student_id: "STU001",
-            course_name: "Karate Basics",
-            course_id: "COURSE001",
-            date: new Date().toISOString().split('T')[0],
-            status: "present",
-            check_in_time: "09:00 AM",
-            check_out_time: "10:30 AM",
-            notes: "Demo data - Backend not available"
-          },
-          {
-            id: "demo_2",
-            student_name: "Sarah Johnson",
-            student_id: "STU002",
-            course_name: "Advanced Taekwondo",
-            course_id: "COURSE002",
-            date: new Date().toISOString().split('T')[0],
-            status: "late",
-            check_in_time: "09:15 AM",
-            check_out_time: "10:30 AM",
-            notes: "Demo data - Backend not available"
-          }
-        ]
-
-        const demoStats: AttendanceStats = {
-          total_students: 2,
-          present_today: 1,
+        setError("Could not reach the server. Check your connection and try again.")
+        setAttendanceRecords([])
+        setFilteredRecords([])
+        setAttendanceStats({
+          total_students: 0,
+          present_today: 0,
           absent_today: 0,
-          late_today: 1,
-          attendance_rate: 100
-        }
-
-        setAttendanceRecords(demoRecords)
-        setFilteredRecords(demoRecords)
-        setAttendanceStats(demoStats)
+          late_today: 0,
+          attendance_rate: 0,
+        })
       } else {
         setError(`Failed to load attendance data: ${error instanceof Error ? error.message : 'Unknown error'}`)
 
@@ -592,7 +499,7 @@ export default function CoachAttendancePage() {
 
           console.log(`💾 Saving attendance for ${record.student_name} with status: ${record.status}`)
 
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/attendance/mark`, {
+          const response = await fetch(getBackendApiUrl("attendance/mark"), {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem("access_token") || localStorage.getItem("token")}`,
@@ -651,7 +558,7 @@ export default function CoachAttendancePage() {
 
       // Try to export from backend
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/attendance/export?format=csv`, {
+        const response = await fetch(getBackendApiUrl("attendance/export?format=csv"), {
           method: 'GET',
           headers
         })

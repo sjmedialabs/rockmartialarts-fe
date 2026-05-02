@@ -8,8 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
-import { CardSkeleton, TableSkeleton } from "@/components/ui/loading-skeleton"
-import { ErrorBoundary } from "@/components/error-boundary"
 import { TokenManager } from "@/lib/tokenManager"
 import { getBackendApiUrl } from "@/lib/config"
 import { formatSessionDateLabelYmd } from "@/lib/formatRegisteredDate"
@@ -20,8 +18,6 @@ import {
   Clock,
   AlertCircle,
   TrendingUp,
-  Users,
-  Target,
   RefreshCw
 } from "lucide-react"
 
@@ -32,7 +28,7 @@ interface AttendanceRecord {
   course_id: string
   branch: string
   branch_id: string
-  status: "present" | "absent" | "late"
+  status: "present" | "absent" | "late" | "not_marked"
   check_in_time?: string
   check_out_time?: string
   is_present: boolean
@@ -49,23 +45,43 @@ interface AttendanceStats {
   percentage: number
 }
 
-interface StudentInfo {
-  id: string
-  name: string
-  email: string
+function normalizeAttendanceRecord(raw: Record<string, unknown>): AttendanceRecord {
+  const dateRaw = raw.date ?? raw.attendance_date
+  let dateStr = ""
+  if (typeof dateRaw === "string") dateStr = dateRaw.split("T")[0] || dateRaw
+  const statusRaw = String(raw.status || "").toLowerCase()
+  let status: AttendanceRecord["status"] = "absent"
+  if (statusRaw === "present" || statusRaw === "late" || statusRaw === "not_marked") {
+    status = statusRaw as AttendanceRecord["status"]
+  } else if (raw.is_present === true) status = "present"
+
+  const cid = String(raw.course_id ?? "")
+  const bid = String(raw.branch_id ?? "")
+  return {
+    id: String(raw.id ?? `${cid}-${dateStr}`),
+    date: dateStr,
+    course: String(raw.course ?? raw.course_name ?? "Course"),
+    course_id: cid,
+    branch: String(raw.branch ?? raw.branch_name ?? ""),
+    branch_id: bid,
+    status,
+    check_in_time:
+      typeof raw.check_in_time === "string" ? raw.check_in_time : raw.check_in_time != null ? String(raw.check_in_time) : undefined,
+    check_out_time:
+      typeof raw.check_out_time === "string" ? raw.check_out_time : raw.check_out_time != null ? String(raw.check_out_time) : undefined,
+    is_present: Boolean(raw.is_present ?? status === "present"),
+    notes: typeof raw.notes === "string" ? raw.notes : "",
+    admin_adjusted: Boolean(raw.admin_adjusted),
+    attendance_modified_at:
+      typeof raw.attendance_modified_at === "string" ? raw.attendance_modified_at : null,
+  }
 }
 
 export default function StudentAttendancePage() {
   const router = useRouter()
-  const [studentData, setStudentData] = useState<StudentInfo | null>(null)
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
-  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats>({
-    total_classes: 0,
-    attended: 0,
-    absent: 0,
-    late: 0,
-    percentage: 0
-  })
+  /** Null until a successful API response (avoid showing zeros as if they were live counts). */
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -116,23 +132,32 @@ export default function StudentAttendancePage() {
       const data = await response.json()
       console.log("✅ Attendance data received:", data)
 
-      setAttendanceRecords(data.attendance_records || [])
-      setAttendanceStats(data.statistics || {
-        total_classes: 0,
-        attended: 0,
-        absent: 0,
-        late: 0,
-        percentage: 0
-      })
-      setStudentData(data.student_info || {
-        id: user.id,
-        name: user.full_name || "Student",
-        email: user.email || ""
-      })
+      const rawList = Array.isArray(data.attendance_records) ? data.attendance_records : []
+      setAttendanceRecords(rawList.map((r: Record<string, unknown>) => normalizeAttendanceRecord(r)))
 
+      const st = data.statistics
+      if (st && typeof st === "object") {
+        setAttendanceStats({
+          total_classes: Number(st.total_classes) || 0,
+          attended: Number(st.attended) || 0,
+          absent: Number(st.absent) || 0,
+          late: Number(st.late) || 0,
+          percentage: typeof st.percentage === "number" ? st.percentage : Number(st.percentage) || 0,
+        })
+      } else {
+        setAttendanceStats({
+          total_classes: 0,
+          attended: 0,
+          absent: 0,
+          late: 0,
+          percentage: 0,
+        })
+      }
     } catch (error) {
       console.error("❌ Error fetching attendance data:", error)
       setError(error instanceof Error ? error.message : "Failed to load attendance data")
+      setAttendanceRecords([])
+      setAttendanceStats(null)
     } finally {
       setLoading(false)
     }
@@ -191,8 +216,10 @@ export default function StudentAttendancePage() {
         return <Badge className="bg-red-100 text-red-800">Absent</Badge>
       case "late":
         return <Badge className="bg-yellow-100 text-yellow-800">Late</Badge>
+      case "not_marked":
+        return <Badge variant="secondary">Not marked</Badge>
       default:
-        return <Badge variant="secondary">{status}</Badge>
+        return <Badge variant="secondary">{status || "—"}</Badge>
     }
   }
 
@@ -231,7 +258,9 @@ export default function StudentAttendancePage() {
           <CardContent className="p-6">
             <div className="text-center">
               <Calendar className="w-5 h-5 mx-auto mb-1 text-blue-500" />
-              <p className="text-2xl font-bold text-blue-600">{attendanceStats.total_classes}</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {attendanceStats !== null ? attendanceStats.total_classes : "—"}
+              </p>
               <p className="text-sm text-gray-500 mt-1">Total Classes</p>
             </div>
           </CardContent>
@@ -241,7 +270,9 @@ export default function StudentAttendancePage() {
           <CardContent className="p-6">
             <div className="text-center">
               <CheckCircle className="w-5 h-5 mx-auto mb-1 text-green-500" />
-              <p className="text-2xl font-bold text-green-600">{attendanceStats.attended}</p>
+              <p className="text-2xl font-bold text-green-600">
+                {attendanceStats !== null ? attendanceStats.attended : "—"}
+              </p>
               <p className="text-sm text-gray-500 mt-1">Attended</p>
             </div>
           </CardContent>
@@ -251,7 +282,9 @@ export default function StudentAttendancePage() {
           <CardContent className="p-6">
             <div className="text-center">
               <XCircle className="w-5 h-5 mx-auto mb-1 text-red-500" />
-              <p className="text-2xl font-bold text-red-600">{attendanceStats.absent}</p>
+              <p className="text-2xl font-bold text-red-600">
+                {attendanceStats !== null ? attendanceStats.absent : "—"}
+              </p>
               <p className="text-sm text-gray-500 mt-1">Absent</p>
             </div>
           </CardContent>
@@ -261,7 +294,9 @@ export default function StudentAttendancePage() {
           <CardContent className="p-6">
             <div className="text-center">
               <Clock className="w-5 h-5 mx-auto mb-1 text-yellow-500" />
-              <p className="text-2xl font-bold text-yellow-600">{attendanceStats.late}</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {attendanceStats !== null ? attendanceStats.late : "—"}
+              </p>
               <p className="text-sm text-gray-500 mt-1">Late</p>
             </div>
           </CardContent>
@@ -271,7 +306,9 @@ export default function StudentAttendancePage() {
           <CardContent className="p-6">
             <div className="text-center">
               <TrendingUp className="w-5 h-5 mx-auto mb-1 text-purple-500" />
-              <p className="text-2xl font-bold text-purple-600">{attendanceStats.percentage}%</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {attendanceStats !== null ? `${attendanceStats.percentage}%` : "—"}
+              </p>
               <p className="text-sm text-gray-500 mt-1">Attendance Rate</p>
             </div>
           </CardContent>

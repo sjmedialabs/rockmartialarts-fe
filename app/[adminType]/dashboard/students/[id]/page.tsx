@@ -917,9 +917,27 @@ export default function StudentDetailPage() {
             {/* Payment History */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center font-bold text-[#4D5077]">
-                  Payment History ({paymentsLoading ? '...' : paymentHistory.length})
+                <CardTitle className="flex flex-wrap items-center justify-between gap-2 font-bold text-[#4D5077]">
+                  <span>
+                    Payment History ({paymentsLoading ? "..." : paymentHistory.length})
+                  </span>
+                  {adminType === "super-admin" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="font-normal"
+                      onClick={() => router.push(`/${adminType}/dashboard/payment-tracking`)}
+                    >
+                      Payment Tracking — recover cancelled
+                    </Button>
+                  )}
                 </CardTitle>
+                {adminType === "super-admin" && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Super Admin: search this student in Payment Tracking and use <strong>Recover</strong> on cancelled payment rows to restore checkout, mark offline payment, or waive.
+                  </p>
+                )}
               </CardHeader>
               <CardContent className="text-[#7F8592]">
                 {paymentsLoading ? (

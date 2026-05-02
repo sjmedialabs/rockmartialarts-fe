@@ -228,11 +228,14 @@ export default function PaymentPage() {
       }
       const orderId = orderJson.order_id as string | undefined
       const amountPaise = orderJson.amount as number | undefined
+      const razorpayKey =
+        typeof orderJson.key === "string" && orderJson.key.trim() ? orderJson.key.trim() : undefined
       if (!orderId || typeof amountPaise !== "number") {
         throw new Error("Invalid order response from server.")
       }
 
       await openRazorpayCheckout({
+        razorpayKeyId: razorpayKey,
         amount: total,
         amountPaise,
         currency: paymentInfo.pricing.currency,

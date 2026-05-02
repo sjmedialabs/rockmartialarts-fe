@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Edit, Trash2, RefreshCw, Eye, Link2 } from "lucide-react"
+import { Search, Edit, Trash2, RefreshCw, Eye, Link2, MessageCircle } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
@@ -17,6 +17,28 @@ import { formatRegisteredDateTime, formatRegisteredDateOnly } from "@/lib/format
 
 function formatEnrollmentDate(iso: string | null | undefined): string {
   return formatRegisteredDateOnly(iso)
+}
+
+function computeStudentAge(student: {
+  age?: number | null
+  date_of_birth?: string
+}): string | number {
+  if (student.age && student.age > 0) return student.age
+  if (student.date_of_birth) {
+    try {
+      const birthDate = new Date(student.date_of_birth)
+      const today = new Date()
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--
+      }
+      return age > 0 ? age : "—"
+    } catch {
+      return "—"
+    }
+  }
+  return "—"
 }
 
 interface Student {
@@ -491,6 +513,45 @@ const itemsPerPage = 15
   }
 
   const [onboardLinkLoading, setOnboardLinkLoading] = useState<string | null>(null)
+  const [notifyLoadingId, setNotifyLoadingId] = useState<string | null>(null)
+  const handleNotifyStudent = async (
+    studentId: string,
+    kind: "welcome" | "payment_reminder"
+  ) => {
+    if (adminType !== "super-admin") return
+    const token = TokenManager.getToken()
+    if (!token) {
+      alert("Please log in again.")
+      return
+    }
+    setNotifyLoadingId(studentId)
+    try {
+      const res = await fetch(getBackendApiUrl(`users/${studentId}/notify-student`), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ kind }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg =
+          typeof data?.detail === "string"
+            ? data.detail
+            : Array.isArray(data?.detail)
+              ? data.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join("; ")
+              : data.message || "Request failed"
+        throw new Error(msg)
+      }
+      alert(data.message || "Message queued.")
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Could not send message.")
+    } finally {
+      setNotifyLoadingId(null)
+    }
+  }
+
   const handleSendOnboardLink = async (studentId: string) => {
     const token = isBranchAdmin ? BranchManagerAuth.getToken() : TokenManager.getToken()
     if (!token) {
@@ -732,7 +793,7 @@ const paginatedStudents = filteredStudents.slice(
           <div className="relative flex-1 min-w-0 sm:max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4" />
             <Input
-              placeholder="Search by name, ID, location"
+              placeholder="Search name, phone, email, course..."
               className="pl-10 text-[#6B7A99]"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -743,26 +804,21 @@ const paginatedStudents = filteredStudents.slice(
         {/* Students Table - horizontal scroll on small screens */}
         <div className="bg-white rounded-lg shadow overflow-hidden min-w-0">
           <div className="overflow-x-auto -mx-0 scrollbar-thin">
-            <table className="w-full min-w-[880px]">
+            <table className="w-full min-w-[640px]">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Student Name</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Student</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Registered</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Gender</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Age</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Courses (Expertise)</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Duration</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Start Date</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">End Date</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Branch</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Phone Number</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={11} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={6} className="py-8 px-6 text-center text-gray-500">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading students...</span>
@@ -771,7 +827,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={11} className="py-8 px-6 text-center">
+                    <td colSpan={6} className="py-8 px-6 text-center">
                       <div className="text-red-500 mb-2">
                         <strong>Error loading students:</strong>
                       </div>
@@ -788,7 +844,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : listViewFilter === 'unassigned' && unassignedStudentsLoading ? (
                   <tr>
-                    <td colSpan={11} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={6} className="py-8 px-6 text-center text-gray-500">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading unassigned students...</span>
@@ -797,7 +853,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={6} className="py-8 px-6 text-center text-gray-500">
                       <div className="mb-2">
                         {searchTerm
                           ? `No students found matching "${searchTerm}"`
@@ -819,39 +875,36 @@ const paginatedStudents = filteredStudents.slice(
                 ) : (
                   paginatedStudents.map((student) => (
                     <tr key={student.id} className="border-b hover:bg-gray-50 text-[#6B7A99] text-sm">
-                      <td className="py-4 px-6">
-                        <div className="flex flex-col gap-1">
-                          <span>{student.full_name || student.student_name || 'N/A'}</span>
+                      <td className="py-4 px-6 align-top">
+                        <div className="flex flex-col gap-1.5 min-w-[12rem] max-w-[16rem]">
+                          <span className="font-medium text-[#4F5077]">
+                            {student.full_name || student.student_name || "N/A"}
+                          </span>
+                          <div className="flex flex-col gap-0.5 text-xs text-[#6B7A99] leading-snug">
+                            <span>
+                              <span className="text-[#9CA3AF]">Phone:</span>{" "}
+                              {student.phone?.trim() ? student.phone : "—"}
+                            </span>
+                            <span className="capitalize">
+                              <span className="text-[#9CA3AF]">Gender:</span>{" "}
+                              {student.gender?.trim() ? student.gender : "—"}
+                            </span>
+                            <span>
+                              <span className="text-[#9CA3AF]">Age:</span> {computeStudentAge(student)}
+                            </span>
+                          </div>
                           {adminType === "super-admin" && student.student_level ? (
-                            <Badge variant="outline" className="w-fit text-xs font-medium border-[#4F5077]/30 text-[#4F5077]">
+                            <Badge
+                              variant="outline"
+                              className="w-fit text-xs font-medium border-[#4F5077]/30 text-[#4F5077]"
+                            >
                               {student.student_level}
                             </Badge>
                           ) : null}
                         </div>
                       </td>
-                      <td className="py-4 px-6 whitespace-nowrap text-sm max-w-[11rem] sm:max-w-none">
+                      <td className="py-4 px-6 whitespace-nowrap text-sm max-w-[11rem] sm:max-w-none align-top">
                         {formatRegisteredDateTime(student.created_at)}
-                      </td>
-                      <td className="py-4 px-6 capitalize">{student.gender || 'N/A'}</td>
-                      <td className="py-4 px-6">
-                        {(() => {
-                          if (student.age && student.age > 0) return student.age;
-                          if (student.date_of_birth) {
-                            try {
-                              const birthDate = new Date(student.date_of_birth);
-                              const today = new Date();
-                              let age = today.getFullYear() - birthDate.getFullYear();
-                              const monthDiff = today.getMonth() - birthDate.getMonth();
-                              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                                age--;
-                              }
-                              return age > 0 ? age : 'N/A';
-                            } catch {
-                              return 'N/A';
-                            }
-                          }
-                          return 'N/A';
-                        })()}
                       </td>
                       <td className="py-4 px-6">
                         {student.courses && student.courses.length > 0 ? (
@@ -872,18 +925,65 @@ const paginatedStudents = filteredStudents.slice(
                           </Badge>
                         )}
                       </td>
-                      <td className="py-4 px-6">
-                        {student.courses && student.courses.length > 0 && student.courses[0].duration ?
-                          student.courses[0].duration :
-                          student.course_info?.duration || 'N/A'
-                        }
+                      <td className="py-4 px-6 align-top">
+                        <div className="flex flex-col gap-1 text-sm min-w-[9rem]">
+                          <span className="font-medium text-[#4F5077]">
+                            {student.courses && student.courses.length > 0 && student.courses[0].duration
+                              ? student.courses[0].duration
+                              : student.course_info?.duration || "—"}
+                          </span>
+                          <div className="flex flex-col gap-0.5 text-xs text-[#6B7A99] leading-snug">
+                            <span>
+                              <span className="text-[#9CA3AF]">Start:</span>{" "}
+                              {formatEnrollmentDate(student.start_date ?? undefined)}
+                            </span>
+                            <span>
+                              <span className="text-[#9CA3AF]">End:</span>{" "}
+                              {formatEnrollmentDate(student.end_date ?? undefined)}
+                            </span>
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-4 px-6">{formatEnrollmentDate(student.start_date ?? undefined)}</td>
-                      <td className="py-4 px-6">{formatEnrollmentDate(student.end_date ?? undefined)}</td>
-                      <td className="py-4 px-6">{student.branch_info?.branch_name || 'Not assigned'}</td>
-                      <td className="py-4 px-6">{student.phone || 'N/A'}</td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-6 align-top">{student.branch_info?.branch_name || 'Not assigned'}</td>
+                      <td className="py-4 px-6 align-top">
                         <div className="flex items-center space-x-2">
+                          {adminType === "super-admin" && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={notifyLoadingId === student.id || !student.phone?.trim()}
+                                  className="p-1 h-8 w-8 shrink-0"
+                                  title={
+                                    student.phone?.trim()
+                                      ? "Send SMS / WhatsApp"
+                                      : "Add phone number to send messages"
+                                  }
+                                >
+                                  {notifyLoadingId === student.id ? (
+                                    <span className="text-[10px] text-muted-foreground">…</span>
+                                  ) : (
+                                    <MessageCircle className="w-4 h-4 text-emerald-600" />
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-52">
+                                <DropdownMenuItem
+                                  onClick={() => void handleNotifyStudent(student.id, "welcome")}
+                                  disabled={!student.phone?.trim()}
+                                >
+                                  Send welcome message
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => void handleNotifyStudent(student.id, "payment_reminder")}
+                                  disabled={!student.phone?.trim()}
+                                >
+                                  Send payment reminder
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

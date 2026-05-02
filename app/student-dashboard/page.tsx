@@ -37,6 +37,8 @@ export default function StudentDashboard() {
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([])
   const [quickActions, setQuickActions] = useState<any[]>([])
   const [attendanceData, setAttendanceData] = useState<any>(null)
+  /** True when attendance API returned an error — do not show fabricated zeros as live data. */
+  const [attendanceLoadFailed, setAttendanceLoadFailed] = useState(false)
   const [enrollmentData, setEnrollmentData] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const [myAchievements, setMyAchievements] = useState<{ id: string; title: string; description?: string | null }[]>([])
@@ -157,10 +159,10 @@ export default function StudentDashboard() {
         if (attendanceResponse.ok) {
           attendanceResult = await attendanceResponse.json()
           setAttendanceData(attendanceResult)
+          setAttendanceLoadFailed(false)
 
           console.log("✅ Attendance data received:", attendanceResult)
 
-          // Set dashboard statistics based on real data
           const progressPct = attendanceResult.statistics?.percentage
           const roundedProgress = typeof progressPct === "number" ? Math.round(progressPct) : 0
           setDashboardStats({
@@ -169,31 +171,30 @@ export default function StudentDashboard() {
             upcomingClasses: 0,
             overallProgress: roundedProgress,
             attendanceRate: roundedProgress,
-            totalHours: Math.round((attendanceResult.statistics?.attended || 0) * 1.5),
             rank: 0,
             streakDays: 0,
             nextClassTime: "",
             totalClasses: attendanceResult.statistics?.total_classes || 0,
             absentClasses: attendanceResult.statistics?.absent || 0,
-            lateClasses: attendanceResult.statistics?.late || 0
+            lateClasses: attendanceResult.statistics?.late || 0,
           })
         } else {
           console.error("❌ Attendance API failed:", attendanceResponse.status, attendanceResponse.statusText)
+          setAttendanceLoadFailed(true)
+          setAttendanceData(null)
 
-          // Fallback to basic stats if attendance fetch fails
           setDashboardStats({
             enrolledCourses: profileData?.enrollments?.length || 0,
             completedClasses: 0,
             upcomingClasses: 0,
             overallProgress: 0,
             attendanceRate: 0,
-            totalHours: 0,
             rank: 0,
             streakDays: 0,
-            nextClassTime: "No upcoming classes",
+            nextClassTime: "",
             totalClasses: 0,
             absentClasses: 0,
-            lateClasses: 0
+            lateClasses: 0,
           })
         }
 
@@ -374,7 +375,9 @@ export default function StudentDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-green-600 mb-1">Attendance Rate</p>
-                  <p className="text-3xl font-bold text-green-900">{dashboardStats?.attendanceRate || 0}%</p>
+                  <p className="text-3xl font-bold text-green-900">
+                    {attendanceLoadFailed ? "—" : `${dashboardStats?.attendanceRate ?? 0}%`}
+                  </p>
                 </div>
                 <div className="p-3 bg-green-200/50 rounded-xl">
                   <Calendar className="w-6 h-6 text-green-600" />
@@ -387,13 +390,15 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
 
-          {/* Training Hours */}
+          {/* Sessions in API window (backend defaults to last 30 days for my-attendance) */}
           <Card className="rounded-xl border bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200/60 shadow-sm hover:shadow-md transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-purple-600 mb-1">Training Hours</p>
-                  <p className="text-3xl font-bold text-purple-900">{dashboardStats?.totalHours || 0}</p>
+                  <p className="text-sm font-medium text-purple-600 mb-1">Sessions logged</p>
+                  <p className="text-3xl font-bold text-purple-900">
+                    {attendanceLoadFailed ? "—" : dashboardStats?.totalClasses ?? 0}
+                  </p>
                 </div>
                 <div className="p-3 bg-purple-200/50 rounded-xl">
                   <Clock className="w-6 h-6 text-purple-600" />
@@ -401,7 +406,7 @@ export default function StudentDashboard() {
               </div>
               <div className="mt-4 flex items-center text-sm text-purple-700">
                 <Zap className="w-4 h-4 mr-1" />
-                <span>This month</span>
+                <span>From attendance records</span>
               </div>
             </CardContent>
           </Card>
@@ -411,8 +416,10 @@ export default function StudentDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-yellow-600 mb-1">Completed Classes</p>
-                  <p className="text-3xl font-bold text-yellow-900">{dashboardStats?.completedClasses || 0}</p>
+                  <p className="text-sm font-medium text-yellow-600 mb-1">Classes attended</p>
+                  <p className="text-3xl font-bold text-yellow-900">
+                    {attendanceLoadFailed ? "—" : dashboardStats?.completedClasses ?? 0}
+                  </p>
                 </div>
                 <div className="p-3 bg-yellow-200/50 rounded-xl">
                   <Award className="w-6 h-6 text-yellow-600" />
@@ -444,22 +451,33 @@ export default function StudentDashboard() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">Attendance Rate</span>
-                      <span className="text-gray-600">{dashboardStats?.attendanceRate || 0}%</span>
+                      <span className="text-gray-600">
+                        {attendanceLoadFailed ? "—" : `${dashboardStats?.attendanceRate ?? 0}%`}
+                      </span>
                     </div>
-                    <Progress value={dashboardStats?.attendanceRate || 0} className="h-3" />
+                    <Progress
+                      value={attendanceLoadFailed ? 0 : dashboardStats?.attendanceRate || 0}
+                      className="h-3"
+                    />
                   </div>
 
                   <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-green-600">{dashboardStats?.completedClasses || 0}</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {attendanceLoadFailed ? "—" : dashboardStats?.completedClasses ?? 0}
+                      </p>
                       <p className="text-sm text-gray-600">Attended</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-red-600">{dashboardStats?.absentClasses || 0}</p>
+                      <p className="text-2xl font-bold text-red-600">
+                        {attendanceLoadFailed ? "—" : dashboardStats?.absentClasses ?? 0}
+                      </p>
                       <p className="text-sm text-gray-600">Absent</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-yellow-600">{dashboardStats?.lateClasses || 0}</p>
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {attendanceLoadFailed ? "—" : dashboardStats?.lateClasses ?? 0}
+                      </p>
                       <p className="text-sm text-gray-600">Late</p>
                     </div>
                   </div>

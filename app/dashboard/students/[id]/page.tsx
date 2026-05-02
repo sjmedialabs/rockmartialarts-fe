@@ -29,6 +29,7 @@ import {
 import DashboardHeader from "@/components/dashboard-header"
 import { TokenManager } from "@/lib/tokenManager"
 import { formatPaymentSourceLabel } from "@/lib/formatPaymentSourceLabel"
+import { getBackendApiUrl } from "@/lib/config"
 
 interface StudentDetails {
   id: string
@@ -314,29 +315,48 @@ export default function StudentDetailPage() {
 
   const fetchAttendanceRecords = async (token: string) => {
     try {
-      // Mock attendance data - in real app, this would be an API call
-      const mockAttendance: AttendanceRecord[] = [
-        {
-          date: '2024-01-20',
-          course_name: 'Karate Basics',
-          status: 'present',
-          duration_minutes: 60
+      const url = getBackendApiUrl(`attendance/reports?student_id=${encodeURIComponent(studentId)}`)
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        {
-          date: '2024-01-22',
-          course_name: 'Karate Basics',
-          status: 'present',
-          duration_minutes: 60
-        },
-        {
-          date: '2024-01-24',
-          course_name: 'Karate Basics',
-          status: 'absent'
+      })
+      if (!res.ok) {
+        setAttendanceRecords([])
+        return
+      }
+      const data = await res.json()
+      const records = data.attendance_records || []
+      const mapped: AttendanceRecord[] = records.map((r: Record<string, unknown>) => {
+        const dateRaw = (r.attendance_date ?? r.created_at ?? "") as string
+        const dateStr = typeof dateRaw === "string" ? dateRaw.split("T")[0] : ""
+        let status: "present" | "absent" | "late" = "absent"
+        if (r.is_present === true) status = "present"
+        else if (r.status === "late") status = "late"
+        let duration_minutes: number | undefined
+        if (r.check_in_time && r.check_out_time) {
+          try {
+            const inT = new Date(String(r.check_in_time)).getTime()
+            const outT = new Date(String(r.check_out_time)).getTime()
+            if (!Number.isNaN(inT) && !Number.isNaN(outT) && outT > inT) {
+              duration_minutes = Math.round((outT - inT) / 60000)
+            }
+          } catch {
+            /* ignore */
+          }
         }
-      ]
-      setAttendanceRecords(mockAttendance)
+        return {
+          date: dateStr || "-",
+          course_name: (r.course_name as string) || "Course",
+          status,
+          duration_minutes,
+        }
+      })
+      setAttendanceRecords(mapped)
     } catch (err) {
-      console.error('Error fetching attendance records:', err)
+      console.error("Error fetching attendance records:", err)
+      setAttendanceRecords([])
     }
   }
 

@@ -31,6 +31,7 @@ import {
   isEnrollmentActivePaid,
   calendarDaysUntilSubscriptionEnd,
 } from "@/lib/student-enrollment-status"
+import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
 import {
   Dialog,
   DialogContent,
@@ -53,55 +54,8 @@ function asTs(value?: string | null): number {
   return Number.isFinite(ts) ? ts : 0
 }
 
-function pickLatestByEndDate(items: StudentEnrollment[]): StudentEnrollment {
-  return [...items].sort((a, b) => asTs(b.end_date) - asTs(a.end_date))[0] || items[0]
-}
-
 function dedupeSubscriptionEnrollments(input: StudentEnrollment[]): StudentEnrollment[] {
-  // Keep behavior aligned with My Courses page so expiry/status stay consistent everywhere.
-  const grouped = new Map<string, StudentEnrollment[]>()
-  for (const e of input) {
-    const key = `${e.course_id}::${e.branch_id || ""}`
-    const bucket = grouped.get(key)
-    if (bucket) bucket.push(e)
-    else grouped.set(key, [e])
-  }
-
-  const merged: StudentEnrollment[] = []
-  for (const [, group] of grouped) {
-    if (group.length === 1) {
-      merged.push(group[0])
-      continue
-    }
-
-    const anyActivePaid = group.some((g) =>
-      isEnrollmentActivePaid({
-        isActive: g.is_active,
-        paymentStatus: g.payment_status,
-        endDate: g.end_date,
-      })
-    )
-    const anyPaid = group.some((g) => String(g.payment_status || "").toLowerCase() === "paid")
-    const anyPending = group.some((g) => String(g.payment_status || "").toLowerCase() === "pending")
-    const latestByEnd = pickLatestByEndDate(group)
-    const latestByStart = [...group].sort(
-      (a, b) => asTs(b.start_date || b.enrollment_date) - asTs(a.start_date || a.enrollment_date)
-    )[0]
-
-    merged.push({
-      ...latestByEnd,
-      id: latestByStart.id || latestByEnd.id,
-      start_date: latestByStart.start_date || latestByEnd.start_date,
-      enrollment_date: latestByStart.enrollment_date || latestByEnd.enrollment_date,
-      end_date: latestByEnd.end_date,
-      is_active: anyActivePaid || latestByEnd.is_active,
-      payment_status: anyPaid ? "paid" : anyPending ? "pending" : latestByEnd.payment_status,
-    })
-  }
-
-  return merged.sort(
-    (a, b) => asTs(b.start_date || b.enrollment_date || b.end_date) - asTs(a.start_date || a.enrollment_date || a.end_date)
-  )
+  return mergeEnrollmentsByCourseBranch(input) as StudentEnrollment[]
 }
 
 function pickPricingTotal(data: unknown): number | null {
@@ -443,6 +397,8 @@ export default function StudentPaymentsPage() {
         throw new Error(msg)
       }
       const order = orderJson.order as { id?: string; amount?: number; currency?: string }
+      const razorpayKey =
+        typeof orderJson.key === "string" && orderJson.key.trim() ? orderJson.key.trim() : undefined
       if (!order?.id || typeof order.amount !== "number" || order.amount < 100) {
         console.error("[payments] create-order invalid payload", orderJson)
         throw new Error("Payment failed, please try again")
@@ -461,6 +417,7 @@ export default function StudentPaymentsPage() {
       }
 
       await openRazorpayCheckout({
+        razorpayKeyId: razorpayKey,
         amountPaise: order.amount,
         orderId: order.id,
         currency: order.currency || "INR",

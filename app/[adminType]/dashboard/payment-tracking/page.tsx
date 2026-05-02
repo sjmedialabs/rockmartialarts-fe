@@ -1,15 +1,33 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import paymentAPI from "@/lib/paymentAPI"
 import { getBackendApiUrl } from "@/lib/config"
+import { TokenManager } from "@/lib/tokenManager"
 
 interface Payment {
   id: string
@@ -47,6 +65,8 @@ type BranchRevenueRow = {
   transactions: number
 }
 
+type RecoveryAction = "restore_checkout" | "mark_received" | "waive"
+
 export default function PaymentTrackingPage() {
   const params = useParams<{ adminType: string }>()
   const { toast } = useToast()
@@ -63,6 +83,11 @@ export default function PaymentTrackingPage() {
   const [branchFilter, setBranchFilter] = useState<string>("all")
   const [exporting, setExporting] = useState(false)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [recoveringId, setRecoveringId] = useState<string | null>(null)
+  const [recoverOpen, setRecoverOpen] = useState(false)
+  const [recoverTarget, setRecoverTarget] = useState<Payment | null>(null)
+  const [recoverAction, setRecoverAction] = useState<RecoveryAction | null>(null)
+  const [recoverNote, setRecoverNote] = useState("")
   const [syncing, setSyncing] = useState(false)
   const [page, setPage] = useState(1)
   const [totalPayments, setTotalPayments] = useState(0)
@@ -72,7 +97,6 @@ export default function PaymentTrackingPage() {
   const [periodRevenue, setPeriodRevenue] = useState<number | null>(null)
   const [branchRevenue, setBranchRevenue] = useState<BranchRevenueRow[]>([])
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
-  const [viewBy, setViewBy] = useState<"weekly" | "monthly" | "yearly" | "custom">("monthly")
   const [studentSearch, setStudentSearch] = useState<string>("")
 
   const isSuperAdmin = String(params?.adminType || "").toLowerCase() === "super-admin"
@@ -82,7 +106,7 @@ export default function PaymentTrackingPage() {
       if (isSuperAdmin) {
         try {
           setSyncing(true)
-          const token = localStorage.getItem("token") || undefined
+          const token = TokenManager.getToken() || undefined
           await paymentAPI.syncRazorpayPayments(token)
         } catch (e) {
           // Non-blocking: still show whatever is in DB.
@@ -104,6 +128,7 @@ export default function PaymentTrackingPage() {
   useEffect(() => {
     // Reset to first page when branch filter changes (keeps UX predictable).
     setPage(1)
+    void fetchPayments()
     void fetchAnalytics()
     void fetchStats()
   }, [branchFilter])
@@ -126,11 +151,14 @@ export default function PaymentTrackingPage() {
     const loadBranches = async () => {
       try {
         setBranchesLoading(true)
-        const token = localStorage.getItem("token")
-        const res = await fetch(getBackendApiUrl("branches?skip=0&limit=100"), {
+        const token = TokenManager.getToken()
+        const res = await fetch(getBackendApiUrl(`branches?skip=0&limit=200&_ts=${Date.now()}`), {
+          cache: "no-store",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
           },
         })
         if (!res.ok) return
@@ -153,7 +181,7 @@ export default function PaymentTrackingPage() {
   const fetchPayments = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("token") || undefined
+      const token = TokenManager.getToken() || undefined
       const data = await paymentAPI.getPayments(
         {
           skip: (page - 1) * pageSize,
@@ -161,6 +189,7 @@ export default function PaymentTrackingPage() {
           ...(periodStart ? { start_date: periodStart } : {}),
           ...(periodEnd ? { end_date: periodEnd } : {}),
           ...(studentSearch.trim() ? { search: studentSearch.trim() } : {}),
+          ...(branchFilter !== "all" ? { branch_id: branchFilter } : {}),
         },
         token
       )
@@ -175,10 +204,11 @@ export default function PaymentTrackingPage() {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("token")
+      const token = TokenManager.getToken()
       const qs = new URLSearchParams()
       if (periodStart) qs.set("start_date", periodStart)
       if (periodEnd) qs.set("end_date", periodEnd)
+      if (branchFilter !== "all") qs.set("branch_id", branchFilter)
       qs.set("_ts", String(Date.now()))
       const response = await fetch(getBackendApiUrl(`payments/stats?${qs.toString()}`), {
         cache: "no-store",
@@ -202,12 +232,17 @@ export default function PaymentTrackingPage() {
   const fetchAnalytics = async () => {
     try {
       setAnalyticsLoading(true)
-      const token = localStorage.getItem("token") || ""
+      const token = TokenManager.getToken() || ""
 
       // Period revenue: reuse payments/stats which already accepts start_date/end_date
       if (periodStart && periodEnd) {
+        const q = new URLSearchParams()
+        q.set("start_date", periodStart)
+        q.set("end_date", periodEnd)
+        if (branchFilter !== "all") q.set("branch_id", branchFilter)
+        q.set("_ts", String(Date.now()))
         const statsRes = await fetch(
-          getBackendApiUrl(`payments/stats?start_date=${encodeURIComponent(periodStart)}&end_date=${encodeURIComponent(periodEnd)}&_ts=${Date.now()}`),
+          getBackendApiUrl(`payments/stats?${q.toString()}`),
           {
             cache: "no-store",
             headers: {
@@ -234,7 +269,9 @@ export default function PaymentTrackingPage() {
       const q = new URLSearchParams()
       if (periodStart) q.set("start_date", periodStart)
       if (periodEnd) q.set("end_date", periodEnd)
-      const revRes = await fetch(getBackendApiUrl(`payments/revenue/by-branch?${q.toString()}&_ts=${Date.now()}`), {
+      if (branchFilter !== "all") q.set("branch_id", branchFilter)
+      q.set("_ts", String(Date.now()))
+      const revRes = await fetch(getBackendApiUrl(`payments/revenue/by-branch?${q.toString()}`), {
         cache: "no-store",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -265,53 +302,12 @@ export default function PaymentTrackingPage() {
     return `₹${Math.round(v).toLocaleString("en-IN")}`
   }
 
-  const filteredPayments = useMemo(() => {
-    return payments.filter((payment) => {
-      const matchesBranch =
-        branchFilter === "all" ||
-        (payment.branch_id && payment.branch_id === branchFilter) ||
-        (!payment.branch_id && branchFilter === "unassigned")
-
-      return matchesBranch
-    })
-  }, [payments, branchFilter])
-
-  const applyViewBy = (next: "weekly" | "monthly" | "yearly" | "custom") => {
-    setViewBy(next)
-    const now = new Date()
-    const toYMD = (d: Date) => d.toISOString().slice(0, 10)
-    if (next === "custom") return
-    if (next === "weekly") {
-      const day = now.getDay() // 0..6 (Sun..Sat)
-      const diffToMon = (day + 6) % 7
-      const start = new Date(now)
-      start.setDate(now.getDate() - diffToMon)
-      const end = new Date(start)
-      end.setDate(start.getDate() + 6)
-      setPeriodStart(toYMD(start))
-      setPeriodEnd(toYMD(end))
-      return
-    }
-    if (next === "monthly") {
-      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-      const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
-      setPeriodStart(toYMD(start))
-      setPeriodEnd(toYMD(end))
-      return
-    }
-    // yearly
-    const start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1))
-    const end = new Date(Date.UTC(now.getUTCFullYear(), 11, 31))
-    setPeriodStart(toYMD(start))
-    setPeriodEnd(toYMD(end))
-  }
-
   // Server-side pagination (20 per page). UI branch filter is applied on the current page only.
   const totalPages = Math.max(1, Math.ceil((totalPayments || 0) / pageSize))
   const safePage = Math.min(Math.max(1, page), totalPages)
   const startIdx = (safePage - 1) * pageSize
-  const endIdx = startIdx + filteredPayments.length
-  const pagedPayments = filteredPayments
+  const endIdx = startIdx + payments.length
+  const pagedPayments = payments
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A"
@@ -394,6 +390,59 @@ export default function PaymentTrackingPage() {
       })
     } finally {
       setCancellingId(null)
+    }
+  }
+
+  const recoveryCopy: Record<RecoveryAction, { title: string; description: string }> = {
+    restore_checkout: {
+      title: "Restore pending checkout?",
+      description:
+        "The enrollment returns to pending so the student can pay online again. Previous Razorpay order data on this row is cleared.",
+    },
+    mark_received: {
+      title: "Mark payment as received?",
+      description:
+        "Use when fees were collected outside the gateway (cash, bank transfer, etc.). The enrollment becomes active and paid.",
+    },
+    waive: {
+      title: "Waive / comp this course?",
+      description:
+        "Grant access without collecting payment. The enrollment becomes active and paid as complimentary.",
+    },
+  }
+
+  const openRecoverDialog = (payment: Payment, action: RecoveryAction) => {
+    setRecoverTarget(payment)
+    setRecoverAction(action)
+    setRecoverNote("")
+    setRecoverOpen(true)
+  }
+
+  const handleConfirmRecover = async () => {
+    if (!recoverTarget?.id || !recoverAction) return
+    try {
+      setRecoveringId(recoverTarget.id)
+      const res = await paymentAPI.recoverCancelledPayment(recoverTarget.id, {
+        action: recoverAction,
+        ...(recoverNote.trim() ? { note: recoverNote.trim() } : {}),
+      })
+      toast({
+        title: "Updated",
+        description: res.message,
+      })
+      setRecoverOpen(false)
+      setRecoverTarget(null)
+      setRecoverAction(null)
+      await fetchPayments()
+      await fetchStats()
+    } catch (error) {
+      toast({
+        title: "Recovery failed",
+        description: error instanceof Error ? error.message : "Could not update this enrollment",
+        variant: "destructive",
+      })
+    } finally {
+      setRecoveringId(null)
     }
   }
 
@@ -487,27 +536,11 @@ export default function PaymentTrackingPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-700">View by:</span>
-            <Select value={viewBy} onValueChange={(v) => applyViewBy(v as any)}>
-              <SelectTrigger className="w-32 bg-gray-100 border-0 text-gray-600">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-                <SelectItem value="custom">Custom</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-gray-700">Filter by:</span>
             <Input
               type="date"
               value={periodStart}
               onChange={(e) => {
-                setViewBy("custom")
                 setPeriodStart(e.target.value)
               }}
               className="w-[150px] bg-gray-100 border-0 text-gray-600"
@@ -516,7 +549,6 @@ export default function PaymentTrackingPage() {
               type="date"
               value={periodEnd}
               onChange={(e) => {
-                setViewBy("custom")
                 setPeriodEnd(e.target.value)
               }}
               className="w-[150px] bg-gray-100 border-0 text-gray-600"
@@ -666,18 +698,48 @@ export default function PaymentTrackingPage() {
                     </td>
                     {isSuperAdmin && (
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleCancelPayment(payment)}
-                          disabled={
-                            cancellingId === payment.id ||
-                            ["paid", "completed", "cancelled", "canceled"].includes(paymentStatus)
-                          }
-                          className="text-red-700 border-red-200 hover:bg-red-50 hover:text-red-800"
-                        >
-                          {cancellingId === payment.id ? "Cancelling..." : "Cancel"}
-                        </Button>
+                        {paymentStatus === "cancelled" || paymentStatus === "canceled" ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={recoveringId === payment.id}
+                                className="text-emerald-800 border-emerald-200 hover:bg-emerald-50"
+                              >
+                                {recoveringId === payment.id ? "Working…" : "Recover"}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuItem
+                                onClick={() => openRecoverDialog(payment, "restore_checkout")}
+                              >
+                                Restore checkout (student pays online)
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => openRecoverDialog(payment, "mark_received")}
+                              >
+                                Mark payment received (offline)
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openRecoverDialog(payment, "waive")}>
+                                Waive / complimentary access
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handleCancelPayment(payment)}
+                            disabled={
+                              cancellingId === payment.id ||
+                              ["paid", "completed", "cancelled", "canceled"].includes(paymentStatus)
+                            }
+                            className="text-red-700 border-red-200 hover:bg-red-50 hover:text-red-800"
+                          >
+                            {cancellingId === payment.id ? "Cancelling..." : "Cancel"}
+                          </Button>
+                        )}
                       </td>
                     )}
                   </tr>
@@ -720,6 +782,51 @@ export default function PaymentTrackingPage() {
             </div>
           </div>
         )}
+
+        <AlertDialog
+          open={recoverOpen}
+          onOpenChange={(open) => {
+            setRecoverOpen(open)
+            if (!open) {
+              setRecoverTarget(null)
+              setRecoverAction(null)
+              setRecoverNote("")
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {recoverAction ? recoveryCopy[recoverAction].title : "Recover enrollment"}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-gray-600">
+                {recoverAction ? recoveryCopy[recoverAction].description : ""}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="px-6 pb-2 space-y-2">
+              <label className="text-xs text-gray-500 block">Optional note (stored on payment record)</label>
+              <Textarea
+                value={recoverNote}
+                onChange={(e) => setRecoverNote(e.target.value)}
+                placeholder="e.g. Cash collected at front desk"
+                className="min-h-[72px] text-gray-900"
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Back</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault()
+                  void handleConfirmRecover()
+                }}
+                disabled={recoveringId !== null}
+                className="bg-emerald-700 hover:bg-emerald-800"
+              >
+                {recoveringId ? "Please wait…" : "Confirm"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   )

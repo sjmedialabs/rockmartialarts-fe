@@ -52,6 +52,7 @@ export interface PaymentFilters {
   search?: string
   start_date?: string
   end_date?: string
+  branch_id?: string
 }
 
 class PaymentAPI extends BaseAPI {
@@ -179,6 +180,22 @@ class PaymentAPI extends BaseAPI {
     return await this.makeRequest(`/api/payments/${paymentId}/cancel`, {
       method: 'PUT',
       token: authToken,
+    })
+  }
+
+  /**
+   * Recover an admin-cancelled payment row (super admin only).
+   */
+  async recoverCancelledPayment(
+    paymentId: string,
+    payload: { action: 'restore_checkout' | 'mark_received' | 'waive'; note?: string },
+    token?: string
+  ): Promise<{ message: string }> {
+    const authToken = token || TokenManager.getToken()
+    return await this.makeRequest(`/api/payments/${paymentId}/recover`, {
+      method: 'POST',
+      token: authToken,
+      body: JSON.stringify(payload),
     })
   }
 

@@ -201,7 +201,7 @@ export default function CreateBranchPage() {
       account_number: "",
       upi_id: ""
     },
-    admission_fee: 500
+    admission_fee: 0
   })
 
   // Auto-generate branch code

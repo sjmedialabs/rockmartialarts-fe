@@ -542,10 +542,20 @@ export default function StudentDetailPage() {
               </div>
             </div>
             
-            <Button onClick={handleEdit} className="bg-yellow-400 hover:bg-yellow-500 text-white">
-              <Edit className="w-4 h-4 mr-2" />
-              Edit Student
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/dashboard/students/${studentId}/performance`)}
+                className="border-amber-300 text-amber-900 hover:bg-amber-50"
+              >
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Performance
+              </Button>
+              <Button onClick={handleEdit} className="bg-yellow-400 hover:bg-yellow-500 text-white">
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Student
+              </Button>
+            </div>
           </div>
         </div>
 

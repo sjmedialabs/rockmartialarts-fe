@@ -80,7 +80,7 @@ function LoginFormContent() {
       }
 
       const requestBody: any = { 
-        email, 
+        email: email.trim(), 
         password,
         role: "student" // Specify role for student login
       };
@@ -231,7 +231,7 @@ function LoginFormContent() {
                   placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => {
-                    setEmail(e.target.value)
+                    setEmail(e.target.value.toLowerCase())
                     if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }))
                   }}
                   className={`pl-14 py-4 text-[14px] bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-[#000] ${fieldErrors.email ? '!border !border-red-500' : ''}`}

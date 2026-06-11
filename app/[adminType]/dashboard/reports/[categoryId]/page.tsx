@@ -711,62 +711,6 @@ function CategoryReportsPageContent() {
     }
   }
 
-  const generateMockStudentData = (filters: any) => {
-    const mockStudents = [
-      {
-        id: '1',
-        name: 'John Smith',
-        email: 'john.smith@email.com',
-        course: 'Karate Beginner',
-        branch: 'Downtown Branch',
-        status: 'active',
-        enrollment_date: '2024-01-15'
-      },
-      {
-        id: '2',
-        name: 'Sarah Johnson',
-        email: 'sarah.johnson@email.com',
-        course: 'Taekwondo Intermediate',
-        branch: 'North Branch',
-        status: 'active',
-        enrollment_date: '2024-02-20'
-      },
-      {
-        id: '3',
-        name: 'Mike Chen',
-        email: 'mike.chen@email.com',
-        course: 'Jiu-Jitsu Advanced',
-        branch: 'South Branch',
-        status: 'graduated',
-        enrollment_date: '2023-09-10'
-      },
-      {
-        id: '4',
-        name: 'Emily Davis',
-        email: 'emily.davis@email.com',
-        course: 'Kickboxing',
-        branch: 'Downtown Branch',
-        status: 'inactive',
-        enrollment_date: '2024-03-05'
-      },
-      {
-        id: '5',
-        name: 'Alex Rodriguez',
-        email: 'alex.rodriguez@email.com',
-        course: 'MMA Training',
-        branch: 'West Branch',
-        status: 'active',
-        enrollment_date: '2024-01-30'
-      }
-    ]
-
-    // Apply basic filtering for demonstration
-    return mockStudents.filter(student => {
-      if (filters.status && student.status !== filters.status) return false
-      if (filters.branch_id && !student.branch.toLowerCase().includes('branch')) return false
-      return true
-    })
-  }
 
   // Financial Reports Handler
   const handleFinancialSearch = async () => {
@@ -819,72 +763,6 @@ function CategoryReportsPageContent() {
     }
   }
 
-  const generateMockFinancialData = (filters: any) => {
-    const mockFinancialRecords = [
-      {
-        id: '1',
-        transaction_id: 'TXN001',
-        amount: 5000,
-        branch: 'Downtown Branch',
-        status: 'paid',
-        date: '2024-01-15',
-        student_name: 'John Smith',
-        course: 'Karate Beginner'
-      },
-      {
-        id: '2',
-        transaction_id: 'TXN002',
-        amount: 7500,
-        branch: 'Uptown Branch',
-        status: 'pending',
-        date: '2024-01-16',
-        student_name: 'Sarah Johnson',
-        course: 'Taekwondo Advanced'
-      },
-      {
-        id: '3',
-        transaction_id: 'TXN003',
-        amount: 3000,
-        branch: 'Downtown Branch',
-        status: 'overdue',
-        date: '2024-01-10',
-        student_name: 'Mike Wilson',
-        course: 'Boxing Basics'
-      },
-      {
-        id: '4',
-        transaction_id: 'TXN004',
-        amount: 12000,
-        branch: 'Central Branch',
-        status: 'paid',
-        date: '2024-01-18',
-        student_name: 'Emily Davis',
-        course: 'MMA Training'
-      },
-      {
-        id: '5',
-        transaction_id: 'TXN005',
-        amount: 4500,
-        branch: 'Uptown Branch',
-        status: 'cancelled',
-        date: '2024-01-12',
-        student_name: 'David Brown',
-        course: 'Judo Intermediate'
-      }
-    ]
-
-    // Apply filtering
-    return mockFinancialRecords.filter(record => {
-      if (filters.status && record.status !== filters.status) return false
-      if (filters.branch_id && !record.branch.toLowerCase().includes('branch')) return false
-      if (filters.amount_range) {
-        const [min, max] = filters.amount_range.split('-').map(v => parseInt(v.replace(/[^\d]/g, '')))
-        if (max && (record.amount < min || record.amount > max)) return false
-        if (!max && filters.amount_range.includes('+') && record.amount < min) return false
-      }
-      return true
-    })
-  }
 
   // Branch Reports Handler
   const handleBranchSearch = async () => {
@@ -932,67 +810,6 @@ function CategoryReportsPageContent() {
     }
   }
 
-  const generateMockBranchData = (filters: any) => {
-    const mockBranchData = [
-      {
-        id: '1',
-        name: 'Downtown Branch',
-        student_count: 125,
-        revenue: 450000,
-        status: 'active',
-        performance_score: 92,
-        location: 'Downtown Area',
-        manager: 'John Manager'
-      },
-      {
-        id: '2',
-        name: 'Uptown Branch',
-        student_count: 98,
-        revenue: 380000,
-        status: 'active',
-        performance_score: 88,
-        location: 'Uptown District',
-        manager: 'Sarah Manager'
-      },
-      {
-        id: '3',
-        name: 'Central Branch',
-        student_count: 156,
-        revenue: 520000,
-        status: 'active',
-        performance_score: 95,
-        location: 'Central City',
-        manager: 'Mike Manager'
-      },
-      {
-        id: '4',
-        name: 'Eastside Branch',
-        student_count: 67,
-        revenue: 280000,
-        status: 'under-review',
-        performance_score: 75,
-        location: 'East District',
-        manager: 'Emily Manager'
-      },
-      {
-        id: '5',
-        name: 'Westside Branch',
-        student_count: 89,
-        revenue: 340000,
-        status: 'expanding',
-        performance_score: 85,
-        location: 'West Area',
-        manager: 'David Manager'
-      }
-    ]
-
-    // Apply filtering
-    return mockBranchData.filter(branch => {
-      if (filters.status && branch.status !== filters.status) return false
-      if (filters.branch_id && branch.id !== filters.branch_id) return false
-      return true
-    })
-  }
 
   // Coach Reports Handler
   const handleCoachSearch = async () => {
@@ -1006,92 +823,25 @@ function CategoryReportsPageContent() {
     setHasSearched(true)
 
     try {
-      // Generate mock coach data for demonstration
-      const mockCoachData = generateMockCoachData(filters)
-      setCoachResults(mockCoachData)
-      toast.success(`Found ${mockCoachData.length} coach${mockCoachData.length !== 1 ? 'es' : ''}`)
+      const apiFilters: Record<string, string> = {}
+      if (filters.branch_id && filters.branch_id !== 'all') apiFilters.branch_id = filters.branch_id
+      if (filters.status && filters.status !== 'all') apiFilters.status = filters.status
+      if (filters.experience) apiFilters.experience = filters.experience
+      if (filters.rating) apiFilters.rating = filters.rating
+
+      const response = await reportsAPI.getCoachReports(token, apiFilters)
+      const coaches = response.coaches || []
+      setCoachResults(coaches)
+      toast.success(`Found ${coaches.length} coach${coaches.length !== 1 ? 'es' : ''}`)
     } catch (error) {
       console.error('Error searching coach reports:', error)
-      const mockData = generateMockCoachData(filters)
-      setCoachResults(mockData)
-      toast.warning(`API unavailable. Showing ${mockData.length} sample coach${mockData.length !== 1 ? 'es' : ''}`)
+      toast.error('Failed to load coach reports. Please try again.')
+      setCoachResults([])
     } finally {
       setSearchLoading(false)
     }
   }
 
-  const generateMockCoachData = (filters: any) => {
-    const mockCoachData = [
-      {
-        id: '1',
-        name: 'Sensei John Martinez',
-        branch: 'Downtown Branch',
-        experience: '10+ years',
-        status: 'active',
-        rating: 95,
-        specialization: 'Karate',
-        students: 45
-      },
-      {
-        id: '2',
-        name: 'Coach Chen Wei',
-        branch: 'Uptown Branch',
-        experience: '5-10 years',
-        status: 'active',
-        rating: 92,
-        specialization: 'Kung Fu',
-        students: 38
-      },
-      {
-        id: '3',
-        name: 'Coach Sarah Williams',
-        branch: 'Central Branch',
-        experience: '3-5 years',
-        status: 'active',
-        rating: 88,
-        specialization: 'Taekwondo',
-        students: 52
-      },
-      {
-        id: '4',
-        name: 'Sifu David Thompson',
-        branch: 'Eastside Branch',
-        experience: '1-3 years',
-        status: 'on-leave',
-        rating: 85,
-        specialization: 'Boxing',
-        students: 28
-      },
-      {
-        id: '5',
-        name: 'Instructor Emily Davis',
-        branch: 'Westside Branch',
-        experience: '5-10 years',
-        status: 'active',
-        rating: 90,
-        specialization: 'MMA',
-        students: 41
-      }
-    ]
-
-    // Apply filtering
-    return mockCoachData.filter(coach => {
-      if (filters.status && coach.status !== filters.status) return false
-      if (filters.branch_id && !coach.branch.toLowerCase().includes('branch')) return false
-      if (filters.experience && coach.experience !== filters.experience) return false
-      if (filters.rating) {
-        const ratingRange = {
-          'excellent': [90, 100],
-          'good': [80, 89],
-          'average': [70, 79],
-          'below-average': [60, 69],
-          'poor': [0, 59]
-        }[filters.rating]
-        if (ratingRange && (coach.rating < ratingRange[0] || coach.rating > ratingRange[1])) return false
-      }
-      return true
-    })
-  }
 
   // Course Reports Handler
   const handleCourseSearch = async () => {
@@ -1105,88 +855,25 @@ function CategoryReportsPageContent() {
     setHasSearched(true)
 
     try {
-      // Generate mock course data for demonstration
-      const mockCourseData = generateMockCourseData(filters)
-      setCourseResults(mockCourseData)
-      toast.success(`Found ${mockCourseData.length} course${mockCourseData.length !== 1 ? 's' : ''}`)
+      const apiFilters: Record<string, string> = {}
+      if (filters.course_id) apiFilters.course_id = filters.course_id
+      if (filters.category_id && filters.category_id !== 'all') apiFilters.category_id = filters.category_id
+      if (filters.branch_id && filters.branch_id !== 'all') apiFilters.branch_id = filters.branch_id
+      if (filters.enrollment_status && filters.enrollment_status !== 'all') apiFilters.enrollment_status = filters.enrollment_status
+
+      const response = await reportsAPI.getCourseReports(token, apiFilters)
+      const courses = response.courses || []
+      setCourseResults(courses)
+      toast.success(`Found ${courses.length} course${courses.length !== 1 ? 's' : ''}`)
     } catch (error) {
       console.error('Error searching course reports:', error)
-      const mockData = generateMockCourseData(filters)
-      setCourseResults(mockData)
-      toast.warning(`API unavailable. Showing ${mockData.length} sample course${mockData.length !== 1 ? 's' : ''}`)
+      toast.error('Failed to load course reports. Please try again.')
+      setCourseResults([])
     } finally {
       setSearchLoading(false)
     }
   }
 
-  const generateMockCourseData = (filters: any) => {
-    const mockCourseData = [
-      {
-        id: '1',
-        title: 'Karate Beginner',
-        category: 'Martial Arts',
-        enrolled: 25,
-        capacity: 30,
-        status: 'open',
-        instructor: 'Sensei John Martinez',
-        branch: 'Downtown Branch',
-        price: 5000
-      },
-      {
-        id: '2',
-        title: 'Taekwondo Advanced',
-        category: 'Martial Arts',
-        enrolled: 20,
-        capacity: 20,
-        status: 'full',
-        instructor: 'Coach Sarah Williams',
-        branch: 'Central Branch',
-        price: 7500
-      },
-      {
-        id: '3',
-        title: 'Boxing Basics',
-        category: 'Combat Sports',
-        enrolled: 18,
-        capacity: 25,
-        status: 'open',
-        instructor: 'Sifu David Thompson',
-        branch: 'Eastside Branch',
-        price: 4000
-      },
-      {
-        id: '4',
-        title: 'MMA Training',
-        category: 'Mixed Martial Arts',
-        enrolled: 15,
-        capacity: 18,
-        status: 'open',
-        instructor: 'Instructor Emily Davis',
-        branch: 'Westside Branch',
-        price: 8000
-      },
-      {
-        id: '5',
-        title: 'Kung Fu Traditional',
-        category: 'Martial Arts',
-        enrolled: 0,
-        capacity: 22,
-        status: 'upcoming',
-        instructor: 'Coach Chen Wei',
-        branch: 'Uptown Branch',
-        price: 6000
-      }
-    ]
-
-    // Apply filtering
-    return mockCourseData.filter(course => {
-      if (filters.course_id && course.id !== filters.course_id) return false
-      if (filters.category_id && !course.category.toLowerCase().includes('martial')) return false
-      if (filters.branch_id && !course.branch.toLowerCase().includes('branch')) return false
-      if (filters.enrollment_status && course.status !== filters.enrollment_status) return false
-      return true
-    })
-  }
 
   // Filter categories based on search term
   const filteredCategories = REPORT_CATEGORIES.filter(category =>

@@ -18,7 +18,7 @@ export async function GET(
     const response = await fetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
-      next: { revalidate: 60 },
+      cache: "no-store",
     })
     if (!response.ok) {
       const text = await response.text()

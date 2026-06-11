@@ -120,6 +120,7 @@ type BranchPricingInfo = {
   price_display?: string
   timings?: string
   fee_per_duration?: Record<string, number | string> | null
+  pricing_type_per_duration?: Record<string, string> | null
 }
 
 function normalizeFeeMap(raw: Record<string, number | string> | null | undefined): Record<string, number> | null {
@@ -345,13 +346,28 @@ function CourseDetailPageInner() {
       ? branchFeeMap
       : feePerDuration
 
+  /* Merge pricing type maps: branch-specific overrides course-level */
+  const coursePricingType = (course.pricing_type_per_duration || {}) as Record<string, string>
+  const branchPricingType = (branchPricingInfo?.pricing_type_per_duration || {}) as Record<string, string>
+  const mergedPricingType =
+    branchApplies && Object.keys(branchPricingType).length > 0
+      ? branchPricingType
+      : coursePricingType
+
   let priceDisplay = ""
   if (effectiveDurationKey && mergedFeePerDuration && Object.keys(mergedFeePerDuration).length > 0) {
     const direct = mergedFeePerDuration[effectiveDurationKey]
     const dur = durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)
     const byId = dur?.id ? mergedFeePerDuration[dur.id] : undefined
-    const amount = direct ?? byId
+    let amount = direct ?? byId
     if (typeof amount === "number" && !Number.isNaN(amount)) {
+      /* When pricing type is "monthly", multiply by duration months to get the total */
+      const durKey = dur?.id ?? effectiveDurationKey
+      const pType = mergedPricingType[durKey] || mergedPricingType[effectiveDurationKey] || ""
+      const months = dur?.duration_months ?? 1
+      if (pType === "monthly" && months > 1) {
+        amount = amount * months
+      }
       priceDisplay = `₹ ${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
     }
   }
@@ -371,8 +387,14 @@ function CourseDetailPageInner() {
     const direct = feePerDuration[effectiveDurationKey]
     const dur = durations.find((d) => d.id === effectiveDurationKey || d.code === effectiveDurationKey)
     const byId = dur?.id ? feePerDuration[dur.id] : undefined
-    const amount = direct ?? byId
+    let amount = direct ?? byId
     if (typeof amount === "number" && !Number.isNaN(amount)) {
+      const durKey = dur?.id ?? effectiveDurationKey
+      const pType = coursePricingType[durKey] || coursePricingType[effectiveDurationKey] || ""
+      const months = dur?.duration_months ?? 1
+      if (pType === "monthly" && months > 1) {
+        amount = amount * months
+      }
       priceDisplay = `₹ ${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
     }
   }

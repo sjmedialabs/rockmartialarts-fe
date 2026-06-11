@@ -85,6 +85,10 @@ export default function SuperAdminDashboard() {
     }
   }, [timePeriod])
 
+  const branchFilterId = selectedBranch !== "all-branches" ? selectedBranch : undefined
+  const selectedBranchName =
+    branchFilterId ? branches.find((b) => b.id === branchFilterId)?.name : null
+
   // Fetch dashboard statistics — re-runs when timePeriod changes
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -174,9 +178,12 @@ export default function SuperAdminDashboard() {
           return
         }
 
-        // Fetch payment stats and recent payments filtered by the selected date range
+        // Fetch payment stats and recent payments filtered by date range and branch
         const [statsResponse, paymentsResponse] = await Promise.all([
-          paymentAPI.getPaymentStats(token, dateRange),
+          paymentAPI.getPaymentStats(token, {
+            ...dateRange,
+            ...(branchFilterId ? { branch_id: branchFilterId } : {}),
+          }),
           paymentAPI.getPayments(
             {
               limit: 5,
@@ -184,6 +191,7 @@ export default function SuperAdminDashboard() {
               start_date: dateRange.start_date,
               end_date: dateRange.end_date,
               status: 'paid',
+              ...(branchFilterId ? { branch_id: branchFilterId } : {}),
             },
             token
           )
@@ -200,7 +208,7 @@ export default function SuperAdminDashboard() {
     }
 
     fetchPaymentData()
-  }, [dateRange, getAuthToken])
+  }, [dateRange, branchFilterId, getAuthToken])
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -283,9 +291,9 @@ export default function SuperAdminDashboard() {
                 <CardContent className="px-4">
                   <div className="flex justify-between flex-col gap-10">
                     <div className="flex flex-col xl:flex-row justify-between mt-4">
-                      <p className="text-xs font-base text-[var(--brand-muted)]">Total Revenue</p>
+                      <p className="text-xs font-base text-[var(--brand-muted)]">{timePeriodLabel} Collection</p>
                       <Badge variant="secondary" className="bg-gray-100 text-xs">
-                        {timePeriodLabel}
+                        {selectedBranchName ?? "All Branches"}
                       </Badge>
                     </div>
                     <div>
@@ -369,7 +377,7 @@ export default function SuperAdminDashboard() {
                 <CardTitle className="text-[var(--brand-dark)]">Revenue</CardTitle>
                 {role === "super_admin" && (
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">Sort by:</span>
+                    <span className="text-sm text-gray-600">Branch:</span>
                     <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                       <SelectTrigger className="bg-[#F1F1F1] text-[#9593A8]">
                         <SelectValue />
@@ -381,16 +389,6 @@ export default function SuperAdminDashboard() {
                             {branch.name}
                           </SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                    <Select defaultValue="monthly">
-                      <SelectTrigger className="bg-[#F1F1F1] text-[#9593A8]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -419,13 +417,17 @@ export default function SuperAdminDashboard() {
                       <p className="text-2xl font-bold text-green-600">
                         {paymentStats ? paymentAPI.formatCurrency(paymentStats.this_month_collection || 0) : '₹0'}
                       </p>
-                      <p className="text-xs text-[var(--brand-muted)] mt-1">{timePeriodLabel} Collection</p>
+                      <p className="text-xs text-[var(--brand-muted)] mt-1">
+                        {timePeriodLabel} Collection{selectedBranchName ? ` (${selectedBranchName})` : ''}
+                      </p>
                     </div>
                     <div className="bg-blue-50 p-4 rounded-lg text-center">
                       <p className="text-2xl font-bold text-blue-600">
                         {paymentStats ? paymentAPI.formatCurrency(paymentStats.total_collected || 0) : '₹0'}
                       </p>
-                      <p className="text-xs text-[var(--brand-muted)] mt-1">Total Revenue</p>
+                      <p className="text-xs text-[var(--brand-muted)] mt-1">
+                        Total Revenue{selectedBranchName ? ` (${selectedBranchName})` : ''}
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-center text-sm text-[var(--brand-muted)]">

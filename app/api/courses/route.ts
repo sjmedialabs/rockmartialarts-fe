@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { getBackendProxyBaseUrl } from '@/lib/serverBackendUrl'
 
 // Types for the course creation request
 interface StudentRequirements {
@@ -333,62 +334,53 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET method to retrieve courses (optional)
+// GET method to retrieve courses — proxies to the real backend (no mock data)
 export async function GET(request: NextRequest) {
   try {
-    // Get authorization header
     const headersList = headers()
-    const authorization = headersList.get('authorization')
-    
-    if (!authorization) {
-      return NextResponse.json(
-        { error: 'Authorization header is required' },
-        { status: 401 }
-      )
+    const authorization = headersList.get("authorization")
+
+    const base = getBackendProxyBaseUrl().replace(/\/$/, "")
+    const { searchParams } = new URL(request.url)
+    const qs = searchParams.toString()
+    const url = `${base}/api/courses${qs ? `?${qs}` : ""}`
+
+    const proxyHeaders: Record<string, string> = { "Content-Type": "application/json" }
+    if (authorization) {
+      proxyHeaders["Authorization"] = authorization
     }
-    
-    // Verify token
-    const tokenVerification = verifyToken(authorization)
-    if (!tokenVerification.isValid) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      )
-    }
-    
-    // Mock courses data
-    const courses = [
-      {
-        id: 'course-123456',
-        title: 'Advanced Kung Fu Training',
-        code: 'KF-ADV-001',
-        description: 'A comprehensive course covering advanced Kung Fu techniques.',
-        difficulty_level: 'Advanced',
-        pricing: {
-          currency: 'INR',
-          amount: 8500
-        },
-        settings: {
-          active: true,
-          offers_certification: true
-        },
-        created_at: new Date().toISOString()
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: proxyHeaders,
+      cache: "no-store",
+    })
+
+    const text = await res.text()
+    let data: unknown = text
+    if (res.headers.get("content-type")?.includes("application/json") && text) {
+      try { data = JSON.parse(text) } catch {
+        console.error("[api/courses GET] Backend returned invalid JSON from", url)
+        return NextResponse.json(
+          { message: "Invalid response from course service", courses: [], total: 0 },
+          { status: 502 }
+        )
       }
-    ]
-    
-    return NextResponse.json(
-      {
-        message: 'Courses retrieved successfully',
-        courses,
-        total: courses.length
-      },
-      { status: 200 }
-    )
-    
+    }
+
+    if (!res.ok) {
+      console.error("[api/courses GET] Backend error", res.status, url)
+      return NextResponse.json(
+        typeof data === "object" && data !== null ? data : { error: "Failed to fetch courses" },
+        { status: res.status >= 400 && res.status < 600 ? res.status : 502 }
+      )
+    }
+
+    return NextResponse.json(data, { status: 200 })
   } catch (error) {
-    console.error('Error retrieving courses:', error)
+    console.error("Error retrieving courses:", error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     )
   }

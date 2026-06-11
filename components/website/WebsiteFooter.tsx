@@ -10,6 +10,7 @@ const quickLinks = [
   { label: "Courses", href: "/courses" },
   { label: "Branches", href: "/branches" },
   { label: "Store", href: "/store" },
+  { label: "Privacy Policy", href: "/privacy-policy" },
 ]
 
 type CourseItem = { id: string; title: string; name?: string }

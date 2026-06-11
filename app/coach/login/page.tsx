@@ -99,7 +99,7 @@ function CoachLoginFormContent() {
 
       // Prepare request body according to your API specification
       const requestBody: any = { 
-        email, 
+        email: email.trim(), 
         password
       };
       
@@ -256,7 +256,7 @@ function CoachLoginFormContent() {
                   placeholder="coach@example.com"
                   value={email}
                   onChange={(e) => {
-                    setEmail(e.target.value)
+                    setEmail(e.target.value.toLowerCase())
                     if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }))
                   }}
                   className={`pl-14 py-4 text-base bg-[#F0EDFFCC] border-0 rounded-xl h-14 placeholder:text-gray-500 ${fieldErrors.email ? '!border !border-red-500' : ''}`}

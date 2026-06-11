@@ -1,4 +1,5 @@
 import StudentRouteGuard from "@/components/student-route-guard"
+import { StudentDashboardSonner } from "@/components/student-dashboard-sonner"
 
 export default function StudentDashboardLayout({
   children,
@@ -7,6 +8,7 @@ export default function StudentDashboardLayout({
 }) {
   return (
     <StudentRouteGuard>
+      <StudentDashboardSonner />
       {children}
     </StudentRouteGuard>
   )

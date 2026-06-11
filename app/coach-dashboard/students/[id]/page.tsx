@@ -226,14 +226,20 @@ export default function StudentDetailsPage() {
       <main className="mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Back Button */}
-          <Button 
-            onClick={() => router.push("/coach-dashboard/students")}
-            variant="outline"
-            className="mb-6"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Students
-          </Button>
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <Button onClick={() => router.push("/coach-dashboard/students")} variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Students
+            </Button>
+            <Button
+              variant="outline"
+              className="border-amber-300 text-amber-900 hover:bg-amber-50"
+              onClick={() => router.push(`/coach-dashboard/students/${studentId}/performance`)}
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Performance dashboard
+            </Button>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Student Profile Overview */}

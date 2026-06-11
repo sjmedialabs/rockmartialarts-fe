@@ -610,12 +610,7 @@ export default function SelectCoursePage() {
                   ) : (
                     courses.map((course) => (
                       <SelectItem key={course.id} value={course.id}>
-                        <div className="flex flex-col py-0.5">
-                          <span className="font-medium">{course.title}</span>
-                          {course.difficulty_level ? (
-                            <span className="text-xs text-gray-500">{course.difficulty_level}</span>
-                          ) : null}
-                        </div>
+                        <span className="font-medium">{course.title}</span>
                       </SelectItem>
                     ))
                   )}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { BookOpen, IndianRupee, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
+import { formatCoursePriceLabel } from "@/lib/registrationPricing"
 import { BranchData, getBranchName } from "./types"
 import { CourseInfoModal, type CourseInfoModalCourse } from "@/components/common/CourseInfoModal"
 
@@ -29,43 +30,17 @@ export interface BranchCourseItem {
   branchId?: string
   branch?: { id?: string }
   branch_assignments?: { branch_id?: string }[]
+  available_durations?: Array<{
+    id?: string
+    code?: string
+    name?: string
+    duration_months?: number
+  }>
 }
 
 function formatPrice(course: BranchCourseItem): string {
-  const pricing = course.pricing
-  if (!pricing) return "Contact for fees"
-  const { currency = "INR", amount, fee_1_month, fee_3_months, fee_6_months, fee_1_year, fee_per_duration } = pricing
-  const sym = currency === "INR" ? "₹" : currency
-  const parts: string[] = []
-  if (fee_1_month != null) parts.push(`${sym}${fee_1_month}/mo`)
-  if (fee_3_months != null) parts.push(`${sym}${fee_3_months} (3 mo)`)
-  if (fee_6_months != null) parts.push(`${sym}${fee_6_months} (6 mo)`)
-  if (fee_1_year != null) parts.push(`${sym}${fee_1_year}/yr`)
-  if (fee_per_duration && Object.keys(fee_per_duration).length) {
-    const amounts: number[] = []
-    for (const v of Object.values(fee_per_duration)) {
-      if (typeof v === "number" && !Number.isNaN(v)) amounts.push(v)
-      if (typeof v === "string") {
-        const n = parseFloat(v)
-        if (!Number.isNaN(n)) amounts.push(n)
-      }
-    }
-    if (amounts.length) {
-      const min = Math.min(...amounts)
-      const tenureCount = amounts.length
-      if (tenureCount > 1) {
-        parts.push(`Starting from ${sym}${min.toLocaleString("en-IN")}/month`)
-        parts.push(`Available in ${tenureCount} tenures`)
-      } else {
-        parts.push(`${sym}${min.toLocaleString("en-IN")}`)
-      }
-    }
-  }
-  let out: string
-  if (parts.length) out = parts.join(" · ")
-  else if (amount != null) out = `From ${sym}${amount.toLocaleString("en-IN")}`
-  else out = "Contact for fees"
-  return stripUuidFromPriceDisplay(out)
+  const label = formatCoursePriceLabel(course.pricing)
+  return stripUuidFromPriceDisplay(label)
 }
 
 function getCourseName(course: BranchCourseItem): string {
@@ -80,6 +55,9 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [modalCourse, setModalCourse] = useState<CourseInfoModalCourse | null>(null)
+  const [modalCourseDurations, setModalCourseDurations] = useState<
+    BranchCourseItem["available_durations"]
+  >(undefined)
   const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
@@ -92,6 +70,7 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
     setError(false)
     fetch(`/api/courses/by-branch/${encodeURIComponent(branch.id)}`, {
       headers: { "Content-Type": "application/json" },
+      cache: "no-store",
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to fetch"))))
       .then((data: { courses?: BranchCourseItem[] }) => {
@@ -122,6 +101,7 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
       description: course.description,
       difficulty_level: course.difficulty_level,
     })
+    setModalCourseDurations(course.available_durations)
     setModalOpen(true)
   }
 
@@ -136,13 +116,17 @@ export function BranchCourses({ branch }: { branch: BranchData }) {
         open={modalOpen}
         onOpenChange={(open) => {
           setModalOpen(open)
-          if (!open) setModalCourse(null)
+          if (!open) {
+            setModalCourse(null)
+            setModalCourseDurations(undefined)
+          }
         }}
         course={modalCourse}
         branchId={branch.id}
         branchDisplayName={getBranchName(branch)}
         branchTimings={branch.operational_details?.timings}
         courseSchedule={branch.assignments?.course_schedule}
+        availableDurations={modalCourseDurations}
       />
 
       <div className="container mx-auto px-4 max-w-7xl">

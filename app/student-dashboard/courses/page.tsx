@@ -50,7 +50,116 @@ import { getBackendApiUrl } from "@/lib/config"
 import { isEnrollmentActivePaid, isEnrollmentExpiredByDate } from "@/lib/student-enrollment-status"
 import { mergeEnrollmentsByCourseBranch } from "@/lib/merge-enrollment-groups"
 
-/** Load branch + duration accurate total from payment-info (backend applies batch/branch fees). */
+const fetchOpts = (token: string) => ({
+  headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  cache: "no-store" as RequestCache,
+})
+
+function pickDisplayDurationKey(availableDurations?: CourseDurationRef[]): string {
+  if (!availableDurations?.length) return "1-month"
+  const keyOf = (d: CourseDurationRef) => String(d.code || d.id || "").trim()
+  const oneMonth = availableDurations.find((d) => {
+    const k = keyOf(d).toLowerCase()
+    const n = String(d.name || "").toLowerCase()
+    return (
+      d.duration_months === 1 ||
+      /1\s*(-)?\s*month/.test(k) ||
+      /1\s*(-)?\s*month/.test(n)
+    )
+  })
+  if (oneMonth) return keyOf(oneMonth) || "1-month"
+  const sorted = [...availableDurations].sort(
+    (a, b) => (a.duration_months ?? 99) - (b.duration_months ?? 99)
+  )
+  return keyOf(sorted[0]) || "1-month"
+}
+
+function durationKeysForPricing(
+  primary: string,
+  availableDurations?: CourseDurationRef[]
+): string[] {
+  const keys = [primary, "1-month", "1 month", "1month"]
+  for (const d of availableDurations || []) {
+    const k = String(d.code || d.id || "").trim()
+    if (k) keys.push(k)
+  }
+  return [...new Set(keys.map((k) => k.trim()).filter(Boolean))]
+}
+
+function parsePricingTotal(pricing: Record<string, unknown> | undefined): number | null {
+  if (!pricing) return null
+  const total = pricing.total_amount
+  if (typeof total === "number" && total > 0 && !Number.isNaN(total)) return total
+  const courseFee = pricing.course_fee
+  const admission = pricing.admission_fee
+  if (typeof courseFee === "number" && courseFee > 0) {
+    const adm = typeof admission === "number" ? admission : 0
+    return courseFee + adm
+  }
+  return null
+}
+
+/** Live fee from payment-info / quote (same rules as checkout), not branch list cache. */
+async function fetchLiveCoursePrice(
+  courseId: string,
+  branchId: string,
+  token: string,
+  durationKeys: string[]
+): Promise<number | null> {
+  for (const durKey of durationKeys) {
+    try {
+      const qs = new URLSearchParams({ branch_id: branchId, duration: durKey })
+      const piRes = await fetch(
+        getBackendApiUrl(`courses/${courseId}/payment-info?${qs.toString()}`),
+        fetchOpts(token)
+      )
+      if (piRes.ok) {
+        const pi = await piRes.json().catch(() => ({}))
+        const total = parsePricingTotal(pi?.pricing as Record<string, unknown>)
+        if (total != null) return total
+      }
+      const quoteRes = await fetch(getBackendApiUrl("payments/student-checkout-quote"), {
+        method: "POST",
+        ...fetchOpts(token),
+        body: JSON.stringify({
+          course_id: courseId,
+          branch_id: branchId,
+          duration: durKey,
+        }),
+      })
+      if (quoteRes.ok) {
+        const q = await quoteRes.json().catch(() => ({}))
+        const total = parsePricingTotal(q?.pricing as Record<string, unknown>)
+        if (total != null) return total
+      }
+    } catch {
+      /* try next duration key */
+    }
+  }
+  return null
+}
+
+async function loadCourseDurations(
+  courseId: string,
+  token: string,
+  existing?: CourseDurationRef[]
+): Promise<CourseDurationRef[]> {
+  if (existing?.length) return existing
+  try {
+    const durRes = await fetch(
+      getBackendApiUrl(`durations/public/by-course/${courseId}?active_only=true`),
+      fetchOpts(token)
+    )
+    if (!durRes.ok) return []
+    const durData = await durRes.json().catch(() => ({}))
+    const list = (durData as { durations?: CourseDurationRef[] }).durations
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
+/** Current admin-configured fee for list display (1-month / primary tenure via payment-info). */
 async function enrichAvailableCoursePricing(
   courses: AvailableCourse[],
   branchIds: string[],
@@ -61,41 +170,21 @@ async function enrichAvailableCoursePricing(
       const branchId = c.branch_id || branchIds[0]
       if (!branchId) return c
       try {
-        const durRes = await fetch(
-          getBackendApiUrl(`durations/public/by-course/${c.id}?active_only=true`),
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        const durData = await durRes.json().catch(() => ({}))
-        const durations: unknown[] = Array.isArray((durData as { durations?: unknown }).durations)
-          ? ((durData as { durations: unknown[] }).durations)
-          : []
-        const first = durations[0] as { code?: string; id?: string } | undefined
-        const durKey = first ? String(first.code || first.id) : "1-month"
-        const qs = new URLSearchParams({
-          branch_id: branchId,
-          duration: durKey,
-        })
-        const piRes = await fetch(
-          getBackendApiUrl(`courses/${c.id}/payment-info?${qs.toString()}`),
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        if (piRes.ok) {
-          const pi = await piRes.json().catch(() => ({}))
-          const p = pi?.pricing
-          const total =
-            typeof p?.total_amount === "number"
-              ? p.total_amount
-              : typeof p?.course_fee === "number"
-                ? p.course_fee + (typeof p?.admission_fee === "number" ? p.admission_fee : 0)
-                : null
-          if (typeof total === "number" && total > 0 && !Number.isNaN(total)) {
-            return { ...c, pricing: { amount: total, currency: "INR" } }
+        const durations = await loadCourseDurations(c.id, token, c.available_durations)
+        const displayKey = pickDisplayDurationKey(durations)
+        const keysToTry = durationKeysForPricing(displayKey, durations)
+        const liveAmount = await fetchLiveCoursePrice(c.id, branchId, token, keysToTry)
+        if (liveAmount != null) {
+          return {
+            ...c,
+            available_durations: durations.length ? durations : c.available_durations,
+            pricing: { amount: liveAmount, currency: "INR" },
           }
         }
       } catch {
-        /* keep fallback pricing */
+        /* fall through */
       }
-      return c
+      return { ...c, pricing: { amount: 0, currency: c.pricing?.currency || "INR" } }
     })
   )
 }
@@ -125,6 +214,13 @@ interface EnrolledCourse {
   progress?: number
 }
 
+type CourseDurationRef = {
+  id?: string
+  code?: string
+  name?: string
+  duration_months?: number
+}
+
 interface AvailableCourse {
   id: string
   title: string
@@ -133,6 +229,7 @@ interface AvailableCourse {
   category_id: string
   branch_id?: string
   branch_name?: string
+  available_durations?: CourseDurationRef[]
   pricing: {
     amount: number
     currency: string
@@ -301,6 +398,9 @@ export default function StudentCoursesPage() {
   
   // Enrollment dialog state
   const [showEnrollDialog, setShowEnrollDialog] = useState(false)
+  const [isRenewalDialog, setIsRenewalDialog] = useState(false)
+  /** Existing student's assigned branch — locked during renewal / additional enrollment */
+  const [lockedBranchId, setLockedBranchId] = useState<string | null>(null)
   const [selectedCourse, setSelectedCourse] = useState<AvailableCourse | null>(null)
   const [selectedBranch, setSelectedBranch] = useState("")
   const [batchOptions, setBatchOptions] = useState<BranchBatchOption[]>([])
@@ -414,8 +514,22 @@ export default function StudentCoursesPage() {
       console.log("✅ Loaded enrolled courses:", enrolledData.length)
       setEnrolledCourses(enrolledData)
 
+      const profileBranchId =
+        profileResponse.profile?.branch_id ||
+        profileResponse.profile?.branch?.branch_id ||
+        null
+      const enrollmentBranchId = enrolledData[0]?.branch_id || null
+      const assignedBranch = profileBranchId || enrollmentBranchId
+      setLockedBranchId(assignedBranch ? String(assignedBranch) : null)
+
       // Get student's branch IDs
-      const studentBranchIds = Array.from(new Set(enrolledData.map(e => e.branch_id)))
+      const studentBranchIds = Array.from(
+        new Set(
+          enrolledData.map((e) => e.branch_id).filter(Boolean).concat(
+            assignedBranch ? [String(assignedBranch)] : []
+          )
+        )
+      )
       console.log("📍 Student branches:", studentBranchIds)
 
       // Load available courses
@@ -427,13 +541,8 @@ export default function StudentCoursesPage() {
           for (const branchId of studentBranchIds) {
             try {
               const branchCoursesResponse = await fetch(
-                getBackendApiUrl(`branches/${branchId}/courses`),
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                  }
-                }
+                getBackendApiUrl(`courses/public/by-branch/${encodeURIComponent(branchId)}`),
+                fetchOpts(token)
               )
               
               if (branchCoursesResponse.ok) {
@@ -443,18 +552,18 @@ export default function StudentCoursesPage() {
                 
                 // Add branch info and normalize fields for each course
                 const coursesWithBranch = branchCourses.map((c: any) => ({
-                  ...c,
                   id: c.id,
-                  title: c.title || c.name || c.course_name || 'Untitled Course',
-                  description: c.description || '',
-                  difficulty_level: c.difficulty_level || c.level || 'Beginner',
-                  category_id: c.category_id || '',
+                  title: c.title || c.name || c.course_name || "Untitled Course",
+                  description: c.description || "",
+                  difficulty_level: c.difficulty_level || c.level || "Beginner",
+                  category_id: c.category_id || "",
                   branch_id: branchId,
-                  branch_name: enrolledData.find(e => e.branch_id === branchId)?.branch_name,
+                  branch_name: enrolledData.find((e) => e.branch_id === branchId)?.branch_name,
+                  available_durations: c.available_durations || [],
                   pricing: {
-                    amount: c.pricing?.amount || c.price || c.fee || 0,
-                    currency: c.pricing?.currency || 'INR'
-                  }
+                    amount: 0,
+                    currency: c.pricing?.currency || "INR",
+                  },
                 }))
                 
                 availableCoursesList.push(...coursesWithBranch)
@@ -539,19 +648,21 @@ export default function StudentCoursesPage() {
   }
 
   const handleRenewEnrollment = (enrollment: EnrolledCourse) => {
-    // Pre-populate the enrollment dialog for renewal
+    const branchId =
+      lockedBranchId || enrollment.branch_id || branches[0]?.id || ""
     const course = availableCourses.find(
-      (c) => c.id === enrollment.course_id && c.branch_id === enrollment.branch_id
+      (c) => c.id === enrollment.course_id && (c.branch_id || "") === branchId
     ) || availableCourses.find((c) => c.id === enrollment.course_id)
     if (course) {
       setSelectedCourse(course)
-      setSelectedBranch(enrollment.branch_id || course.branch_id || branches[0]?.id || "")
+      setSelectedBranch(branchId)
       setBatchOptions([])
       setSelectedBatchRef("")
       setAdminDurationOptions([])
       setDurationOptions([])
       setSelectedDurationKey("")
       setEnrollAmount(null)
+      setIsRenewalDialog(true)
       setShowEnrollDialog(true)
     } else {
       // Fallback: build a minimal AvailableCourse from enrollment data
@@ -561,32 +672,35 @@ export default function StudentCoursesPage() {
         description: "",
         difficulty_level: "",
         category_id: "",
-        branch_id: enrollment.branch_id,
+        branch_id: branchId,
         branch_name: enrollment.branch_name,
         pricing: { amount: 0, currency: "INR" },
         is_enrolled: true,
         enrollment: enrollment,
       }
       setSelectedCourse(minimalCourse)
-      setSelectedBranch(enrollment.branch_id || branches[0]?.id || "")
+      setSelectedBranch(branchId)
       setBatchOptions([])
       setSelectedBatchRef("")
       setAdminDurationOptions([])
       setDurationOptions([])
       setSelectedDurationKey("")
       setEnrollAmount(null)
+      setIsRenewalDialog(true)
       setShowEnrollDialog(true)
     }
   }
 
   const handleEnrollClick = (course: AvailableCourse) => {
+    const branchId =
+      lockedBranchId || course.branch_id || branches[0]?.id || ""
     if (course.is_enrolled) {
-      // Open enrollment dialog for renewal instead of redirecting
       if (course.enrollment) {
         handleRenewEnrollment(course.enrollment)
       } else {
+        setIsRenewalDialog(true)
         setSelectedCourse(course)
-        setSelectedBranch(course.branch_id || branches[0]?.id || "")
+        setSelectedBranch(branchId)
         setBatchOptions([])
         setSelectedBatchRef("")
         setAdminDurationOptions([])
@@ -598,8 +712,9 @@ export default function StudentCoursesPage() {
       return
     }
     console.log("📋 Opening enrollment dialog. Branches available:", branches.length, branches)
+    setIsRenewalDialog(false)
     setSelectedCourse(course)
-    setSelectedBranch(course.branch_id || branches[0]?.id || "")
+    setSelectedBranch(branchId)
     setBatchOptions([])
     setSelectedBatchRef("")
     setAdminDurationOptions([])
@@ -877,10 +992,7 @@ export default function StudentCoursesPage() {
         }
         const res = await fetch(getBackendApiUrl("payments/student-checkout-quote"), {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          ...fetchOpts(token),
           body: JSON.stringify(quoteBody),
         })
         if (!res.ok || cancelled) {
@@ -918,6 +1030,10 @@ export default function StudentCoursesPage() {
   const handleEnrollSubmit = async () => {
     if (!selectedCourse || !selectedBranch || !selectedDurationKey) {
       alert("Please select course, branch, and duration")
+      return
+    }
+    if (lockedBranchId && selectedBranch !== lockedBranchId) {
+      alert("You must enroll at your assigned branch. Contact admin to change branch.")
       return
     }
     if (batchOptions.length > 0 && !selectedBatchRef.trim()) {
@@ -1090,6 +1206,10 @@ export default function StudentCoursesPage() {
       day: 'numeric'
     })
   }
+
+  const enrollDialogCourses = lockedBranchId
+    ? availableCourses.filter((c) => (c.branch_id || "") === lockedBranchId)
+    : availableCourses
 
   const getStatusBadge = (isActive: boolean, paymentStatus: string, endDate: string) => {
     if (isEnrollmentExpiredByDate({ paymentStatus, endDate })) {
@@ -1375,12 +1495,6 @@ export default function StudentCoursesPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <Badge variant="secondary">{course.difficulty_level}</Badge>
-                          <span className="font-semibold text-lg">
-                            {formatCurrency(course.pricing?.amount || 0)}
-                          </span>
-                        </div>
                         {course.branch_name && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <MapPin className="h-3 w-3" />
@@ -1421,6 +1535,7 @@ export default function StudentCoursesPage() {
         onOpenChange={(open) => {
           setShowEnrollDialog(open)
           if (!open) {
+            setIsRenewalDialog(false)
             setDurationOptions([])
             setSelectedDurationKey("")
             setBatchOptions([])
@@ -1440,7 +1555,9 @@ export default function StudentCoursesPage() {
               {selectedCourse ? `Enroll in ${selectedCourse.title}` : "Enroll in a course"}
             </DialogTitle>
             <DialogDescription>
-              Choose course, branch, and duration. Pricing comes from your branch and admin fee settings.
+              {lockedBranchId
+                ? "Your branch is fixed to your current assignment. You may choose any course, package, and duration available at this branch. Contact admin to change branch."
+                : "Choose course, branch, and duration. Pricing comes from your branch and admin fee settings."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4 px-6 overflow-y-auto min-h-0">
@@ -1450,12 +1567,12 @@ export default function StudentCoursesPage() {
                 value={selectedCourse ? courseRowKey(selectedCourse) : ""}
                 onValueChange={(v) => {
                   const { id, branch_id } = parseCourseRowKey(v)
-                  const c = availableCourses.find(
+                  const c = enrollDialogCourses.find(
                     (x) => x.id === id && (x.branch_id || "") === branch_id
                   )
                   if (c) {
                     setSelectedCourse(c)
-                    setSelectedBranch(c.branch_id || branches[0]?.id || "")
+                    setSelectedBranch(lockedBranchId || c.branch_id || branches[0]?.id || "")
                     setBatchOptions([])
                     setSelectedBatchRef("")
                     setAdminDurationOptions([])
@@ -1463,31 +1580,35 @@ export default function StudentCoursesPage() {
                     setSelectedDurationKey("")
                   }
                 }}
+                disabled={isRenewalDialog}
               >
                 <SelectTrigger className="text-gray-900 dark:text-gray-100">
                   <SelectValue placeholder="Choose a course" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCourses
-                    .map((course) => (
-                      <SelectItem
-                        key={courseRowKey(course)}
-                        value={courseRowKey(course)}
-                      >
-                        {course.branch_name
-                          ? `${course.title} (${course.branch_name})`
-                          : course.title}
-                      </SelectItem>
-                    ))}
+                  {enrollDialogCourses.map((course) => (
+                    <SelectItem
+                      key={courseRowKey(course)}
+                      value={courseRowKey(course)}
+                    >
+                      {course.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="branch">Select Branch</Label>
+              <Label htmlFor="branch">
+                Select Branch{" "}
+                {lockedBranchId && (
+                  <span className="text-xs text-muted-foreground">(your assigned branch)</span>
+                )}
+              </Label>
               <Select
                 value={selectedBranch}
                 onValueChange={(v) => {
+                  if (lockedBranchId) return
                   setSelectedBranch(v)
                   setBatchOptions([])
                   setSelectedBatchRef("")
@@ -1495,6 +1616,7 @@ export default function StudentCoursesPage() {
                   setDurationOptions([])
                   setSelectedDurationKey("")
                 }}
+                disabled={!!lockedBranchId}
               >
                 <SelectTrigger className="text-gray-900 dark:text-gray-100">
                   <SelectValue placeholder={branches.length === 0 ? "Loading branches..." : "Choose a branch"} />
@@ -1503,7 +1625,10 @@ export default function StudentCoursesPage() {
                   {branches.length === 0 ? (
                     <SelectItem value="none" disabled>No branches available</SelectItem>
                   ) : (
-                    branches.map((branch) => (
+                    (lockedBranchId
+                      ? branches.filter((b) => b.id === lockedBranchId)
+                      : branches
+                    ).map((branch) => (
                       <SelectItem key={branch.id} value={branch.id}>
                         {branch.name}
                       </SelectItem>

@@ -76,6 +76,7 @@ export function RolePermissionsManager() {
         { id: "dashboard", name: "Dashboard", description: "View dashboard home", enabled: true },
         { id: "courses", name: "My Courses", description: "View enrolled courses", enabled: true },
         { id: "attendance", name: "Attendance", description: "View own attendance", enabled: true },
+        { id: "performance", name: "Performance", description: "Student performance dashboard", enabled: true },
         { id: "messages", name: "Messages", description: "Receive messages", enabled: true },
         { id: "profile", name: "Profile", description: "View and edit own profile", enabled: true },
         { id: "settings", name: "Settings", description: "Access personal settings", enabled: true },

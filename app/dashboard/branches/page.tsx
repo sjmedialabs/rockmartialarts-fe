@@ -92,7 +92,7 @@ const itemsPerPage = 15
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(getBackendApiUrl("branches"), {
+        const response = await fetch(getBackendApiUrl("branches?active_only=false&limit=500"), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -482,9 +482,21 @@ const paginatedBranches = filteredBranches.slice(
                 </tr>
               ) : (
                 paginatedBranches.map((branch) => (
-                  <tr key={branch.id} className="hover:bg-gray-50">
+                  <tr
+                    key={branch.id}
+                    className={`hover:bg-gray-50 ${branch.is_active === false ? "bg-gray-50/80" : ""}`}
+                  >
                     {/* <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">{branch.id}</td> */}
-                    <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">{branch.branch?.name || 'N/A'}</td>
+                    <td className="px-2 py-4 whitespace-nowrap text-xs text-[#6B7A99]">
+                      <div className="flex items-center gap-2">
+                        <span>{branch.branch?.name || 'N/A'}</span>
+                        {branch.is_active === false && (
+                          <span className="inline-flex px-2 py-0.5 text-[10px] font-medium rounded bg-red-100 text-red-700">
+                            Disabled
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-2 py-4 text-xs text-[#6B7A99] max-w-xs">
                       {branch.branch?.address ?
                         `${branch.branch.address.line1}, ${branch.branch.address.city}, ${branch.branch.address.state}` :

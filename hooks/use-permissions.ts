@@ -14,6 +14,46 @@ interface RolePermissions {
   permissions: Permission[]
 }
 
+/**
+ * Merge stored permissions with current defaults so newly added permission IDs
+ * (e.g. `performance` for students) appear without clearing `role_permissions`.
+ * Preserves saved `enabled` flags for IDs that exist in both.
+ */
+function mergePermissionsForRole(role: string, saved: Permission[]): Permission[] {
+  const defaults = getDefaultPermissions(role)
+  const byId = new Map(saved.map((p) => [p.id, p]))
+  return defaults.map((d) => {
+    const existing = byId.get(d.id)
+    if (!existing) {
+      return d
+    }
+    return {
+      ...d,
+      ...existing,
+      name: d.name,
+      description: d.description,
+    }
+  })
+}
+
+function persistMergedRolePermissions(
+  role: string,
+  merged: Permission[],
+  allPermissions: RolePermissions[]
+): void {
+  try {
+    const idx = allPermissions.findIndex((r) => r.role === role)
+    if (idx === -1) {
+      return
+    }
+    const next = [...allPermissions]
+    next[idx] = { ...next[idx], permissions: merged }
+    localStorage.setItem('role_permissions', JSON.stringify(next))
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
 export function usePermissions(userRole?: string) {
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,7 +71,15 @@ export function usePermissions(userRole?: string) {
         const rolePerms = allPermissions.find(r => r.role === role)
         
         if (rolePerms) {
-          setPermissions(rolePerms.permissions)
+          const storedPerms = rolePerms.permissions
+          const merged = mergePermissionsForRole(role, storedPerms)
+          setPermissions(merged)
+          const savedIds = new Set(storedPerms.map((p) => p.id))
+          const defaultIds = getDefaultPermissions(role).map((p) => p.id)
+          const missingNewDefaults = defaultIds.some((id) => !savedIds.has(id))
+          if (missingNewDefaults) {
+            persistMergedRolePermissions(role, merged, allPermissions)
+          }
         } else {
           // If role not found, load default permissions
           setPermissions(getDefaultPermissions(role))
@@ -102,6 +150,7 @@ function getDefaultPermissions(role: string): Permission[] {
       { id: "dashboard", name: "Dashboard", description: "View dashboard home", enabled: true },
       { id: "courses", name: "My Courses", description: "View enrolled courses", enabled: true },
       { id: "attendance", name: "Attendance", description: "View own attendance", enabled: true },
+      { id: "performance", name: "Performance", description: "Student performance dashboard", enabled: true },
       { id: "messages", name: "Messages", description: "Receive messages", enabled: true },
       { id: "profile", name: "Profile", description: "View and edit own profile", enabled: true },
       { id: "settings", name: "Settings", description: "Access personal settings", enabled: true },

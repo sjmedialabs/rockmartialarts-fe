@@ -11,6 +11,7 @@ export type BranchCoursePricing = {
   fee_6_months?: number | string | null
   fee_1_year?: number | string | null
   fee_per_duration?: Record<string, number | string> | null
+  pricing_type_per_duration?: Record<string, string> | null
 }
 
 function toNum(v: unknown): number | null {
@@ -29,14 +30,24 @@ function toNum(v: unknown): number | null {
 export function getFeeForDurationKeys(
   pricing: BranchCoursePricing | undefined,
   durationId: string,
-  durationCode?: string
+  durationCode?: string,
+  durationMonths?: number
 ): number | null {
   const fpd = pricing?.fee_per_duration
   if (!fpd || typeof fpd !== "object") return null
+  const ptd = pricing?.pricing_type_per_duration
   const keys = [durationId, durationCode].filter(Boolean) as string[]
   for (const k of keys) {
     const n = toNum(fpd[k])
-    if (n != null) return n
+    if (n != null) {
+      /* If pricing type is "monthly", multiply by duration months to get total */
+      const pType = ptd?.[k] || ""
+      const months = durationMonths ?? 1
+      if (pType === "monthly" && months > 1) {
+        return n * months
+      }
+      return n
+    }
   }
   return null
 }
@@ -61,14 +72,14 @@ export function getLowestFeePerDuration(pricing: BranchCoursePricing | undefined
  */
 export function formatCoursePriceLabel(
   pricing: BranchCoursePricing | undefined,
-  opts?: { durationId?: string; durationCode?: string; multiplier?: number }
+  opts?: { durationId?: string; durationCode?: string; multiplier?: number; durationMonths?: number }
 ): string {
   const currency = pricing?.currency?.trim() || "INR"
   const sym = currency === "INR" ? "₹" : `${currency} `
 
   let amount: number | null = null
   if (opts?.durationId) {
-    amount = getFeeForDurationKeys(pricing, opts.durationId, opts.durationCode)
+    amount = getFeeForDurationKeys(pricing, opts.durationId, opts.durationCode, opts?.durationMonths)
     const mult = opts.multiplier && opts.multiplier > 0 ? opts.multiplier : 1
     if (amount != null && mult !== 1) amount = Math.round(amount * mult * 100) / 100
   }

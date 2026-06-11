@@ -265,59 +265,9 @@ const fetchCategoryData = async (category: string) => {
       }))
 
     default:
-      // For other categories, return mock data for now
-      const mockData = []
-      for (let i = 1; i <= 15; i++) {
-        switch (category) {
-          case 'student':
-            mockData.push({
-              id: `student_${i}`,
-              name: `Student ${i}`,
-              email: `student${i}@example.com`,
-              course_name: `Course ${Math.floor(Math.random() * 5) + 1}`,
-              enrollment_date: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              status: Math.random() > 0.2 ? 'active' : 'inactive'
-            })
-            break
-          case 'course':
-            mockData.push({
-              id: `course_${i}`,
-              name: `Course ${i}`,
-              category: `Category ${Math.floor(Math.random() * 3) + 1}`,
-              duration: `${Math.floor(Math.random() * 12) + 1} months`,
-              student_count: Math.floor(Math.random() * 50) + 5,
-              status: Math.random() > 0.25 ? 'active' : 'inactive'
-            })
-            break
-          case 'financial':
-            mockData.push({
-              id: `payment_${i}`,
-              transaction_id: `TXN${1000 + i}`,
-              student_name: `Student ${i}`,
-              amount: Math.floor(Math.random() * 5000) + 1000,
-              payment_date: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              status: Math.random() > 0.3 ? 'paid' : Math.random() > 0.5 ? 'pending' : 'overdue'
-            })
-            break
-          case 'operational':
-            mockData.push({
-              id: `operation_${i}`,
-              operation: `Operation ${i}`,
-              date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              type: ['maintenance', 'training', 'event', 'inspection'][Math.floor(Math.random() * 4)],
-              result: Math.random() > 0.2 ? 'success' : 'pending',
-              status: Math.random() > 0.2 ? 'success' : 'pending'
-            })
-            break
-          default:
-            mockData.push({
-              id: `item_${i}`,
-              name: `Item ${i}`,
-              status: Math.random() > 0.3 ? 'active' : 'inactive'
-            })
-        }
-      }
-      return mockData
+      // No mock data — return empty array for unhandled categories
+      console.warn(`[reports] No API handler for category "${category}". Returning empty results.`)
+      return []
   }
 }
 

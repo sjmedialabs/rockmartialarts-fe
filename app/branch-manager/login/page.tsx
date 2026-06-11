@@ -69,7 +69,7 @@ function BranchManagerLoginFormContent() {
 
       // Prepare request body according to API specification
       const requestBody: any = {
-        email,
+        email: email.trim(),
         password
       };
 
@@ -232,7 +232,7 @@ function BranchManagerLoginFormContent() {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => {
-                    setEmail(e.target.value)
+                    setEmail(e.target.value.toLowerCase())
                     if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }))
                   }}
                 />

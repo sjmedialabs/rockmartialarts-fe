@@ -67,19 +67,26 @@ function pickPricingTotal(data: unknown): number | null {
   return null
 }
 
-/** Same pricing engine as checkout (`prepare-student-checkout`); avoids wrong `fee × months` totals. */
-async function fetchCoursePaymentTotal(
+/** Quote renewal/checkout total (course fee only after first paid enrollment — no repeat admission). */
+async function fetchStudentCheckoutQuoteTotal(
+  token: string,
   courseId: string,
   branchId: string,
   durationKey: string
 ): Promise<number | null> {
-  const url = getBackendApiUrl(
-    `payments/course-payment-info?course_id=${encodeURIComponent(courseId)}&branch_id=${encodeURIComponent(
-      branchId
-    )}&duration=${encodeURIComponent(durationKey)}`
-  )
   try {
-    const res = await fetch(url)
+    const res = await fetch(getBackendApiUrl("payments/student-checkout-quote"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        course_id: courseId,
+        branch_id: branchId,
+        duration: durationKey,
+      }),
+    })
     if (!res.ok) return null
     const data = await res.json()
     return pickPricingTotal(data)
@@ -186,16 +193,22 @@ export default function StudentPaymentsPage() {
         }
 
         const profileEnr = tenureModal.enrollment
+        const isRenewal = tenureModal.isRenewal
         const next: Record<string, number | null> = {}
         for (const opt of options) {
-          let total = await fetchCoursePaymentTotal(course_id, branch_id, opt.id)
+          let total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.id)
           if (total == null && opt.code) {
-            total = await fetchCoursePaymentTotal(course_id, branch_id, opt.code)
+            total = await fetchStudentCheckoutQuoteTotal(token, course_id, branch_id, opt.code)
           }
           next[opt.id] = total
         }
 
-        if (profileEnr.payment_status === "pending" && profileEnr.duration_id) {
+        // First-time pending checkout only — never add admission on renewal quotes.
+        if (
+          !isRenewal &&
+          profileEnr.payment_status === "pending" &&
+          profileEnr.duration_id
+        ) {
           const match = options.find((o) => durationKeyMatchesEnrollment(o, profileEnr.duration_id))
           const fee = Number(profileEnr.fee_amount)
           const adm = Number(profileEnr.admission_fee ?? 0)
@@ -885,8 +898,8 @@ export default function StudentPaymentsPage() {
             <DialogHeader>
               <DialogTitle>Select tenure</DialogTitle>
               <DialogDescription>
-                Choose a tenure. Prices match what you will pay at checkout. Your current plan is highlighted when
-                completing a pending payment.
+                Choose a tenure. Prices match checkout (course fee only for renewals — admission is charged on your
+                first payment only). Your current plan is highlighted when completing a pending first payment.
               </DialogDescription>
             </DialogHeader>
             {tenurePricesLoading ? (

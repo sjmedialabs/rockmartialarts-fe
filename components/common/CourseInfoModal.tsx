@@ -17,6 +17,7 @@ import type { BranchCourseScheduleEntry } from "@/components/branch/types"
 import {
   courseScheduleBatchCards,
   formatCourseBatchesForModal,
+  type BatchDurationRef,
 } from "@/lib/formatCourseBatchSchedule"
 
 export type CourseInfoModalCourse = {
@@ -50,6 +51,7 @@ export function CourseInfoModal({
   branchDisplayName,
   branchTimings,
   courseSchedule,
+  availableDurations,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -60,6 +62,8 @@ export function CourseInfoModal({
   branchTimings?: Parameters<typeof formatOperationalTimingsForDisplay>[0]
   /** From `assignments.course_schedule` (per-course batch days & times). */
   courseSchedule?: BranchCourseScheduleEntry[] | null
+  /** Active tenure options for batch fee_per_duration labels. */
+  availableDurations?: BatchDurationRef[]
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -114,8 +118,8 @@ export function CourseInfoModal({
   }, [open, courseId, branchId])
 
   const batchCards = useMemo(
-    () => courseScheduleBatchCards(courseSchedule ?? null, courseId),
-    [courseSchedule, courseId]
+    () => courseScheduleBatchCards(courseSchedule ?? null, courseId, availableDurations),
+    [courseSchedule, courseId, availableDurations]
   )
 
   const batchScheduleTextFallback = useMemo(

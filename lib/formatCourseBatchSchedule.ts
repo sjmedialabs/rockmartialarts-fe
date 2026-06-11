@@ -1,4 +1,13 @@
 import { formatWeekdayRanges } from "@/lib/formatWeekdayRanges"
+import { getFeeForDurationKeys } from "@/lib/registrationPricing"
+import type { BranchCoursePricing } from "@/lib/registrationPricing"
+
+export type BatchDurationRef = {
+  id?: string
+  code?: string
+  name?: string
+  duration_months?: number
+}
 
 export type PublicCourseScheduleEntry = {
   course_id?: string
@@ -68,12 +77,72 @@ function _batchFeeFromRaw(raw: Record<string, unknown>): number | null {
   return null
 }
 
+function _normalizeFeeMap(raw: unknown): Record<string, string | number | null> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined
+  const out: Record<string, string | number | null> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (v != null) out[String(k)] = v as string | number
+  }
+  return Object.keys(out).length ? out : undefined
+}
+
+/** Display fee for a batch using fee_per_duration (admin) or legacy batch_fee. */
+export function formatBatchFeeLabel(
+  raw: Record<string, unknown>,
+  availableDurations?: BatchDurationRef[]
+): string {
+  const fpd = _normalizeFeeMap(raw.fee_per_duration ?? raw.feePerDuration)
+  const ptd = _normalizeFeeMap(raw.pricing_type_per_duration ?? raw.pricingTypePerDuration)
+  const enabled = raw.enabled_per_duration ?? raw.enabledPerDuration
+
+  if (fpd && Object.keys(fpd).length > 0) {
+    const pricing: BranchCoursePricing = {
+      fee_per_duration: fpd,
+      pricing_type_per_duration: ptd as Record<string, string> | undefined,
+    }
+    const durs =
+      availableDurations?.length
+        ? availableDurations
+        : Object.keys(fpd).map((k) => ({ id: k, code: k, name: k }))
+    const parts: string[] = []
+    for (const d of durs) {
+      const id = String(d.id || d.code || "").trim()
+      if (!id) continue
+      if (
+        enabled &&
+        typeof enabled === "object" &&
+        !Array.isArray(enabled) &&
+        (enabled as Record<string, boolean>)[id] === false
+      ) {
+        continue
+      }
+      const amount = getFeeForDurationKeys(
+        pricing,
+        id,
+        d.code,
+        d.duration_months
+      )
+      if (amount == null) continue
+      const label = (d.name || d.code || id).trim()
+      parts.push(`₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })} (${label})`)
+    }
+    if (parts.length) return parts.join(" · ")
+  }
+
+  const feeN = _batchFeeFromRaw(raw)
+  if (feeN != null) {
+    return `₹${feeN.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+  }
+  return "Fee on enrollment"
+}
+
 /**
  * Structured batch rows for branch course popup / cards (from assignments.course_schedule).
  */
 export function courseScheduleBatchCards(
   courseSchedule: PublicCourseScheduleEntry[] | undefined | null,
-  courseId: string
+  courseId: string,
+  availableDurations?: BatchDurationRef[]
 ): ScheduleBatchCard[] {
   if (!courseSchedule?.length || !courseId) return []
   const entry = courseSchedule.find((c) => {
@@ -116,12 +185,8 @@ export function courseScheduleBatchCards(
       b.batch_name ?? b.name ?? ""
     ).trim()
     const title = bname || "Batch"
-    const trainer = String(b.trainer_name ?? "").trim() || undefined
-    const feeN = _batchFeeFromRaw(b)
-    const feeLabel =
-      feeN != null
-        ? `₹${feeN.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
-        : "Fee on enrollment"
+    const trainer = String(b.trainer_name ?? b.trainerName ?? "").trim() || undefined
+    const feeLabel = formatBatchFeeLabel(b, availableDurations)
     const popular =
       title.toLowerCase().includes("popular") ||
       bname.toLowerCase().includes("popular")

@@ -469,6 +469,14 @@ export default function BranchManagerStudentDetailPage() {
             </div>
             <div className="flex space-x-3">
               <Button
+                variant="outline"
+                onClick={() => router.push(`/branch-manager-dashboard/students/${studentId}/performance`)}
+                className="border-amber-300 text-amber-900 hover:bg-amber-50"
+              >
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Performance
+              </Button>
+              <Button
                 onClick={() => router.push(`/branch-manager-dashboard/students/edit/${studentId}`)}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >

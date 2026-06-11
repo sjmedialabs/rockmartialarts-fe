@@ -140,8 +140,14 @@ const itemsPerPage = 15
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        // Try enhanced API first, fallback to basic API
-        let response = await fetch(getBackendApiUrl('users/students/details'), {
+        const studentsUrl =
+          adminType === "super-admin" && listBranchFilter !== "all"
+            ? getBackendApiUrl(
+                `users/students/details?branch_id=${encodeURIComponent(listBranchFilter)}`
+              )
+            : getBackendApiUrl("users/students/details")
+
+        let response = await fetch(studentsUrl, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -221,7 +227,7 @@ const itemsPerPage = 15
     }
 
     fetchStudents()
-  }, [refreshKey])
+  }, [refreshKey, pathname, listBranchFilter, adminType])
 
   // Fetch branches and courses for the assignment modal
   const fetchBranchesAndCourses = async () => {
@@ -329,12 +335,13 @@ const itemsPerPage = 15
     setCurrentPage(1)
   }
 
+  /** Branch shown in the table column — must match filter (not historical/other enrollments). */
+  const getStudentDisplayBranchId = (student: Student): string | null =>
+    student.branch_info?.branch_id ?? student.branch_id ?? null
+
   const studentMatchesBranchListFilter = (student: Student) => {
     if (adminType !== "super-admin" || listBranchFilter === "all") return true
-    if (student.branch_info?.branch_id === listBranchFilter) return true
-    if (student.branch_id === listBranchFilter) return true
-    if (student.courses?.some((c) => c.branch_id === listBranchFilter)) return true
-    return false
+    return getStudentDisplayBranchId(student) === listBranchFilter
   }
 
   const handleAssignConfirm = async () => {
@@ -807,6 +814,7 @@ const paginatedStudents = filteredStudents.slice(
             <table className="w-full min-w-[640px]">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">S.No</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Student</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Registered</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-[#6B7A99]">Courses (Expertise)</th>
@@ -818,7 +826,7 @@ const paginatedStudents = filteredStudents.slice(
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={7} className="py-8 px-6 text-center text-gray-500">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading students...</span>
@@ -827,7 +835,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={6} className="py-8 px-6 text-center">
+                    <td colSpan={7} className="py-8 px-6 text-center">
                       <div className="text-red-500 mb-2">
                         <strong>Error loading students:</strong>
                       </div>
@@ -844,7 +852,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : listViewFilter === 'unassigned' && unassignedStudentsLoading ? (
                   <tr>
-                    <td colSpan={6} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={7} className="py-8 px-6 text-center text-gray-500">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                         <span>Loading unassigned students...</span>
@@ -853,7 +861,7 @@ const paginatedStudents = filteredStudents.slice(
                   </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 px-6 text-center text-gray-500">
+                    <td colSpan={7} className="py-8 px-6 text-center text-gray-500">
                       <div className="mb-2">
                         {searchTerm
                           ? `No students found matching "${searchTerm}"`
@@ -873,8 +881,9 @@ const paginatedStudents = filteredStudents.slice(
                     </td>
                   </tr>
                 ) : (
-                  paginatedStudents.map((student) => (
+                  paginatedStudents.map((student, index) => (
                     <tr key={student.id} className="border-b hover:bg-gray-50 text-[#6B7A99] text-sm">
+                      <td className="py-4 px-4 align-top text-sm font-medium text-[#4F5077]">{filteredStudents.length - ((currentPage - 1) * itemsPerPage + index)}</td>
                       <td className="py-4 px-6 align-top">
                         <div className="flex flex-col gap-1.5 min-w-[12rem] max-w-[16rem]">
                           <span className="font-medium text-[#4F5077]">

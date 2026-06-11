@@ -16,6 +16,7 @@ import {
   BookOpen,
   Calendar,
   TrendingUp,
+  Medal,
   CreditCard,
   MessageSquare,
   LogOut,
@@ -144,6 +145,14 @@ export default function StudentDashboardHeader({
       exact: false,
       description: "Track class attendance",
       permissionId: "attendance"
+    },
+    {
+      name: "Performance",
+      path: "/student-dashboard/performance",
+      icon: Medal,
+      exact: false,
+      description: "Achievements, skills, and coach feedback",
+      permissionId: "performance"
     },
     {
       name: "Progress",

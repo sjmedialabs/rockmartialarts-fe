@@ -145,39 +145,11 @@ export default function CoachPaymentTrackingPage() {
           console.error('🔍 DEBUG: Payments list error:', errorText)
           if (paymentsResponse.status === 403) {
             console.warn("Coach doesn't have access to payment data")
-            // For now, show a helpful message and some sample data so coaches can see the interface
-            setError("Payment tracking access is currently being configured for coaches. The interface below shows how payment data will be displayed once access is granted.")
+            setError("Payment tracking access is currently being configured for your account. Please contact an administrator if you need access.")
           } else {
             setError(`Failed to load payments: ${errorText}`)
           }
-
-          // Set some sample data so coaches can see the interface
-          setPayments([
-            {
-              id: "sample-1",
-              student_name: "Sample Student 1",
-              amount: 5000,
-              payment_type: "registration_fee",
-              payment_method: "cash",
-              payment_status: "paid",
-              transaction_id: "TXN20250101001",
-              payment_date: "2025-01-01",
-              course_name: "Karate Beginner",
-              branch_name: "Main Branch"
-            },
-            {
-              id: "sample-2",
-              student_name: "Sample Student 2",
-              amount: 3000,
-              payment_type: "monthly_fee",
-              payment_method: "online",
-              payment_status: "pending",
-              transaction_id: "TXN20250102001",
-              payment_date: "2025-01-02",
-              course_name: "Kung Fu Advanced",
-              branch_name: "Main Branch"
-            }
-          ])
+          setPayments([])
         }
       } catch (err) {
         console.error("Error loading payment data:", err)

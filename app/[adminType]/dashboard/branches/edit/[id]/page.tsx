@@ -208,7 +208,7 @@ export default function EditBranch() {
       account_number: "",
       upi_id: ""
     },
-    admission_fee: 500
+    admission_fee: 0
   })
 
   // Auto-generate branch code
@@ -363,7 +363,7 @@ export default function EditBranch() {
             account_number: branchData.bank_details?.account_number || "",
             upi_id: branchData.bank_details?.upi_id || ""
           },
-          admission_fee: typeof branchData.admission_fee === "number" ? branchData.admission_fee : 500
+          admission_fee: typeof branchData.admission_fee === "number" ? branchData.admission_fee : 0
         })
 
         setIsLoading(false)

@@ -136,7 +136,7 @@ class NotificationAPI {
       if (userRole === 'branch_manager') {
         const data = await this.makeRequest(`/api/messages/notifications?skip=${skip}&limit=${limit}`)
         return data.notifications || []
-      } else if (userRole === 'super_admin') {
+      } else if (userRole === 'super_admin' || userRole === 'superadmin') {
         const data = await this.makeRequest(`/api/payments/notifications?skip=${skip}&limit=${limit}`)
         return data || []
       } else {
@@ -177,7 +177,7 @@ class NotificationAPI {
         await this.makeRequest(`/api/messages/notifications/${notificationId}/read`, {
           method: 'PUT'
         })
-      } else if (userRole === 'super_admin') {
+      } else if (userRole === 'super_admin' || userRole === 'superadmin') {
         await this.makeRequest(`/api/payments/notifications/${notificationId}/read`, {
           method: 'PUT'
         })
@@ -199,7 +199,7 @@ class NotificationAPI {
       if (userRole === 'branch_manager') {
         const data = await this.getMessageNotifications(0, 100)
         return data.unread_count || 0
-      } else if (userRole === 'super_admin') {
+      } else if (userRole === 'super_admin' || userRole === 'superadmin') {
         const notifications = await this.getPaymentNotifications(0, 100)
         return notifications.filter(n => !n.is_read).length
       } else {

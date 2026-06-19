@@ -1,4 +1,5 @@
 import { toCourseSlug } from "@/lib/course-slug"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 import HomePageView from "@/components/website/HomePageView"
 
 export const metadata = {
@@ -91,12 +92,6 @@ async function getCourses(): Promise<{ courses: any[]; fromApi: boolean }> {
 
 function getCourseImage(c: any): string | null {
   return c?.media_resources?.course_image_url || (c?.page_content?.hero_section?.hero_image) || null
-}
-
-function resolveUploadUrl(url?: string | null): string {
-  if (!url) return ""
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) return url
-  return `/api/backend/uploads/${encodeURIComponent(url)}`
 }
 
 const coachImageFallback = "/assets/img/courses/kung-fu-trainer.png"
@@ -254,7 +249,7 @@ async function getHomepageCoaches(): Promise<
         return list.map((c: any) => ({
           name: c.full_name || "Coach",
           role: c.designation || "",
-          img: resolveUploadUrl(c.profile_image_url) || coachImageFallback,
+          img: resolvePublicAssetUrl(c.profile_image_url) || coachImageFallback,
           about: (c.about_short || "").trim(),
           rating: typeof c.rating === "number" ? c.rating : null,
         }))
@@ -277,7 +272,7 @@ async function getHomepageCoaches(): Promise<
     return list.map((c: any) => ({
       name: c.full_name || "Coach",
       role: c.designation || "",
-      img: resolveUploadUrl(c.profile_image_url) || coachImageFallback,
+      img: resolvePublicAssetUrl(c.profile_image_url) || coachImageFallback,
       about: (c.about_short || "").trim(),
       rating: typeof c.rating === "number" ? c.rating : null,
     }))

@@ -15,6 +15,8 @@ import { ArrowLeft, User, Award, MapPin, Phone, X, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
+import { SafeImage } from "@/components/ui/safe-image"
+import { extractUploadUrl, uploadFile } from "@/lib/upload"
 import { useToast } from "@/hooks/use-toast"
 
 // Interface definitions for API data
@@ -828,19 +830,8 @@ export default function AddCoachPage() {
 
       let profile_image_url: string | null = formData.profileImageUrl?.trim() || null
       if (formData.profileImageFile) {
-        const fd = new FormData()
-        fd.append("file", formData.profileImageFile)
-        const uploadRes = await fetch(getBackendApiUrl("uploads"), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-        })
-        if (!uploadRes.ok) {
-          throw new Error("Profile image upload failed")
-        }
-        const uploadData = await uploadRes.json()
-        profile_image_url =
-          uploadData.url || uploadData.file_url || uploadData.image_url || null
+        const uploaded = await uploadFile(formData.profileImageFile)
+        profile_image_url = extractUploadUrl(uploaded as unknown as Record<string, unknown>) || null
       }
 
       const payload = {
@@ -1113,9 +1104,10 @@ export default function AddCoachPage() {
                   <Label>Coach photo (JPG, PNG or WEBP, max 2MB)</Label>
                   <Input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={handleProfileImageChange} />
                   {(formData.profileImagePreview || formData.profileImageUrl) ? (
-                    <img
+                    <SafeImage
                       src={formData.profileImagePreview || formData.profileImageUrl}
                       alt="Preview"
+                      resolveUrl={!formData.profileImagePreview}
                       className="mt-2 w-32 h-32 rounded-full object-cover border border-gray-200"
                     />
                   ) : null}

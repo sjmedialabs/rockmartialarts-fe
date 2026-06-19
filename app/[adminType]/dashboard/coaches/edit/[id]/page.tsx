@@ -1,7 +1,7 @@
 "use client"
 
 import { getBackendApiUrl } from "@/lib/config"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,6 +16,9 @@ import { useRouter, useParams } from "next/navigation"
 import { useDashboardBasePath } from "@/lib/useDashboardBasePath"
 import { TokenManager } from "@/lib/tokenManager"
 import { useToast } from "@/hooks/use-toast"
+import { extractUploadUrl, uploadFile } from "@/lib/upload"
+import { saveCoachProfilePhoto } from "@/lib/coachProfilePhoto"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
 // Interface definitions for API data
 interface Branch {
@@ -177,6 +180,14 @@ export default function EditCoachPage() {
   const [experienceRanges, setExperienceRanges] = useState<string[]>([])
   const [relations, setRelations] = useState<string[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(false)
+  const [isUploadingProfileImage, setIsUploadingProfileImage] = useState(false)
+  const [photoCacheKey, setPhotoCacheKey] = useState(0)
+  const profileImageUrlRef = useRef("")
+  const profilePhotoInputRef = useRef<HTMLInputElement>(null)
+
+  const patchFormData = useCallback((patch: Partial<typeof formData>) => {
+    setFormData((prev) => ({ ...prev, ...patch }))
+  }, [])
 
 
 
@@ -486,9 +497,8 @@ export default function EditCoachPage() {
     }
   }
 
-    // Load data from APIs
+    // Load data from APIs — coach profile (re-run only when coach id changes)
   useEffect(() => {
-    // Fetch existing coach data
     const fetchCoachData = async () => {
       try {
         const token = TokenManager.getToken()
@@ -513,48 +523,65 @@ export default function EditCoachPage() {
         }
 
         const coach = await response.json()
-        
-        console.log("Fetched coach data:", JSON.stringify(coach, null, 2))
-        
-        // Populate form with existing coach data
-        setFormData(prev => ({
-          ...prev,
-          firstName: coach.personal_info?.first_name || '',
-          lastName: coach.personal_info?.last_name || '',
-          email: coach.contact_info?.email || coach.email || '',
-          phone: coach.contact_info?.phone || '',
-          password: '', // Keep empty - password is optional for edit
-          gender: coach.personal_info?.gender || '',
-          dateOfBirth: coach.personal_info?.date_of_birth || '',
-          address: coach.address_info?.address || '',
-          area: coach.address_info?.area || '',
-          city: coach.address_info?.city || '',
-          state: coach.address_info?.state || '',
-          zipCode: coach.address_info?.zip_code || '',
-          country: coach.address_info?.country || 'India',
-          designation: coach.professional_info?.designation_id || '',
-          experience: coach.professional_info?.professional_experience || '',
-          qualifications: coach.professional_info?.qualifications || [],
-          certifications: Array.isArray(coach.professional_info?.certifications) ? coach.professional_info.certifications.join(', ') : (coach.professional_info?.certifications || ''),
-          category: coach.professional_info?.category_id || '',
-          subCategory: coach.professional_info?.sub_category_id || '',
-          branch: coach.branch_id || '',
-          courses: coach.assignment_details?.courses || [],
-          salary: coach.assignment_details?.salary ? String(coach.assignment_details.salary) : '',
-          joinDate: coach.assignment_details?.join_date || '',
-          emergencyContactName: coach.emergency_contact?.name || '',
-          emergencyContactPhone: coach.emergency_contact?.phone || '',
-          emergencyContactRelation: coach.emergency_contact?.relationship || '',
-          achievements: coach.achievements || '',
-          notes: coach.notes || '',
-          profileImageFile: null,
-          profileImagePreview: '',
-          profileImageUrl: coach.profile_image_url || '',
-          aboutShort: coach.about_short || '',
-          featuredOnHomepage: Boolean(coach.featured_on_homepage),
-          homepageRating: coach.homepage_rating != null ? String(coach.homepage_rating) : '',
-          displayOrder: coach.display_order != null && coach.display_order !== undefined ? String(coach.display_order) : '',
-        }))
+        const serverPhotoUrl = coach.profile_image_url || ''
+
+        // Populate form with existing coach data (keep unsaved photo selection/upload)
+        let shouldRefreshPhotoCache = true
+        setFormData(prev => {
+          const hasUnsavedPhoto =
+            Boolean(prev.profileImageFile || prev.profileImagePreview) ||
+            Boolean(prev.profileImageUrl && prev.profileImageUrl !== serverPhotoUrl)
+
+          if (hasUnsavedPhoto) {
+            shouldRefreshPhotoCache = false
+          }
+
+          const nextPhotoUrl = hasUnsavedPhoto ? prev.profileImageUrl : serverPhotoUrl
+          profileImageUrlRef.current = nextPhotoUrl
+
+          return {
+            ...prev,
+            firstName: coach.personal_info?.first_name || '',
+            lastName: coach.personal_info?.last_name || '',
+            email: coach.contact_info?.email || coach.email || '',
+            phone: coach.contact_info?.phone || '',
+            password: '',
+            gender: coach.personal_info?.gender || '',
+            dateOfBirth: coach.personal_info?.date_of_birth || '',
+            address: coach.address_info?.address || '',
+            area: coach.address_info?.area || '',
+            city: coach.address_info?.city || '',
+            state: coach.address_info?.state || '',
+            zipCode: coach.address_info?.zip_code || '',
+            country: coach.address_info?.country || 'India',
+            designation: coach.professional_info?.designation_id || '',
+            experience: coach.professional_info?.professional_experience || '',
+            qualifications: coach.professional_info?.qualifications || [],
+            certifications: Array.isArray(coach.professional_info?.certifications) ? coach.professional_info.certifications.join(', ') : (coach.professional_info?.certifications || ''),
+            category: coach.professional_info?.category_id || '',
+            subCategory: coach.professional_info?.sub_category_id || '',
+            branch: coach.branch_id || '',
+            courses: coach.assignment_details?.courses || [],
+            salary: coach.assignment_details?.salary ? String(coach.assignment_details.salary) : '',
+            joinDate: coach.assignment_details?.join_date || '',
+            emergencyContactName: coach.emergency_contact?.name || '',
+            emergencyContactPhone: coach.emergency_contact?.phone || '',
+            emergencyContactRelation: coach.emergency_contact?.relationship || '',
+            achievements: coach.achievements || '',
+            notes: coach.notes || '',
+            profileImageFile: hasUnsavedPhoto ? prev.profileImageFile : null,
+            profileImagePreview: hasUnsavedPhoto ? prev.profileImagePreview : '',
+            profileImageUrl: hasUnsavedPhoto ? prev.profileImageUrl : serverPhotoUrl,
+            aboutShort: coach.about_short || '',
+            featuredOnHomepage: Boolean(coach.featured_on_homepage),
+            homepageRating: coach.homepage_rating != null ? String(coach.homepage_rating) : '',
+            displayOrder: coach.display_order != null && coach.display_order !== undefined ? String(coach.display_order) : '',
+          }
+        })
+
+        if (shouldRefreshPhotoCache) {
+          setPhotoCacheKey((k) => k + 1)
+        }
 
         setIsLoading(false)
       } catch (error) {
@@ -569,7 +596,9 @@ export default function EditCoachPage() {
     }
 
     fetchCoachData()
+  }, [coachId, router])
 
+  useEffect(() => {
     loadDesignations()
     loadGenders()
     loadCountries()
@@ -578,7 +607,7 @@ export default function EditCoachPage() {
     loadQualifications()
     loadPassingYears()
     loadCategories()
-    
+
     const loadBranches = async () => {
       try {
         setIsLoadingBranches(true)
@@ -788,7 +817,7 @@ export default function EditCoachPage() {
     return null
   }
 
-  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const err = validateProfileImage(file)
@@ -797,12 +826,48 @@ export default function EditCoachPage() {
       e.target.value = ""
       return
     }
+
+    const preview = URL.createObjectURL(file)
     if (formData.profileImagePreview) URL.revokeObjectURL(formData.profileImagePreview)
+
     setFormData((prev) => ({
       ...prev,
       profileImageFile: file,
-      profileImagePreview: URL.createObjectURL(file),
+      profileImagePreview: preview,
     }))
+
+    setIsUploadingProfileImage(true)
+    try {
+      const uploaded = await uploadFile(file)
+      const url = extractUploadUrl(uploaded as unknown as Record<string, unknown>)
+      if (!url) {
+        throw new Error("Upload did not return a URL")
+      }
+      setFormData((prev) => ({
+        ...prev,
+        profileImageUrl: url,
+        profileImageFile: null,
+      }))
+      profileImageUrlRef.current = url
+      setPhotoCacheKey((k) => k + 1)
+      await saveCoachProfilePhoto(coachId, url)
+      toast({ title: "Photo saved", description: "Profile photo updated successfully." })
+    } catch (error) {
+      if (preview) URL.revokeObjectURL(preview)
+      setFormData((prev) => ({
+        ...prev,
+        profileImageFile: null,
+        profileImagePreview: "",
+      }))
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Could not upload profile photo",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploadingProfileImage(false)
+      e.target.value = ""
+    }
   }
 
   const validateForm = () => {
@@ -894,26 +959,21 @@ export default function EditCoachPage() {
         throw new Error("Authentication token not found. Please login again.")
       }
 
-      let profile_image_url: string | null | undefined = formData.profileImageUrl?.trim() || undefined
+      let profile_image_url: string | null =
+        profileImageUrlRef.current?.trim() || formData.profileImageUrl?.trim() || null
       if (formData.profileImageFile) {
-        const fd = new FormData()
-        fd.append("file", formData.profileImageFile)
-        const uploadRes = await fetch(getBackendApiUrl("uploads"), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-        })
-        if (!uploadRes.ok) {
-          throw new Error("Profile image upload failed")
+        const uploaded = await uploadFile(formData.profileImageFile)
+        profile_image_url = extractUploadUrl(uploaded as unknown as Record<string, unknown>) || null
+        if (!profile_image_url) {
+          throw new Error("Profile image upload did not return a URL")
         }
-        const uploadData = await uploadRes.json()
-        profile_image_url =
-          uploadData.url || uploadData.file_url || uploadData.image_url || undefined
+        profileImageUrlRef.current = profile_image_url
+        await saveCoachProfilePhoto(coachId, profile_image_url)
       }
 
       const coachPayload = {
         ...coachData,
-        profile_image_url: profile_image_url ?? null,
+        ...(profile_image_url ? { profile_image_url } : {}),
         about_short: formData.aboutShort.trim() || null,
         featured_on_homepage: formData.featuredOnHomepage,
         homepage_rating: formData.homepageRating.trim() ? parseFloat(formData.homepageRating) : null,
@@ -961,6 +1021,18 @@ export default function EditCoachPage() {
       }
 
       console.log("Coach updated successfully:", result)
+
+      if (profile_image_url) {
+        if (formData.profileImagePreview) URL.revokeObjectURL(formData.profileImagePreview)
+        profileImageUrlRef.current = profile_image_url
+        setPhotoCacheKey((k) => k + 1)
+        setFormData((prev) => ({
+          ...prev,
+          profileImageUrl: profile_image_url || prev.profileImageUrl,
+          profileImageFile: null,
+          profileImagePreview: "",
+        }))
+      }
 
       // Store the created coach ID for sending credentials
       if (result.coach && result.coach.id) {
@@ -1032,7 +1104,7 @@ export default function EditCoachPage() {
                   <Input
                     id="firstName"
                     value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    onChange={(e) => patchFormData({ firstName: e.target.value })}
                     placeholder="Enter first name"
                     className={errors.firstName ? "border-red-500" : ""}
                   />
@@ -1044,7 +1116,7 @@ export default function EditCoachPage() {
                   <Input
                     id="lastName"
                     value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    onChange={(e) => patchFormData({ lastName: e.target.value })}
                     placeholder="Enter last name"
                     className={errors.lastName ? "border-red-500" : ""}
                   />
@@ -1059,7 +1131,7 @@ export default function EditCoachPage() {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => patchFormData({ email: e.target.value })}
                     placeholder="Enter email address"
                     className={errors.email ? "border-red-500" : ""}
                   />
@@ -1071,7 +1143,7 @@ export default function EditCoachPage() {
                   <PasswordInput
                     id="password"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) => patchFormData({ password: e.target.value })}
                     placeholder="Enter secure password"
                     className={errors.password ? "border-red-500" : ""}
                   />
@@ -1086,7 +1158,7 @@ export default function EditCoachPage() {
                   <Input
                     id="phone"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => patchFormData({ phone: e.target.value })}
                     placeholder="Enter phone number"
                     className={errors.phone ? "border-red-500" : ""}
                   />
@@ -1099,7 +1171,7 @@ export default function EditCoachPage() {
                   <Label htmlFor="gender">Gender *</Label>
                   <Select 
                     value={formData.gender} 
-                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                    onValueChange={(value) => patchFormData({ gender: value })}
                   >
                     <SelectTrigger className={errors.gender ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select gender" />
@@ -1121,7 +1193,7 @@ export default function EditCoachPage() {
                     id="dateOfBirth"
                     type="date"
                     value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    onChange={(e) => patchFormData({ dateOfBirth: e.target.value })}
                   />
                 </div>
 
@@ -1129,7 +1201,7 @@ export default function EditCoachPage() {
                   <Label htmlFor="country">Country</Label>
                   <Select 
                     value={formData.country} 
-                    onValueChange={(value) => setFormData({ ...formData, country: value })}
+                    onValueChange={(value) => patchFormData({ country: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select country" />
@@ -1150,7 +1222,7 @@ export default function EditCoachPage() {
                 <Textarea
                   id="address"
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(e) => patchFormData({ address: e.target.value })}
                   placeholder="Enter complete address"
                   rows={2}
                 />
@@ -1162,7 +1234,7 @@ export default function EditCoachPage() {
                   <Input
                     id="area"
                     value={formData.area}
-                    onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                    onChange={(e) => patchFormData({ area: e.target.value })}
                     placeholder="Enter area or locality"
                   />
                 </div>
@@ -1171,7 +1243,7 @@ export default function EditCoachPage() {
                   <Input
                     id="city"
                     value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    onChange={(e) => patchFormData({ city: e.target.value })}
                     placeholder="Enter city"
                   />
                 </div>
@@ -1183,7 +1255,7 @@ export default function EditCoachPage() {
                   <Input
                     id="state"
                     value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    onChange={(e) => patchFormData({ state: e.target.value })}
                     placeholder="State"
                   />
                 </div>
@@ -1193,7 +1265,7 @@ export default function EditCoachPage() {
                   <Input
                     id="zipCode"
                     value={formData.zipCode}
-                    onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                    onChange={(e) => patchFormData({ zipCode: e.target.value })}
                     placeholder="ZIP Code"
                   />
                 </div>
@@ -1209,21 +1281,80 @@ export default function EditCoachPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Coach photo (JPG, PNG or WEBP, max 2MB)</Label>
-                  <Input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={handleProfileImageChange} />
+                  <input
+                    ref={profilePhotoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                    onChange={handleProfileImageChange}
+                    disabled={isUploadingProfileImage}
+                    className="hidden"
+                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isUploadingProfileImage}
+                      onClick={() => profilePhotoInputRef.current?.click()}
+                    >
+                      {isUploadingProfileImage ? "Uploading…" : "Choose photo"}
+                    </Button>
+                    {(formData.profileImagePreview || formData.profileImageUrl) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="text-red-600"
+                        disabled={isUploadingProfileImage}
+                        onClick={async () => {
+                          if (formData.profileImagePreview) URL.revokeObjectURL(formData.profileImagePreview)
+                          profileImageUrlRef.current = ""
+                          patchFormData({
+                            profileImageFile: null,
+                            profileImagePreview: "",
+                            profileImageUrl: "",
+                          })
+                          setPhotoCacheKey((k) => k + 1)
+                          if (profilePhotoInputRef.current) profilePhotoInputRef.current.value = ""
+                          try {
+                            setIsUploadingProfileImage(true)
+                            await saveCoachProfilePhoto(coachId, null)
+                            toast({ title: "Photo removed", description: "Profile photo cleared." })
+                          } catch (error) {
+                            toast({
+                              title: "Could not remove photo",
+                              description: error instanceof Error ? error.message : "Please try again",
+                              variant: "destructive",
+                            })
+                          } finally {
+                            setIsUploadingProfileImage(false)
+                          }
+                        }}
+                      >
+                        Remove photo
+                      </Button>
+                    )}
+                  </div>
                   {(formData.profileImagePreview || formData.profileImageUrl) ? (
                     <img
-                      src={formData.profileImagePreview || formData.profileImageUrl}
-                      alt="Preview"
-                      className="mt-2 w-32 h-32 rounded-full object-cover border border-gray-200"
+                      key={formData.profileImagePreview || `${formData.profileImageUrl}-${photoCacheKey}`}
+                      src={
+                        formData.profileImagePreview ||
+                        `${resolvePublicAssetUrl(formData.profileImageUrl)}?v=${photoCacheKey}`
+                      }
+                      alt="Coach preview"
+                      className="mt-2 w-32 h-32 rounded-full object-cover border border-gray-200 bg-gray-100"
                     />
-                  ) : null}
+                  ) : (
+                    <div className="mt-2 w-32 h-32 rounded-full border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400 text-center px-2">
+                      No photo selected
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="aboutShort">Short bio (homepage)</Label>
                   <Textarea
                     id="aboutShort"
                     value={formData.aboutShort}
-                    onChange={(e) => setFormData({ ...formData, aboutShort: e.target.value })}
+                    onChange={(e) => patchFormData({ aboutShort: e.target.value })}
                     placeholder="Shown on the public homepage Expert Masters section"
                     rows={4}
                   />
@@ -1239,7 +1370,7 @@ export default function EditCoachPage() {
                     max={999999}
                     step={1}
                     value={formData.displayOrder}
-                    onChange={(e) => setFormData({ ...formData, displayOrder: e.target.value })}
+                    onChange={(e) => patchFormData({ displayOrder: e.target.value })}
                     placeholder="Lower numbers appear first (optional; empty = sort by date)"
                     className={errors.displayOrder ? "border-red-500" : ""}
                   />
@@ -1255,7 +1386,7 @@ export default function EditCoachPage() {
                     max={5}
                     step={0.5}
                     value={formData.homepageRating}
-                    onChange={(e) => setFormData({ ...formData, homepageRating: e.target.value })}
+                    onChange={(e) => patchFormData({ homepageRating: e.target.value })}
                     placeholder="e.g. 4.5"
                   />
                 </div>
@@ -1264,7 +1395,7 @@ export default function EditCoachPage() {
                 <Checkbox
                   id="featuredOnHomepage"
                   checked={formData.featuredOnHomepage}
-                  onCheckedChange={(c) => setFormData({ ...formData, featuredOnHomepage: c === true })}
+                  onCheckedChange={(c) => patchFormData({ featuredOnHomepage: c === true })}
                 />
                 <Label htmlFor="featuredOnHomepage" className="text-sm cursor-pointer">
                   Feature flag (optional legacy)
@@ -1287,7 +1418,7 @@ export default function EditCoachPage() {
                   <Label htmlFor="designation">Designation *</Label>
                   <Select 
                     value={formData.designation} 
-                    onValueChange={(value) => setFormData({ ...formData, designation: value })}
+                    onValueChange={(value) => patchFormData({ designation: value })}
                   >
                     <SelectTrigger className={errors.designation ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select designation" />
@@ -1307,7 +1438,7 @@ export default function EditCoachPage() {
                   <Label htmlFor="experience">Experience *</Label>
                   <Select 
                     value={formData.experience} 
-                    onValueChange={(value) => setFormData({ ...formData, experience: value })}
+                    onValueChange={(value) => patchFormData({ experience: value })}
                   >
                     <SelectTrigger className={errors.experience ? "border-red-500" : ""}>
                       <SelectValue placeholder="Select experience" />
@@ -1336,7 +1467,7 @@ export default function EditCoachPage() {
                   <Select
                     value={formData.category}
                     onValueChange={(value) => {
-                      setFormData({ ...formData, category: value, subCategory: "" })
+                      patchFormData({ category: value, subCategory: "" })
                       loadSubCategories(value)
                     }}
                   >
@@ -1364,7 +1495,7 @@ export default function EditCoachPage() {
                 <Label htmlFor="subCategory">Sub Category</Label>
                 <Select
                   value={formData.subCategory}
-                  onValueChange={(value) => setFormData({ ...formData, subCategory: value })}
+                  onValueChange={(value) => patchFormData({ subCategory: value })}
                   disabled={!formData.category || subCategories.length === 0}
                 >
                   <SelectTrigger>
@@ -1514,7 +1645,7 @@ export default function EditCoachPage() {
                   ) : (
                     <Select
                       value={formData.branch}
-                      onValueChange={(value) => setFormData({ ...formData, branch: value })}
+                      onValueChange={(value) => patchFormData({ branch: value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select branch" />
@@ -1542,7 +1673,7 @@ export default function EditCoachPage() {
                     id="joinDate"
                     type="date"
                     value={formData.joinDate}
-                    onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
+                    onChange={(e) => patchFormData({ joinDate: e.target.value })}
                   />
                 </div>
               </div>
@@ -1606,7 +1737,7 @@ export default function EditCoachPage() {
                 <Input
                   id="salary"
                   value={formData.salary}
-                  onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                  onChange={(e) => patchFormData({ salary: e.target.value })}
                   placeholder="Monthly salary"
                 />
               </div>
@@ -1627,7 +1758,7 @@ export default function EditCoachPage() {
                   <Input
                     id="emergencyContactName"
                     value={formData.emergencyContactName}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
+                    onChange={(e) => patchFormData({ emergencyContactName: e.target.value })}
                     placeholder="Emergency contact name"
                   />
                 </div>
@@ -1637,7 +1768,7 @@ export default function EditCoachPage() {
                   <Input
                     id="emergencyContactPhone"
                     value={formData.emergencyContactPhone}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
+                    onChange={(e) => patchFormData({ emergencyContactPhone: e.target.value })}
                     placeholder="Emergency contact phone"
                   />
                 </div>
@@ -1646,7 +1777,7 @@ export default function EditCoachPage() {
                   <Label htmlFor="emergencyContactRelation">Relation</Label>
                   <Select 
                     value={formData.emergencyContactRelation} 
-                    onValueChange={(value) => setFormData({ ...formData, emergencyContactRelation: value })}
+                    onValueChange={(value) => patchFormData({ emergencyContactRelation: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select relation" />
@@ -1675,7 +1806,7 @@ export default function EditCoachPage() {
                 <Textarea
                   id="achievements"
                   value={formData.achievements}
-                  onChange={(e) => setFormData({ ...formData, achievements: e.target.value })}
+                  onChange={(e) => patchFormData({ achievements: e.target.value })}
                   placeholder="Notable achievements, awards, competitions won, etc."
                   rows={3}
                 />
@@ -1686,7 +1817,7 @@ export default function EditCoachPage() {
                 <Textarea
                   id="notes"
                   value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  onChange={(e) => patchFormData({ notes: e.target.value })}
                   placeholder="Any additional information or special notes"
                   rows={3}
                 />
@@ -1712,10 +1843,10 @@ export default function EditCoachPage() {
               {isSubmitting ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  <span>Creating Coach...</span>
+                  <span>Saving...</span>
                 </div>
               ) : (
-                "Create Coach"
+                "Save Changes"
               )}
             </Button>
           </div>

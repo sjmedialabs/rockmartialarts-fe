@@ -245,52 +245,46 @@ export default function BranchManagerProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-4xl mx-auto">
-            <div className="animate-pulse space-y-6">
-              <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-              <div className="bg-white rounded-lg p-6 space-y-4">
-                <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-full"></div>
-                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
+      <div className="w-full min-w-0 overflow-x-hidden p-4 lg:px-8 lg:py-6">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-gray-200 rounded w-1/4 max-w-xs" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full min-w-0">
+            <div className="bg-white rounded-lg p-6 space-y-4 min-w-0 overflow-hidden">
+              <div className="h-6 bg-gray-200 rounded w-1/3" />
+              <div className="space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-full" />
+                <div className="h-4 bg-gray-200 rounded w-2/3" />
               </div>
             </div>
+            <div className="lg:col-span-2 bg-white rounded-lg p-6 space-y-4 min-w-0 overflow-hidden">
+              <div className="h-6 bg-gray-200 rounded w-1/3" />
+              <div className="h-4 bg-gray-200 rounded w-full" />
+            </div>
           </div>
-        </main>
+        </div>
       </div>
     )
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <main className="w-full p-4 lg:py-4 px-19">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center py-8">
-              <p className="text-red-600">Failed to load profile data</p>
-            </div>
-          </div>
-        </main>
+      <div className="w-full min-w-0 overflow-x-hidden p-4 lg:px-8 lg:py-6">
+        <div className="text-center py-8">
+          <p className="text-red-600">Failed to load profile data</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      
-      <main className="w-full p-4 lg:py-4 px-19">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col lg:flex-row justify-between items-start py-8 mb-6 lg:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-medium text-gray-600">Profile Settings</h1>
-              <p className="text-sm text-gray-500 mt-1">Manage your account information and preferences</p>
-            </div>
-            <div className="flex gap-3">
+    <div className="w-full min-w-0 overflow-x-hidden p-4 lg:px-8 lg:py-6">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start mb-6 lg:items-center gap-4 min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-medium text-gray-600">Profile Settings</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage your account information and preferences</p>
+        </div>
+        <div className="flex flex-wrap gap-3 shrink-0">
               {isEditing ? (
                 <>
                   <Button
@@ -331,23 +325,23 @@ export default function BranchManagerProfilePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Profile Overview */}
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-gray-900">Profile Overview</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex flex-col items-center text-center">
-                    <Avatar className="w-20 h-20 mb-4">
-                      <AvatarImage src="" alt={profile.full_name} />
-                      <AvatarFallback className="text-lg bg-blue-100 text-blue-600">
-                        {profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <h3 className="font-semibold text-gray-900">{profile.full_name}</h3>
-                    <p className="text-sm text-gray-500">{profile.email}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full min-w-0">
+        {/* Profile Overview */}
+        <div className="lg:col-span-1 min-w-0">
+          <Card className="min-w-0 overflow-hidden">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">Profile Overview</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 min-w-0 overflow-hidden">
+              <div className="flex flex-col items-center text-center min-w-0">
+                <Avatar className="w-20 h-20 mb-4 shrink-0">
+                  <AvatarImage src="" alt={profile.full_name} />
+                  <AvatarFallback className="text-lg bg-blue-100 text-blue-600">
+                    {profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <h3 className="font-semibold text-gray-900 break-words w-full">{profile.full_name}</h3>
+                <p className="text-sm text-gray-500 break-all w-full">{profile.email}</p>
                     <Badge variant={profile.is_active ? "default" : "secondary"} className="mt-2">
                       {profile.is_active ? "Active" : "Inactive"}
                     </Badge>
@@ -355,30 +349,30 @@ export default function BranchManagerProfilePage() {
 
                   <Separator />
 
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3">
-                      <Shield className="w-4 h-4 text-blue-600" />
-                      <div>
+                  <div className="space-y-3 min-w-0">
+                    <div className="flex items-start space-x-3 min-w-0">
+                      <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900">Role</p>
-                        <p className="text-xs text-gray-500">Branch Manager</p>
+                        <p className="text-xs text-gray-500 break-words">Branch Manager</p>
                       </div>
                     </div>
 
                     {profile.branch_name && (
-                      <div className="flex items-center space-x-3">
-                        <User className="w-4 h-4 text-blue-600" />
-                        <div>
+                      <div className="flex items-start space-x-3 min-w-0">
+                        <User className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">Branch</p>
-                          <p className="text-xs text-gray-500">{profile.branch_name}</p>
+                          <p className="text-xs text-gray-500 break-words">{profile.branch_name}</p>
                         </div>
                       </div>
                     )}
 
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="w-4 h-4 text-blue-600" />
-                      <div>
+                    <div className="flex items-start space-x-3 min-w-0">
+                      <Calendar className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900">Member Since</p>
-                        <p className="text-xs text-gray-500">{formatDate(profile.created_at)}</p>
+                        <p className="text-xs text-gray-500 break-words">{formatDate(profile.created_at)}</p>
                       </div>
                     </div>
                   </div>
@@ -387,14 +381,14 @@ export default function BranchManagerProfilePage() {
             </div>
 
             {/* Profile Details */}
-            <div className="lg:col-span-2">
-              <Card>
+            <div className="lg:col-span-2 min-w-0">
+              <Card className="min-w-0 overflow-hidden">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold text-gray-900">Personal Information</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
+                <CardContent className="space-y-6 min-w-0 overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="full_name" className="text-sm font-medium text-gray-700">
                         Full Name *
                       </Label>
@@ -412,14 +406,14 @@ export default function BranchManagerProfilePage() {
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-900">{profile.full_name}</span>
+                        <div className="flex items-start space-x-2 min-w-0">
+                          <User className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                          <span className="text-gray-900 break-words min-w-0">{profile.full_name}</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                         Email Address *
                       </Label>
@@ -438,14 +432,14 @@ export default function BranchManagerProfilePage() {
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <Mail className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-900">{profile.email}</span>
+                        <div className="flex items-start space-x-2 min-w-0">
+                          <Mail className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                          <span className="text-gray-900 break-all min-w-0">{profile.email}</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
                         Phone Number
                       </Label>
@@ -463,40 +457,40 @@ export default function BranchManagerProfilePage() {
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-900">{profile.phone || "Not provided"}</span>
+                        <div className="flex items-start space-x-2 min-w-0">
+                          <Phone className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                          <span className="text-gray-900 break-words min-w-0">{profile.phone || "Not provided"}</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label className="text-sm font-medium text-gray-700">
                         Branch Assignment
                       </Label>
-                      <div className="flex items-center space-x-2">
-                        <Shield className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-900">{profile.branch_name || "Not assigned"}</span>
+                      <div className="flex items-start space-x-2 min-w-0">
+                        <Shield className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                        <span className="text-gray-900 break-words min-w-0">{profile.branch_name || "Not assigned"}</span>
                       </div>
                     </div>
                   </div>
 
                   <Separator />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+                    <div className="space-y-2 min-w-0">
                       <Label className="text-sm font-medium text-gray-700">Account Created</Label>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-900">{formatDate(profile.created_at)}</span>
+                      <div className="flex items-start space-x-2 min-w-0">
+                        <Calendar className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                        <span className="text-gray-900 break-words min-w-0">{formatDate(profile.created_at)}</span>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label className="text-sm font-medium text-gray-700">Last Updated</Label>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-900">{formatDate(profile.updated_at)}</span>
+                      <div className="flex items-start space-x-2 min-w-0">
+                        <Calendar className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                        <span className="text-gray-900 break-words min-w-0">{formatDate(profile.updated_at)}</span>
                       </div>
                     </div>
                   </div>
@@ -504,8 +498,6 @@ export default function BranchManagerProfilePage() {
               </Card>
             </div>
           </div>
-        </div>
-      </main>
     </div>
   )
 }

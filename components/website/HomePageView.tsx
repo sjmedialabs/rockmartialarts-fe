@@ -19,7 +19,8 @@ import {
   ShowcaseAchievementCard,
   type ShowcaseAchievementItem,
 } from "@/components/testimonials"
-
+import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 /* ---------- Types (mirror server data shape; no API change) ---------- */
 
 export interface HomePageViewProps {
@@ -90,11 +91,7 @@ export default function HomePageView({
     setSafeAboutHtml(sanitizeRichHtmlClient(aboutContentHtml || ""))
   }, [aboutContentHtml])
 
-  const resolveUploadUrl = (url?: string): string => {
-    if (!url) return ""
-    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) return url
-    return `/api/backend/uploads/${encodeURIComponent(url)}`
-  }
+  const resolveUploadUrl = (url?: string): string => resolvePublicAssetUrl(url)
 
   const resolvedHeroImage = resolveUploadUrl(heroImage)
   const resolvedHeroVideo = resolveUploadUrl(heroVideo)
@@ -310,8 +307,8 @@ export default function HomePageView({
               <AnimatedCard key={`${t.name}-${idx}`} scrollReveal={false}>
                 <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center">
                   <div className="w-[180px] h-[340px] max-w-full shrink-0 rounded-lg overflow-hidden border-2 border-[#FFB70F]/40 mb-4 bg-gray-800">
-                    <img
-                      src={t.img ? resolveUploadUrl(t.img) : ""}
+                    <SafeImage
+                      src={t.img || DEFAULT_IMAGE_PLACEHOLDER}
                       alt={t.name}
                       loading="lazy"
                       decoding="async"
@@ -383,19 +380,13 @@ export default function HomePageView({
                   <AnimatedCard key={i} scrollReveal={false}>
                     <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center">
                       <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0">
-                        {t.image ? (
-                          <img
-                            src={resolveUploadUrl(t.image)}
-                            alt={t.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gray-700 flex items-center justify-center text-2xl text-gray-400">
-                            👤
-                          </div>
-                        )}
+                        <SafeImage
+                          src={t.image || DEFAULT_IMAGE_PLACEHOLDER}
+                          alt={t.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <img
                         src="/assets/img/courses/quote.png"

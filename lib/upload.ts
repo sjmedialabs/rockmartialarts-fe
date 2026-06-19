@@ -28,10 +28,29 @@ export async function uploadFile(file: File): Promise<UploadResult> {
   }
 
   const data = await res.json()
-  return {
-    file_url: data.file_url,
-    filename: data.filename,
-    content_type: data.content_type,
-    size: data.size,
+  const file_url =
+    data.file_url ??
+    data.url ??
+    data.image_url ??
+    (typeof data.data === "object" && data.data !== null
+      ? (data.data as Record<string, unknown>).file_url ??
+        (data.data as Record<string, unknown>).url
+      : undefined)
+
+  if (typeof file_url !== "string" || !file_url.trim()) {
+    throw new Error("Upload succeeded but no file URL was returned")
   }
+
+  return {
+    file_url: file_url.trim(),
+    filename: data.filename ?? "",
+    content_type: data.content_type ?? file.type,
+    size: data.size ?? file.size,
+  }
+}
+
+/** Normalize upload API JSON to a stored public path (e.g. /uploads/images/...) */
+export function extractUploadUrl(data: Record<string, unknown>): string {
+  const url = data.file_url ?? data.url ?? data.image_url
+  return typeof url === "string" ? url.trim() : ""
 }

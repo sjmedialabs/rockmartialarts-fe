@@ -1562,10 +1562,10 @@ export default function EditCoachPage() {
               {isSubmitting ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  <span>Creating Coach...</span>
+                  <span>Saving...</span>
                 </div>
               ) : (
-                "Create Coach"
+                "Save Changes"
               )}
             </Button>
           </div>

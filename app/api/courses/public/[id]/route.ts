@@ -86,6 +86,8 @@ async function mergeWithPublicDetail(
     "student_achievements",
     "showcase_achievements",
     "branches_offering",
+    "assigned_coaches",
+    "instructor_assignments",
   ] as const
   for (const key of detailExtras) {
     if (key in payload) merged[key] = payload[key]

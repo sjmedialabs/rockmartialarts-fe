@@ -1,5 +1,7 @@
 "use client"
 
+import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
+
 export type TestimonialCardItem = {
   id?: string
   student_name?: string
@@ -15,12 +17,6 @@ export type TestimonialCardItem = {
   content?: string
 }
 
-function resolveUploadUrl(url?: string | null): string {
-  if (!url) return ""
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) return url
-  return `/api/backend/uploads/${encodeURIComponent(url)}`
-}
-
 export function TestimonialCard({ item }: { item: TestimonialCardItem }) {
   const name = item.student_name || item.name || "Student"
   const text = item.testimonial_text || item.quote || item.content || ""
@@ -30,19 +26,14 @@ export function TestimonialCard({ item }: { item: TestimonialCardItem }) {
   return (
     <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 h-full flex flex-col items-center text-center min-h-[280px]">
       <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#FFB70F]/50 mb-4 flex-shrink-0">
-        {photo ? (
-          <img
-            src={resolveUploadUrl(photo)}
-            alt={name}
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-700 flex items-center justify-center text-2xl text-gray-400">
-            👤
-          </div>
-        )}
+        <SafeImage
+          src={photo || DEFAULT_IMAGE_PLACEHOLDER}
+          alt={name}
+          loading="lazy"
+          decoding="async"
+          resolveUrl={Boolean(photo)}
+          className="w-full h-full object-cover"
+        />
       </div>
       <img
         src="/assets/img/courses/quote.png"

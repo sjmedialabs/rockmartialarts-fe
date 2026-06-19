@@ -1,6 +1,7 @@
 "use client"
 
 import { getBackendApiUrl } from "@/lib/config"
+import { fetchAllCoaches } from "@/lib/coachFetch"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -96,24 +97,8 @@ const itemsPerPage = 15
           throw new Error("Authentication token not found. Please login again.")
         }
 
-        const response = await fetch(getBackendApiUrl("coaches"), {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.detail || errorData.message || `Failed to fetch coaches (${response.status})`)
-        }
-
-        const data = await response.json()
-        console.log("Coaches fetched successfully:", data)
-
-        // Handle different response formats
-        const coachesData = data.coaches || data || []
+        const coachesData = await fetchAllCoaches(token, { activeOnly: false })
+        console.log("Coaches fetched successfully:", { coaches: coachesData, total: coachesData.length })
         setCoaches(coachesData)
 
       } catch (error) {

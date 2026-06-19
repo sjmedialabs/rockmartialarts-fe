@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Loader2, ArrowRight } from "lucide-react"
 import { toCourseSlug } from "@/lib/course-slug"
+import { SafeImage } from "@/components/ui/safe-image"
 
 type CourseItem = {
   id: string
@@ -78,13 +79,11 @@ export default function CoursesPage() {
                     className="group block rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden hover:border-[#FFB70F] transition-colors"
                   >
                     <div className="aspect-[4/3] bg-gray-800 overflow-hidden">
-                      {getCourseImage(c) ? (
-                        <img src={getCourseImage(c)!} alt={c.title || c.name || ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-4xl text-gray-600 group-hover:text-[#FFB70F] transition-colors">🥋</span>
-                        </div>
-                      )}
+                      <SafeImage
+                        src={getCourseImage(c) || undefined}
+                        alt={c.title || c.name || ""}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
                     </div>
                     <div className="p-5">
                       <h2 className="text-xl font-bold text-[#FFB70F] group-hover:text-white transition-colors mb-1">

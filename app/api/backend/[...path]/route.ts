@@ -136,7 +136,9 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
     let detail: string;
     if (isProduction && isLocalhost) {
       detail =
-        "Backend URL not configured. Set NEXT_PUBLIC_API_BASE_URL or API_BASE_URL to your API server URL in the deployment environment (e.g. Vercel Environment Variables).";
+        "Cannot reach the backend API at " +
+        BACKEND_URL +
+        ". Ensure the FastAPI server is running (e.g. pm2 status rockmartialarts-be).";
     } else if (isProduction) {
       detail = "Service temporarily unavailable. Please try again later.";
     } else {

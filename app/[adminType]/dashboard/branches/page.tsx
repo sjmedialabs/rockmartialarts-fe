@@ -1,6 +1,12 @@
 "use client"
 
 import { getBackendApiUrl } from "@/lib/config"
+import {
+  branchManagerDisplayInfo,
+  coachDisplayInfo,
+  fetchAllBranchManagers,
+  fetchAllCoaches,
+} from "@/lib/coachFetch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, Edit, X, Eye } from "lucide-react"
@@ -82,8 +88,8 @@ export default function BranchesList() {
   const [branchManagerById, setBranchManagerById] = useState<
     Record<string, { full_name: string; phone: string }>
   >({})
-  /** Legacy manager_id (e.g. coach user) not in branch_managers */
-  const [legacyManagerById, setLegacyManagerById] = useState<
+  /** Coach id → display info (for legacy branch.manager_id values) */
+  const [coachById, setCoachById] = useState<
     Record<string, { full_name: string; phone: string }>
   >({})
   /** First coach phone per branch (for contact fallback) */
@@ -166,46 +172,21 @@ const itemsPerPage = 15
       const token = TokenManager.getToken()
       if (!token || branches.length === 0) return
 
-      const authHeaders = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      }
-
-      const bmList: any[] = []
-      for (let skip = 0; skip < 1000; skip += 100) {
-        const res = await fetch(
-          getBackendApiUrl(`branch-managers?active_only=true&limit=100&skip=${skip}`),
-          { headers: authHeaders }
-        )
-        if (!res.ok) break
-        const data = await res.json()
-        const batch = data.branch_managers || []
-        bmList.push(...batch)
-        if (batch.length < 100) break
-      }
+      const bmList = await fetchAllBranchManagers(token, { activeOnly: false })
 
       const bmMap: Record<string, { full_name: string; phone: string }> = {}
       for (const bm of bmList) {
-        const phone = bm.contact_info?.phone ?? bm.phone ?? ""
-        bmMap[bm.id] = {
-          full_name: (bm.full_name as string) || "",
-          phone: typeof phone === "string" ? phone : String(phone || ""),
-        }
+        if (bm?.id) bmMap[bm.id] = branchManagerDisplayInfo(bm)
       }
       setBranchManagerById(bmMap)
 
-      const coachesList: any[] = []
-      for (let skip = 0; skip < 1000; skip += 100) {
-        const res = await fetch(
-          getBackendApiUrl(`coaches?active_only=true&limit=100&skip=${skip}`),
-          { headers: authHeaders }
-        )
-        if (!res.ok) break
-        const data = await res.json()
-        const batch = data.coaches || []
-        coachesList.push(...batch)
-        if (batch.length < 100) break
+      const coachesList = await fetchAllCoaches(token, { activeOnly: false })
+
+      const coachMap: Record<string, { full_name: string; phone: string }> = {}
+      for (const c of coachesList) {
+        if (c?.id) coachMap[c.id] = coachDisplayInfo(c)
       }
+      setCoachById(coachMap)
 
       const coachPhones: Record<string, string> = {}
       for (const c of coachesList) {
@@ -216,46 +197,6 @@ const itemsPerPage = 15
         if (s.trim()) coachPhones[bid] = s.trim()
       }
       setCoachPhoneByBranchId(coachPhones)
-
-      const managerIds = [
-        ...new Set(
-          branches
-            .map((b) => b.manager_id)
-            .filter((id): id is string => Boolean(id && typeof id === "string"))
-        ),
-      ]
-      const missingForUsers = managerIds.filter((id) => !bmMap[id])
-      if (missingForUsers.length === 0) {
-        setLegacyManagerById({})
-        return
-      }
-
-      const results = await Promise.all(
-        missingForUsers.map(async (userId) => {
-          try {
-            const res = await fetch(getBackendApiUrl(`users/${userId}`), { headers: authHeaders })
-            if (!res.ok) return { userId, full_name: "", phone: "" }
-            const data = await res.json()
-            const user = data.user ?? data
-            const phone =
-              user?.contact_info?.phone || user?.phone || user?.mobile || ""
-            const fn = user?.full_name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim()
-            return {
-              userId,
-              full_name: typeof fn === "string" ? fn : "",
-              phone: typeof phone === "string" ? phone : "",
-            }
-          } catch {
-            return { userId, full_name: "", phone: "" }
-          }
-        })
-      )
-
-      const leg: Record<string, { full_name: string; phone: string }> = {}
-      for (const r of results) {
-        leg[r.userId] = { full_name: r.full_name, phone: r.phone }
-      }
-      setLegacyManagerById(leg)
     }
 
     loadManagerAndCoachContacts()
@@ -436,8 +377,8 @@ const itemsPerPage = 15
     if (!mid) return "—"
     const bm = branchManagerById[mid]
     if (bm?.full_name?.trim()) return bm.full_name.trim()
-    const leg = legacyManagerById[mid]
-    if (leg?.full_name?.trim()) return leg.full_name.trim()
+    const coach = coachById[mid]
+    if (coach?.full_name?.trim()) return coach.full_name.trim()
     return "—"
   }
 

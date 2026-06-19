@@ -18,6 +18,8 @@ import {
 } from "lucide-react"
 import { stripUuidFromPriceDisplay } from "@/lib/priceDisplay"
 import { ShowcaseAchievementCard, type ShowcaseAchievementItem } from "@/components/testimonials"
+import { SafeImage, DEFAULT_IMAGE_PLACEHOLDER } from "@/components/ui/safe-image"
+import { resolvePublicAssetUrl } from "@/lib/resolvePublicAssetUrl"
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -105,10 +107,24 @@ function getYouTubeId(url: string): string | null {
 }
 
 function resolveUploadUrl(url?: string): string {
-  if (!url) return ""
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) return url
-  // Backend uploads are proxied via /api/backend/uploads
-  return `/api/backend/uploads/${encodeURIComponent(url)}`
+  return resolvePublicAssetUrl(url)
+}
+
+type CourseInstructor = { name: string; designation: string; bio?: string; photo?: string }
+
+function mapAssignedCoachesToInstructors(course: CourseData): CourseInstructor[] {
+  const raw =
+    (course.assigned_coaches as Array<Record<string, unknown>> | undefined) ||
+    (course.instructor_assignments as Array<Record<string, unknown>> | undefined) ||
+    []
+  return raw
+    .map((c) => ({
+      name: String(c.name ?? c.instructor_name ?? c.full_name ?? "").trim(),
+      designation: String(c.designation ?? c.role ?? "Coach").trim(),
+      bio: String(c.bio ?? c.about_short ?? "").trim() || undefined,
+      photo: String(c.photo ?? c.profile_image_url ?? "").trim() || undefined,
+    }))
+    .filter((c) => c.name)
 }
 
 const LAST_BRANCH_STORAGE_KEY = "rock_course_detail_branch_id"
@@ -311,7 +327,10 @@ function CourseDetailPageInner() {
   const benefits = pc.benefits || []
   const learning = pc.learning_section || {}
   const gallery = pc.gallery_images || []
-  const instructors = pc.instructors || []
+  const cmsInstructors = (pc.instructors || []) as CourseInstructor[]
+  const assignedInstructors = mapAssignedCoachesToInstructors(course)
+  const instructors: CourseInstructor[] =
+    assignedInstructors.length > 0 ? assignedInstructors : cmsInstructors
   const testimonials = pc.testimonials || []
   const attachments = pc.pdf_attachments || []
   const courseInfoSections = (pc.course_info_sections || []) as CourseInfoSection[]
@@ -763,20 +782,22 @@ function CourseDetailPageInner() {
             {headings?.instructors?.sub?.trim() || headings?.instructors?.title?.trim() ? (
               <SectionLabel sub={headings?.instructors?.sub} title={headings?.instructors?.title} />
             ) : (
-              <h2 className="sr-only">Instructors — {displayTitle}</h2>
+              <SectionLabel sub="Expert" title="Our Coaches" />
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {instructors.map((inst, i) => (
                 <div key={i} className="text-center group">
-                  <div className="relative w-48 h-48 mx-auto mb-4 rounded-full overflow-hidden border-4 border-[#F73322] group-hover:border-[#FFB70F] transition-colors">
-                    {inst.photo ? (
-                      <img src={inst.photo} alt={inst.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gray-800 flex items-center justify-center text-4xl text-gray-600">👤</div>
-                    )}
+                  <div className="relative w-48 h-48 mx-auto mb-4 rounded-full overflow-hidden border-4 border-[#F73322] group-hover:border-[#FFB70F] transition-colors bg-gray-800">
+                    <SafeImage
+                      src={inst.photo}
+                      alt={inst.name}
+                      className="w-full h-full object-cover"
+                      fallbackSrc={DEFAULT_IMAGE_PLACEHOLDER}
+                    />
                   </div>
                   <h3 className="text-lg font-bold text-[#F73322] uppercase" style={{ fontFamily: "'Oswald', sans-serif" }}>{inst.name}</h3>
                   <p className="text-gray-400 text-sm">{inst.designation}</p>
+                  {inst.bio ? <p className="text-gray-500 text-xs mt-2 px-2">{inst.bio}</p> : null}
                 </div>
               ))}
             </div>
@@ -843,7 +864,7 @@ function CourseDetailPageInner() {
                   {testimonials.map((t, i) => (
                     <button key={i} onClick={() => setTestimonialIdx(i)} className={`flex flex-col items-center transition-opacity ${i === testimonialIdx ? "opacity-100" : "opacity-50 hover:opacity-80"}`}>
                       <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${i === testimonialIdx ? "border-[#FFB70F]" : "border-gray-700"}`}>
-                        {t.photo ? <img src={t.photo} alt={t.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-800 flex items-center justify-center text-lg">👤</div>}
+                        <SafeImage src={t.photo} alt={t.name} className="w-full h-full object-cover" />
                       </div>
                       <span className="text-[10px] text-gray-400 mt-1 max-w-[70px] truncate">{t.name}</span>
                     </button>

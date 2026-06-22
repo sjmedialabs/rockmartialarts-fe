@@ -5,8 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation"
 import StudentDashboardLayout from "@/components/student-dashboard-layout"
 import { PaymentReceipt } from "@/components/payment-receipt"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { studentProfileAPI } from "@/lib/studentProfileAPI"
+import { usePreventBackNavigation } from "@/hooks/use-prevent-back-navigation"
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams()
@@ -14,11 +15,13 @@ function PaymentSuccessContent() {
   const [studentName, setStudentName] = useState<string>("Student")
   const [loading, setLoading] = useState(true)
 
-  const paymentId = searchParams.get('payment_id') || ''
-  const orderId = searchParams.get('order_id') || ''
-  const amount = parseFloat(searchParams.get('amount') || '0')
-  const courseName = searchParams.get('course_name') || 'Course Enrollment'
-  const branchName = searchParams.get('branch_name') || 'Main Branch'
+  usePreventBackNavigation(true)
+
+  const paymentId = searchParams.get("payment_id") || ""
+  const orderId = searchParams.get("order_id") || paymentId
+  const amount = parseFloat(searchParams.get("amount") || "0")
+  const courseName = searchParams.get("course_name") || "Course Enrollment"
+  const branchName = searchParams.get("branch_name") || "Main Branch"
 
   useEffect(() => {
     const fetchStudentProfile = async () => {
@@ -30,26 +33,27 @@ function PaymentSuccessContent() {
         const profile = response.profile
         setStudentName(profile.full_name || `${profile.first_name} ${profile.last_name}`)
       } catch (error) {
-        console.error('Error fetching profile:', error)
+        console.error("Error fetching profile:", error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchStudentProfile()
+    void fetchStudentProfile()
   }, [])
 
-  if (!paymentId || !orderId) {
+  const goToCourses = () => {
+    router.replace("/student-dashboard/courses")
+  }
+
+  if (!paymentId) {
     return (
       <StudentDashboardLayout>
         <div className="container mx-auto p-6 max-w-3xl">
           <div className="text-center space-y-4">
             <h1 className="text-2xl font-bold text-red-600">Invalid Payment Information</h1>
             <p className="text-muted-foreground">No payment details found. Please try again.</p>
-            <Button onClick={() => router.push('/student-dashboard/courses')}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Courses
-            </Button>
+            <Button onClick={goToCourses}>Continue to My Courses</Button>
           </div>
         </div>
       </StudentDashboardLayout>
@@ -69,15 +73,11 @@ function PaymentSuccessContent() {
   return (
     <StudentDashboardLayout>
       <div className="container mx-auto p-6">
-        <div className="mb-6">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push('/student-dashboard/courses')}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to My Courses
-          </Button>
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-green-700 mb-2">Payment successful</h1>
+          <p className="text-muted-foreground">
+            Your enrollment is confirmed. Continue to view your courses.
+          </p>
         </div>
 
         <PaymentReceipt
@@ -92,12 +92,12 @@ function PaymentSuccessContent() {
         />
 
         <div className="mt-8 text-center">
-          <Button 
-            onClick={() => router.push('/student-dashboard/courses')}
+          <Button
+            onClick={goToCourses}
             size="lg"
             className="bg-amber-600 hover:bg-amber-700"
           >
-            Go to My Courses
+            Continue to My Courses
           </Button>
         </div>
       </div>
@@ -107,13 +107,15 @@ function PaymentSuccessContent() {
 
 export default function PaymentSuccessPage() {
   return (
-    <Suspense fallback={
-      <StudentDashboardLayout>
-        <div className="container mx-auto p-6 max-w-3xl flex items-center justify-center min-h-[400px]">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
-        </div>
-      </StudentDashboardLayout>
-    }>
+    <Suspense
+      fallback={
+        <StudentDashboardLayout>
+          <div className="container mx-auto p-6 max-w-3xl flex items-center justify-center min-h-[400px]">
+            <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+          </div>
+        </StudentDashboardLayout>
+      }
+    >
       <PaymentSuccessContent />
     </Suspense>
   )

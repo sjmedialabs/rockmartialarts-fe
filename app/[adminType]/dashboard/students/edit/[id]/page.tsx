@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, MapPinIcon, Building2Icon, FolderIcon, BookOpenIcon, ClockIcon, UserIcon, MailIcon, PhoneIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { TokenManager } from "@/lib/tokenManager"
 import { dropdownAPI } from "@/lib/dropdownAPI"
@@ -75,8 +75,10 @@ interface FormErrors {
 export default function EditStudent() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const studentId = params.id as string
   const basePath = `/${(params?.adminType as string) || "super-admin"}/dashboard`
+  const studentsListUrl = searchParams.get("return") || `${basePath}/students`
   const isSuperAdmin = basePath.startsWith("/super-admin")
   const { access_token } = useAuth()
   
@@ -632,7 +634,7 @@ export default function EditStudent() {
 
   const handleSuccessOk = () => {
     setShowSuccessPopup(false)
-    router.push(`${basePath}/students`)
+    router.push(studentsListUrl)
   }
 
   return (
@@ -646,7 +648,7 @@ export default function EditStudent() {
           </div>
           <Button
             variant="outline"
-            onClick={() => router.push(`${basePath}/students`)}
+            onClick={() => router.push(studentsListUrl)}
             className="flex items-center space-x-2 px-4 py-2 border-gray-300 hover:bg-gray-50"
           >
             <span>← Back to Students</span>
@@ -1066,7 +1068,7 @@ export default function EditStudent() {
                   <Button 
                     type="button" 
                     variant="outline"
-                    onClick={() => router.push(`${basePath}/students`)}
+                    onClick={() => router.push(studentsListUrl)}
                     disabled={isSubmitting}
                     className="w-full sm:w-auto h-12 px-8 rounded-xl font-medium border-gray-300"
                   >

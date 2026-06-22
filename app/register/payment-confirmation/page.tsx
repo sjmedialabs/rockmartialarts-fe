@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useRegistration } from "@/contexts/RegistrationContext"
-import Link from "next/link"
+import { usePreventBackNavigation } from "@/hooks/use-prevent-back-navigation"
 
 interface PaymentCalculation {
   course_fee: number
@@ -41,6 +41,8 @@ export default function PaymentConfirmationPage() {
   const [transactionId, setTransactionId] = useState("")
   const [paymentInfo, setPaymentInfo] = useState<CoursePaymentInfo | null>(null)
   const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(true)
+
+  usePreventBackNavigation(true)
 
   // Generate transaction ID on component mount
   useEffect(() => {
@@ -147,7 +149,7 @@ export default function PaymentConfirmationPage() {
         // Clear registration data after successful payment
         setTimeout(() => {
           clearRegistrationData()
-          router.push("/register/account-created")
+          router.replace("/register/account-created")
         }, 2000)
       } else {
         const errorData = await response.json()
@@ -374,16 +376,16 @@ export default function PaymentConfirmationPage() {
             </Button>
           </div>
 
-          {/* Step Indicator */}
+          {/* Step Indicator — forward-only after payment */}
           <div className="text-center py-4">
             <div className="flex items-center justify-center space-x-2 mb-2">
-              <Link href="/register" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">1</Link>
+              <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-branch" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">2</Link>
+              <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/select-course" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">3</Link>
+              <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
-              <Link href="/register/payment" className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-green-600 transition-colors">4</Link>
+              <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">4</div>
               <div className="w-8 h-1 bg-green-500 rounded"></div>
               <div className="w-8 h-8 bg-yellow-400 text-black rounded-full flex items-center justify-center font-bold text-sm">5</div>
             </div>

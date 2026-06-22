@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { formatRegisteredDateTime } from "@/lib/formatRegisteredDate"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -116,9 +116,11 @@ interface AttendanceRecord {
 export default function StudentDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const studentId = params.id as string
   const adminType = (params.adminType as string) || "super-admin"
   const basePath = `/${adminType}/dashboard`
+  const studentsListUrl = searchParams.get("return") || `${basePath}/students`
 
   const [student, setStudent] = useState<StudentDetails | null>(null)
   const [enrollmentHistory, setEnrollmentHistory] = useState<EnrollmentHistory[]>([])
@@ -348,11 +350,13 @@ export default function StudentDetailPage() {
   }
 
   const handleEdit = () => {
-    router.push(`${basePath}/students/edit/${studentId}`)
+    router.push(
+      `${basePath}/students/edit/${studentId}?return=${encodeURIComponent(studentsListUrl)}`
+    )
   }
 
   const handleBack = () => {
-    router.push(`${basePath}/students`)
+    router.push(studentsListUrl)
   }
 
   const calculateAge = (dateOfBirth: string) => {
@@ -495,7 +499,58 @@ export default function StudentDetailPage() {
       <div className="px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          {/* Mobile: row 1 = back + actions, row 2 = name + status */}
+          <div className="flex flex-col gap-4 lg:hidden">
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="px-0 hover:bg-transparent"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Students
+              </Button>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => router.push(`${basePath}/students/${studentId}/performance`)}
+                  className="border-amber-300 text-amber-900 hover:bg-amber-50 h-9 w-9"
+                  aria-label="Performance"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleEdit}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-white"
+                >
+                  <Edit className="w-4 h-4 mr-1.5" />
+                  Edit Student
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-[#4F5077]">
+              <h1 className="text-2xl font-bold uppercase">
+                {student.full_name}
+              </h1>
+              <Badge
+                variant={student.is_active ? "default" : "secondary"}
+                className={student.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+              >
+                {student.is_active ? "Active" : "Inactive"}
+              </Badge>
+              {student.student_id && (
+                <Badge variant="outline">
+                  ID: {student.student_id}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop */}
+          <div className="hidden lg:flex items-center justify-between">
             <div className="flex flex-row gap-6 text-[#4F5077]">
               <div className="flex items-center space-x-4 border-r border-gray-200 pr-4">
                 <Button
@@ -512,7 +567,7 @@ export default function StudentDetailPage() {
                 <h1 className="text-3xl font-bold uppercase">
                   {student.full_name}
                 </h1>
-                <Badge 
+                <Badge
                   variant={student.is_active ? "default" : "secondary"}
                   className={student.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
                 >
@@ -525,7 +580,7 @@ export default function StudentDetailPage() {
                 )}
               </div>
             </div>
-            
+
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -547,13 +602,23 @@ export default function StudentDetailPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Personal Information */}
-            <Card>
-              <CardHeader>
+            <Card className="relative overflow-hidden">
+              <div
+                className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                aria-hidden="true"
+              >
+                <img
+                  src="https://rockmartialartsacademy.com/api/uploads/images/1774001887_8110d145_Rock_martial_arts_logo_final.png"
+                  alt=""
+                  className="w-[65%] max-w-[280px] h-auto object-contain opacity-[0.07]"
+                />
+              </div>
+              <CardHeader className="relative z-10">
                 <CardTitle className="flex items-center text-[#4D5077] font-bold">
                   Personal Information
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6 text-[#7F8592]">
+              <CardContent className="relative z-10 space-y-6 text-[#7F8592]">
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -1069,7 +1134,11 @@ export default function StudentDetailPage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`${basePath}/students/edit/${studentId}`)}
+                  onClick={() =>
+                    router.push(
+                      `${basePath}/students/edit/${studentId}?return=${encodeURIComponent(studentsListUrl)}`
+                    )
+                  }
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Student Details

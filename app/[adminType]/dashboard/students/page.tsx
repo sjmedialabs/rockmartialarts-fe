@@ -10,10 +10,15 @@ import { Search, Edit, Trash2, RefreshCw, Eye, Link2, MessageCircle } from "luci
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { useRouter, useParams, usePathname } from "next/navigation"
+import { useRouter, useParams, usePathname, useSearchParams } from "next/navigation"
 import { TokenManager } from "@/lib/tokenManager"
 import { BranchManagerAuth } from "@/lib/branchManagerAuth"
 import { formatRegisteredDateTime, formatRegisteredDateOnly } from "@/lib/formatRegisteredDate"
+import {
+  buildStudentListQuery,
+  parseStudentListFilters,
+  studentListReturnPath,
+} from "@/lib/studentListFilters"
 
 function formatEnrollmentDate(iso: string | null | undefined): string {
   return formatRegisteredDateOnly(iso)
@@ -91,6 +96,8 @@ export default function StudentList() {
   const router = useRouter()
   const params = useParams()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const initialFilters = parseStudentListFilters(searchParams)
   const paramsAdmin = (params?.adminType as string) || ""
   const pathSegment = pathname?.split("/").filter(Boolean)[0] || ""
   const adminType =
@@ -103,7 +110,7 @@ export default function StudentList() {
   const [selectedStudent, setSelectedStudent] = useState("")
   const [selectedBranch, setSelectedBranch] = useState("")
   const [selectedCourses, setSelectedCourses] = useState<string[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
+  const [searchTerm, setSearchTerm] = useState(initialFilters.q)
   const [students, setStudents] = useState<Student[]>([])
   const [branches, setBranches] = useState<any[]>([])
   const [courses, setCourses] = useState<any[]>([])
@@ -116,15 +123,36 @@ export default function StudentList() {
   const [unassignedStudentsLoading, setUnassignedStudentsLoading] = useState(false)
   const [assignStudentSearch, setAssignStudentSearch] = useState("")
   const [assignStudentDropdownOpen, setAssignStudentDropdownOpen] = useState(false)
-  const [listViewFilter, setListViewFilter] = useState<'all' | 'unassigned'>('all')
+  const [listViewFilter, setListViewFilter] = useState<'all' | 'unassigned'>(initialFilters.view)
   /** Super-admin list filter: branch id or "all" */
-  const [listBranchFilter, setListBranchFilter] = useState<string>("all")
+  const [listBranchFilter, setListBranchFilter] = useState<string>(initialFilters.branch)
 // Pagination state
-const [currentPage, setCurrentPage] = useState(1)
+const [currentPage, setCurrentPage] = useState(initialFilters.page)
 const itemsPerPage = 15
   const [refreshKey, setRefreshKey] = useState(0)
   const isBranchAdmin = (params?.adminType as string) === "branch-admin" ||
     (typeof pathname === "string" && pathname.startsWith("/branch-admin"))
+
+  useEffect(() => {
+    const qs = buildStudentListQuery({
+      q: searchTerm,
+      branch: listBranchFilter,
+      view: listViewFilter,
+      page: currentPage,
+    })
+    const target = `${pathname}${qs}`
+    if (typeof window !== "undefined" && `${pathname}${window.location.search}` !== target) {
+      router.replace(target, { scroll: false })
+    }
+  }, [searchTerm, listBranchFilter, listViewFilter, currentPage, pathname, router])
+
+  const currentListReturnUrl = studentListReturnPath(basePath, {
+    q: searchTerm,
+    branch: listBranchFilter,
+    view: listViewFilter,
+    page: currentPage,
+  })
+
   // Fetch students from API (re-runs when refreshKey changes, e.g. after assign)
   useEffect(() => {
     const fetchStudents = async () => {
@@ -512,11 +540,15 @@ const itemsPerPage = 15
   }
 
   const handleViewClick = (studentId: string) => {
-    router.push(`${basePath}/students/${studentId}`)
+    router.push(
+      `${basePath}/students/${studentId}?return=${encodeURIComponent(currentListReturnUrl)}`
+    )
   }
 
   const handleEditClick = (studentId: string) => {
-    router.push(`${basePath}/students/edit/${studentId}`)
+    router.push(
+      `${basePath}/students/edit/${studentId}?return=${encodeURIComponent(currentListReturnUrl)}`
+    )
   }
 
   const [onboardLinkLoading, setOnboardLinkLoading] = useState<string | null>(null)

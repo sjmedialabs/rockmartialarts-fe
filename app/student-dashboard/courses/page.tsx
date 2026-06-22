@@ -1118,7 +1118,7 @@ export default function StudentCoursesPage() {
           setShowEnrollDialog(false)
           setEnrolling(false)
           const pid = result?.payment_id ?? result?.receipt?.payment_id ?? ""
-          router.push(
+          router.replace(
             `/student-dashboard/payment-success?payment_id=${encodeURIComponent(String(pid))}&amount=${encodeURIComponent(String(prepAmount))}&course_name=${encodeURIComponent(enrollmentData.course_name)}&branch_name=${encodeURIComponent(enrollmentData.branch_name)}`
           )
         },

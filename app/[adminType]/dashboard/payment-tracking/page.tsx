@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -98,87 +98,19 @@ export default function PaymentTrackingPage() {
   const [branchRevenue, setBranchRevenue] = useState<BranchRevenueRow[]>([])
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [studentSearch, setStudentSearch] = useState<string>("")
+  const [debouncedStudentSearch, setDebouncedStudentSearch] = useState<string>("")
+  const filtersReadyRef = useRef(false)
 
   const isSuperAdmin = String(params?.adminType || "").toLowerCase() === "super-admin"
 
   useEffect(() => {
-    ;(async () => {
-      if (isSuperAdmin) {
-        try {
-          setSyncing(true)
-          const token = TokenManager.getToken() || undefined
-          await paymentAPI.syncRazorpayPayments(token)
-        } catch (e) {
-          // Non-blocking: still show whatever is in DB.
-          console.error("Razorpay sync failed:", e)
-        } finally {
-          setSyncing(false)
-        }
-      }
-      await fetchPayments()
-      await fetchStats()
-      await fetchAnalytics()
-    })()
-  }, [])
-
-  useEffect(() => {
-    void fetchPayments()
-  }, [page])
-
-  useEffect(() => {
-    // Reset to first page when branch filter changes (keeps UX predictable).
-    setPage(1)
-    void fetchPayments()
-    void fetchAnalytics()
-    void fetchStats()
-  }, [branchFilter])
-
-  useEffect(() => {
-    // When the date range changes, refresh everything (table + stats + cards).
-    setPage(1)
-    void fetchPayments()
-    void fetchStats()
-    void fetchAnalytics()
-  }, [periodStart, periodEnd])
-
-  useEffect(() => {
-    // Student search should be server-side so it works across all pages.
-    setPage(1)
-    void fetchPayments()
+    const timer = window.setTimeout(() => {
+      setDebouncedStudentSearch(studentSearch.trim())
+    }, 400)
+    return () => window.clearTimeout(timer)
   }, [studentSearch])
 
-  useEffect(() => {
-    const loadBranches = async () => {
-      try {
-        setBranchesLoading(true)
-        const token = TokenManager.getToken()
-        const res = await fetch(getBackendApiUrl(`branches?skip=0&limit=200&_ts=${Date.now()}`), {
-          cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
-        })
-        if (!res.ok) return
-        const data = await res.json()
-        const raw = data.branches || []
-        const opts: BranchOption[] = raw.map((b: { id: string; branch?: { name?: string }; name?: string }) => ({
-          id: b.id,
-          name: b.branch?.name || b.name || "Branch",
-        }))
-        setBranchOptions(opts)
-      } catch (e) {
-        console.error("Error fetching branches:", e)
-      } finally {
-        setBranchesLoading(false)
-      }
-    }
-    loadBranches()
-  }, [])
-
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     try {
       setLoading(true)
       const token = TokenManager.getToken() || undefined
@@ -188,7 +120,7 @@ export default function PaymentTrackingPage() {
           limit: pageSize,
           ...(periodStart ? { start_date: periodStart } : {}),
           ...(periodEnd ? { end_date: periodEnd } : {}),
-          ...(studentSearch.trim() ? { search: studentSearch.trim() } : {}),
+          ...(debouncedStudentSearch ? { search: debouncedStudentSearch } : {}),
           ...(branchFilter !== "all" ? { branch_id: branchFilter } : {}),
         },
         token
@@ -200,9 +132,9 @@ export default function PaymentTrackingPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, pageSize, periodStart, periodEnd, debouncedStudentSearch, branchFilter])
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const token = TokenManager.getToken()
       const qsScoped = new URLSearchParams()
@@ -227,8 +159,6 @@ export default function PaymentTrackingPage() {
 
       const scopedData = await scopedRes.json()
 
-      // Headline "Total Revenue (All time)" = all branches, all dates (real paid total from DB).
-      // Branch / period filters still apply to other stats + table via scopedData.
       if (isSuperAdmin) {
         const gQs = new URLSearchParams()
         gQs.set("_ts", String(Date.now()))
@@ -251,18 +181,18 @@ export default function PaymentTrackingPage() {
     } catch (error) {
       console.error("Error fetching payment stats:", error)
     }
-  }
+  }, [periodStart, periodEnd, branchFilter, isSuperAdmin])
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setAnalyticsLoading(true)
       const token = TokenManager.getToken() || ""
 
-      // Period revenue: reuse payments/stats which already accepts start_date/end_date
-      if (periodStart && periodEnd) {
+      // Period revenue: works with start only, end only, or both dates
+      if (periodStart || periodEnd) {
         const q = new URLSearchParams()
-        q.set("start_date", periodStart)
-        q.set("end_date", periodEnd)
+        if (periodStart) q.set("start_date", periodStart)
+        if (periodEnd) q.set("end_date", periodEnd)
         if (branchFilter !== "all") q.set("branch_id", branchFilter)
         q.set("_ts", String(Date.now()))
         const statsRes = await fetch(
@@ -279,7 +209,6 @@ export default function PaymentTrackingPage() {
         )
         if (statsRes.ok) {
           const s = await statsRes.json()
-          // When start/end are provided, backend returns the period total under this_month_collection
           const v = Number(s?.this_month_collection)
           setPeriodRevenue(Number.isFinite(v) ? v : 0)
         } else {
@@ -318,7 +247,66 @@ export default function PaymentTrackingPage() {
     } finally {
       setAnalyticsLoading(false)
     }
-  }
+  }, [periodStart, periodEnd, branchFilter])
+
+  useEffect(() => {
+    const loadBranches = async () => {
+      try {
+        setBranchesLoading(true)
+        const token = TokenManager.getToken()
+        const res = await fetch(getBackendApiUrl(`branches?skip=0&limit=200&_ts=${Date.now()}`), {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        const raw = data.branches || []
+        const opts: BranchOption[] = raw.map((b: { id: string; branch?: { name?: string }; name?: string }) => ({
+          id: b.id,
+          name: b.branch?.name || b.name || "Branch",
+        }))
+        setBranchOptions(opts)
+      } catch (e) {
+        console.error("Error fetching branches:", e)
+      } finally {
+        setBranchesLoading(false)
+      }
+    }
+    void loadBranches()
+  }, [])
+
+  useEffect(() => {
+    ;(async () => {
+      if (isSuperAdmin) {
+        try {
+          setSyncing(true)
+          const token = TokenManager.getToken() || undefined
+          await paymentAPI.syncRazorpayPayments(token)
+        } catch (e) {
+          console.error("Razorpay sync failed:", e)
+        } finally {
+          setSyncing(false)
+        }
+      }
+      filtersReadyRef.current = true
+      await Promise.all([fetchPayments(), fetchStats(), fetchAnalytics()])
+    })()
+  }, [])
+
+  useEffect(() => {
+    if (!filtersReadyRef.current) return
+    void Promise.all([fetchPayments(), fetchStats(), fetchAnalytics()])
+  }, [page, branchFilter, periodStart, periodEnd, debouncedStudentSearch, fetchPayments, fetchStats, fetchAnalytics])
+
+  useEffect(() => {
+    if (!filtersReadyRef.current) return
+    setPage(1)
+  }, [branchFilter, periodStart, periodEnd, debouncedStudentSearch])
 
   const formatCurrency = (amount: number) => {
     const v = Number(amount)
@@ -326,7 +314,7 @@ export default function PaymentTrackingPage() {
     return `₹${Math.round(v).toLocaleString("en-IN")}`
   }
 
-  // Server-side pagination (20 per page). UI branch filter is applied on the current page only.
+  // Server-side pagination (20 per page).
   const totalPages = Math.max(1, Math.ceil((totalPayments || 0) / pageSize))
   const safePage = Math.min(Math.max(1, page), totalPages)
   const startIdx = (safePage - 1) * pageSize

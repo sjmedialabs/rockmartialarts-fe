@@ -3,10 +3,12 @@
  */
 export const dynamic = "force-dynamic"
 
+import { Suspense } from "react"
+
 export default function StudentsSectionLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return <Suspense fallback={<div className="p-6 text-gray-500">Loading students…</div>}>{children}</Suspense>
 }

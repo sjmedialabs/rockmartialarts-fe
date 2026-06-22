@@ -284,7 +284,7 @@ export default function PaymentPage() {
               amount: total,
               orderId: response.razorpay_order_id,
             })
-            router.push("/register/payment-confirmation")
+            router.replace("/register/payment-confirmation")
           } catch (e) {
             console.error(e)
             setError(e instanceof Error ? e.message : "Verification failed")
